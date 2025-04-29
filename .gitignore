@@ -1,0 +1,15 @@
+# .env 文件包含敏感金鑰
+.env
+
+# Node.js 依賴目錄
+node_modules/
+
+# Supabase 本地運行時可能產生的臨時檔案 (根據需要添加)
+# .supabase/
+# supabase/.temp/
+
+# 其他常見忽略項 (例如 IDE 配置、打包輸出等)
+.vscode/
+dist/
+build/
+*.log

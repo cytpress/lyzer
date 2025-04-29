@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "supabase": "^2.22.6"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0"
+  }
+}
