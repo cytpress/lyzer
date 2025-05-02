@@ -1,37 +1,34 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2"; // Needs createClient import here as well
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"; 
 import {
   fetchWithRetry,
   isValidDateString,
   Gazette,
   GazetteApiResponse,
-  GazetteAgenda,
+  GazetteAgenda, 
   AgendaApiResponse,
   GazetteRecord,
-  GazetteAgendaRecord,
-  FETCH_DELAY_MS, // Use shared delay
-} from "../_shared/utils.ts"; // Import necessary items from shared utils
+  GazetteAgendaRecord, 
+  FETCH_DELAY_MS,
+  getSupabaseClient, 
+} from "../_shared/utils.ts";
 
 // --- Configuration ---
 const JOB_NAME = "fetch-new-gazettes";
 const LY_GAZETTE_API_URL_BASE = "https://ly.govapi.tw/v2/gazettes";
-const LY_AGENDA_API_URL_BASE = "https://ly.govapi.tw/v2/gazettes"; // Base for /gazettes/{id}/agendas
-const GAZETTES_PER_PAGE = 50; // How many gazettes to check per run
-const AGENDAS_PER_PAGE = 100; // How many agendas per page when fetching
+const LY_AGENDA_API_URL_BASE = "https://ly.govapi.tw/v2/gazettes";
+const GAZETTES_PER_PAGE = 50;
+const AGENDAS_PER_PAGE = 100;
 
 serve(async (req) => {
   const startTime = Date.now();
   let processedNewGazetteCount = 0;
   let fetchedNewAgendaCount = 0;
-  let latestSuccessfullyProcessedGazetteId: string | null = null; // Track the *last ID whose agendas were fully processed*
+  let latestSuccessfullyProcessedGazetteId: string | null = null;
   let skippedNoTxtUrlCount = 0;
   let totalAgendasSaved = 0;
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } }
-  );
+  // 使用 getSupabaseClient() 獲取客戶端實例
+  const supabase = getSupabaseClient();
   console.log(`[${JOB_NAME}] Function execution started.`);
 
   try {
@@ -44,17 +41,23 @@ serve(async (req) => {
       .maybeSingle();
 
     if (stateError) {
-      throw new Error(`Error fetching job state: ${stateError.message}`);
+      // 考慮是否要 throw error 或只是記錄警告並繼續
+      console.error(
+        `[${JOB_NAME}] Warning: Error fetching job state: ${stateError.message}. Proceeding assuming first run.`
+      );
+      // throw new Error(`Error fetching job state: ${stateError.message}`);
     }
     const lastProcessedId = jobState?.last_processed_id || null;
     console.log(
-      `[${JOB_NAME}] Last processed Gazette ID: ${lastProcessedId || "None"}`
+      `[${JOB_NAME}] Last successfully processed Gazette ID: ${
+        lastProcessedId || "None"
+      }`
     );
 
     // 2. Fetch the list of recent gazettes
     const gazetteListUrl = `${LY_GAZETTE_API_URL_BASE}?page=1&per_page=${GAZETTES_PER_PAGE}`;
     console.log(`[${JOB_NAME}] Fetching recent gazettes: ${gazetteListUrl}`);
-    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS)); // Delay before first call
+    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
     const gazetteApiResponse = await fetchWithRetry(
       gazetteListUrl,
       undefined,
@@ -65,10 +68,10 @@ serve(async (req) => {
     console.log(
       `[${JOB_NAME}] Received ${
         gazetteApiData.gazettes?.length || 0
-      } gazettes from API.`
+      } gazettes from API (Page 1).`
     );
 
-    // 3. Filter out already processed gazettes and determine which ones are new
+    // 3. Filter out already processed gazettes
     const newGazettesToProcess: Gazette[] = [];
     if (gazetteApiData.gazettes?.length > 0) {
       for (const gazette of gazetteApiData.gazettes) {
@@ -76,7 +79,7 @@ serve(async (req) => {
           console.log(
             `[${JOB_NAME}] Reached last processed ID (${lastProcessedId}). Stopping gazette check.`
           );
-          break; // Stop processing older gazettes
+          break;
         }
         newGazettesToProcess.push(gazette);
       }
@@ -88,15 +91,31 @@ serve(async (req) => {
       `[${JOB_NAME}] Found ${newGazettesToProcess.length} new gazettes to process.`
     );
 
+    if (newGazettesToProcess.length === 0) {
+      console.log(`[${JOB_NAME}] No new gazettes found. Exiting early.`);
+      // 更新執行時間
+      await supabase
+        .from("job_state")
+        .update({ last_run_at: new Date().toISOString() })
+        .eq("job_name", JOB_NAME);
+      return new Response(
+        JSON.stringify({ success: true, message: "No new gazettes found." }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     // 4. Process each new gazette
     for (const gazette of newGazettesToProcess) {
       const currentGazetteId = gazette.公報編號;
       console.log(
-        `\n[${JOB_NAME}] Processing NEW Gazette ID: ${currentGazetteId}`
+        `\n[${JOB_NAME}] Processing NEW Gazette ID: ${currentGazetteId} (Publish Date: ${gazette.發布日期})`
       );
       processedNewGazetteCount++;
 
-      // 4.1 Upsert gazette metadata into 'gazettes' table
+      // 4.1 Upsert gazette metadata
       const gazetteRecord: GazetteRecord = {
         gazette_id: currentGazetteId,
         volume: gazette.卷,
@@ -114,13 +133,13 @@ serve(async (req) => {
         console.error(
           `[${JOB_NAME}] Error upserting gazette ${currentGazetteId}: ${gazetteUpsertError.message}. Skipping its agendas.`
         );
-        continue; // Skip to the next gazette if we can't even save the parent record
+        continue;
       }
       console.log(
         `[${JOB_NAME}] Upserted gazette record for ${currentGazetteId}.`
       );
 
-      // 4.2 Fetch all agendas for this gazette (handle pagination)
+      // 4.2 Fetch all agendas for this gazette
       let currentPage = 1;
       let totalPages = 1;
       const allAgendasForThisGazette: GazetteAgenda[] = [];
@@ -132,10 +151,12 @@ serve(async (req) => {
       do {
         const agendaApiUrl = `${LY_AGENDA_API_URL_BASE}/${currentGazetteId}/agendas?page=${currentPage}&per_page=${AGENDAS_PER_PAGE}`;
         console.log(
-          `[${JOB_NAME}] Fetching agendas page ${currentPage}/${totalPages} from: ${agendaApiUrl}`
+          `[${JOB_NAME}] Fetching agendas page ${currentPage}/${
+            totalPages === 1 && currentPage === 1 ? "?" : totalPages
+          } from: ${agendaApiUrl}`
         );
 
-        await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS)); // Delay between agenda page fetches
+        await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
 
         try {
           const agendaResponse = await fetchWithRetry(
@@ -148,40 +169,37 @@ serve(async (req) => {
 
           if (agendaData.gazetteagendas?.length > 0) {
             allAgendasForThisGazette.push(...agendaData.gazetteagendas);
+          } else if (currentPage === 1) {
+            console.log(
+              `[${JOB_NAME}] No agendas found for ${currentGazetteId}.`
+            );
           }
-          // Update totalPages based on the first successful response, handle potential initial value
+
           if (currentPage === 1) {
             totalPages = agendaData.total_page || 1;
             console.log(
               `[${JOB_NAME}] Total pages of agendas for ${currentGazetteId}: ${totalPages}`
             );
-          } else if (
-            agendaData.total_page &&
-            agendaData.total_page !== totalPages
-          ) {
-            // This shouldn't happen often, but good to note if total pages changes mid-fetch
-            console.warn(
-              `[${JOB_NAME}] Total pages mismatch detected for ${currentGazetteId}. Initial: ${totalPages}, Current: ${agendaData.total_page}`
-            );
-            totalPages = agendaData.total_page; // Adjust if needed
           }
 
           currentPage++;
         } catch (fetchError) {
           console.error(
-            `[${JOB_NAME}] Failed to fetch agendas page ${currentPage} for ${currentGazetteId}: ${fetchError.message}. Stopping agenda fetch for this gazette.`
+            `[${JOB_NAME}] Failed to fetch agendas page ${
+              currentPage // Log the page that failed
+            } for ${currentGazetteId}: ${
+              fetchError.message
+            }. Stopping agenda fetch for this gazette.`
           );
           agendaFetchFailed = true;
-          break; // Exit the do...while loop
+          break;
         }
       } while (currentPage <= totalPages);
 
       if (agendaFetchFailed) {
         console.warn(
-          `[${JOB_NAME}] Agenda fetching failed or incomplete for ${currentGazetteId}. Only partially processed agendas (if any) will be saved.`
+          `[${JOB_NAME}] Agenda fetching failed or incomplete for ${currentGazetteId}. Only ${allAgendasForThisGazette.length} agendas were fetched.`
         );
-        // We still process any agendas fetched *before* the failure
-        // But we won't mark this gazette_id as the latest *successfully* processed one later
       } else {
         console.log(
           `[${JOB_NAME}] Successfully fetched all ${allAgendasForThisGazette.length} agendas for ${currentGazetteId}.`
@@ -194,7 +212,6 @@ serve(async (req) => {
         fetchedNewAgendaCount++;
         const agendaId = agenda.公報議程編號;
 
-        // Find the .txt URL
         const txtUrlObj = agenda.處理後公報網址?.find((u) => u.type === "txt");
         const txtUrl = txtUrlObj?.url || null;
 
@@ -203,7 +220,7 @@ serve(async (req) => {
 
         if (txtUrl) {
           initialStatus = "pending";
-          analysisResultText = null; // Ready for analysis
+          analysisResultText = null;
         } else {
           skippedNoTxtUrlCount++;
           console.warn(
@@ -211,7 +228,6 @@ serve(async (req) => {
           );
         }
 
-        // Validate meeting dates
         const validMeetingDates =
           agenda.會議日期?.filter(isValidDateString) || null;
         if (
@@ -226,23 +242,27 @@ serve(async (req) => {
           );
         }
 
+        // --- 建立要寫入資料庫的 Record ---
         const agendaRecord: GazetteAgendaRecord = {
           agenda_id: agendaId,
           gazette_id: currentGazetteId,
-          volume: agenda.卷,
-          issue: agenda.期,
-          booklet: agenda.冊別,
-          session: agenda.屆,
-          term: agenda.會期,
+          volume: agenda.卷 ?? null,
+          issue: agenda.期 ?? null,
+          booklet: agenda.冊別 ?? null,
+          session: agenda.屆 ?? null,
+          term: agenda.會期 ?? null,
           meeting_dates: validMeetingDates,
-          subject: agenda.案由,
-          start_page: agenda.起始頁碼,
-          end_page: agenda.結束頁碼,
+          subject: agenda.案由 ?? null,
+          category_code: agenda.類別代碼 ?? null,
+          start_page: agenda.起始頁碼 ?? null,
+          end_page: agenda.結束頁碼 ?? null,
           parsed_content_url: txtUrl,
           analysis_status: initialStatus,
-          analysis_result: analysisResultText, // Store reason if failed immediately
-          analyzed_at: null, // Not analyzed yet
+          analysis_result: analysisResultText,
+          analyzed_at: null,
+          // fetched_at and updated_at are handled by DB defaults/triggers
         };
+        // --- 結束建立 Record ---
 
         const { error: agendaUpsertError } = await supabase
           .from("gazette_agendas")
@@ -252,31 +272,29 @@ serve(async (req) => {
           console.error(
             `[${JOB_NAME}] Error upserting agenda ${agendaId}: ${agendaUpsertError.message}`
           );
-          // Continue to next agenda even if one fails
         } else {
           agendasSavedForThisGazette++;
           totalAgendasSaved++;
         }
-      } // End agenda loop for this gazette
+      } // End agenda loop
 
       console.log(
-        `[${JOB_NAME}] Saved ${agendasSavedForThisGazette} agenda records for gazette ${currentGazetteId}.`
+        `[${JOB_NAME}] Saved ${agendasSavedForThisGazette} / ${allAgendasForThisGazette.length} fetched agenda records for gazette ${currentGazetteId}.`
       );
 
-      // Only update the 'latestSuccessfullyProcessedGazetteId' if agenda fetching *did not fail* for this gazette
       if (!agendaFetchFailed) {
         latestSuccessfullyProcessedGazetteId = currentGazetteId;
         console.log(
-          `[${JOB_NAME}] Marked ${currentGazetteId} as successfully processed.`
+          `[${JOB_NAME}] Marked ${currentGazetteId} as the latest successfully processed gazette.`
         );
       } else {
         console.warn(
-          `[${JOB_NAME}] Gazette ${currentGazetteId} not marked as fully processed due to agenda fetch issues.`
+          `[${JOB_NAME}] Gazette ${currentGazetteId} was not marked as fully processed due to agenda fetch issues.`
         );
       }
     } // End new gazette loop
 
-    // 5. Update job state: Use the latest ID for which *agendas were successfully fetched*
+    // 5. Update job state
     if (latestSuccessfullyProcessedGazetteId) {
       console.log(
         `[${JOB_NAME}] Updating job state with latest successfully processed Gazette ID: ${latestSuccessfullyProcessedGazetteId}`
@@ -296,29 +314,36 @@ serve(async (req) => {
         console.error(
           `[${JOB_NAME}] Error updating job state: ${updateStateError.message}`
         );
-        // Log error but don't fail the whole function
       } else {
         console.log(`[${JOB_NAME}] Job state updated successfully.`);
       }
-    } else {
+    } else if (processedNewGazetteCount > 0) {
       console.log(
         `[${JOB_NAME}] No new gazettes were fully processed successfully. Updating last run time only.`
       );
-      // Only update last_run_at if no new gazette was fully processed
       await supabase
         .from("job_state")
         .update({ last_run_at: new Date().toISOString() })
-        .eq("job_name", JOB_NAME)
-        .maybeSingle(); // Use maybeSingle to avoid error if job_name doesn't exist yet
+        .eq("job_name", JOB_NAME);
+    } else {
+      console.log(
+        `[${JOB_NAME}] No new gazettes were processed. Job state ID remains unchanged. Updating last run time.`
+      );
+      await supabase
+        .from("job_state")
+        .update({ last_run_at: new Date().toISOString() })
+        .eq("job_name", JOB_NAME);
     }
   } catch (error) {
     console.error(`[${JOB_NAME}] CRITICAL ERROR in main handler:`, error);
-    // Ensure job state's last_run_at is updated even on critical failure? Optional.
+    // Consider updating last_run_at even on critical failure
     // await supabase.from("job_state").update({ last_run_at: new Date().toISOString() }).eq("job_name", JOB_NAME);
+
     return new Response(
       JSON.stringify({
         success: false,
         message: `Critical error: ${error.message}`,
+        stack: error.stack, // Include stack trace for debugging
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
@@ -326,10 +351,12 @@ serve(async (req) => {
 
   // 6. Log summary and return success
   const duration = (Date.now() - startTime) / 1000;
-  const summary = `Processed ${processedNewGazetteCount} new gazettes. Fetched ${fetchedNewAgendaCount} agendas, saved ${totalAgendasSaved} records. ${skippedNoTxtUrlCount} agendas skipped (no txt url). Duration: ${duration.toFixed(
+  const summary = `Run finished. Processed ${processedNewGazetteCount} new gazettes. Fetched ${fetchedNewAgendaCount} total agendas, saved ${totalAgendasSaved} records successfully. Skipped ${skippedNoTxtUrlCount} agendas due to missing txt URL. Duration: ${duration.toFixed(
     2
-  )}s.`;
-  console.log(`[${JOB_NAME}] Run finished successfully. ${summary}`);
+  )}s. Last successful ID updated to: ${
+    latestSuccessfullyProcessedGazetteId || "None"
+  }.`;
+  console.log(`[${JOB_NAME}] ${summary}`);
 
   return new Response(JSON.stringify({ success: true, message: summary }), {
     status: 200,
