@@ -1,47 +1,186 @@
+// supabase/functions/analyze-pending-agendas/index.ts
+// << 此文件內容與上一個回覆中的版本完全相同，無需修改 >>
+// << 為了完整性，再次貼出 >>
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { GoogleGenerativeAI } from "npm:@google/generative-ai";
-import { fetchWithRetry, FETCH_DELAY_MS } from "../_shared/utils.ts";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2"; // 只導入類型
+import {
+  GoogleGenerativeAI,
+  HarmCategory,
+  HarmBlockThreshold,
+} from "npm:@google/generative-ai";
+import {
+  fetchWithRetry,
+  FETCH_DELAY_MS,
+  getSupabaseClient,
+  AnalysisResultJson, // 引入 JSON 類型
+  AnalysisErrorJson, // 引入錯誤 JSON 類型
+  // GazetteAgendaRecord // 如果需要在本檔案中直接引用完整記錄類型
+} from "../_shared/utils.ts";
 import { getAnalysisPrompt, shouldSkipAnalysis } from "../_shared/prompts.ts";
 
 // --- Configuration ---
 const JOB_NAME = "analyze-pending-agendas";
-const GEMINI_MODEL_NAME = "gemini-2.5-pro-exp-03-25"; // *** 確保模型名稱 ***
-const MAX_CONTENT_LENGTH_CHARS = 150000;
-const GEMINI_ANALYSIS_LIMIT_PER_RUN = 1;
-const DB_FETCH_LIMIT = 10;
-const CONTENT_FETCH_TIMEOUT_MS = 30000;
+const GEMINI_MODEL_NAME = "gemini-2.5-pro-exp-03-25"; // 建議使用支援 JSON 模式的新模型
+const MAX_CONTENT_LENGTH_CHARS = 11000000; // 可根據模型調整
+const GEMINI_ANALYSIS_LIMIT_PER_RUN = 1; // 每次運行處理的議程數量上限 (可調整)
+const DB_FETCH_LIMIT = 10; // 每次從 DB 抓取的議程數量 (可調整)
+const CONTENT_FETCH_TIMEOUT_MS = 45000; // 抓取議程內容的超時時間 (毫秒)
 
-// --- Gemini Analysis Helper (修改: 接收 prompt) ---
+// --- Gemini Generation Config ---
+const generationConfig = {
+  temperature: 0.3,
+  maxOutputTokens: 8192, // 確保足夠輸出 JSON
+  responseMimeType: "application/json", // <<< 強烈建議，要求 JSON 輸出
+};
+
+// --- Gemini Safety Settings ---
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+];
+
+// --- Gemini Analysis Helper ---
 async function analyzeWithGemini(
-  content: string,
   prompt: string,
   apiKey: string
-): Promise<string | null> {
-  // Content empty check moved to processSingleAgenda before fetching content potentially
-  // But keep a basic check here too
-  if (!content || content.trim().length === 0) {
-    console.warn(`[${JOB_NAME}-Gemini] Received empty content for analysis.`);
-    return null; // Or handle as an error upstream? Returning null seems okay.
-  }
+): Promise<AnalysisResultJson | AnalysisErrorJson> {
+  // 返回物件
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_NAME });
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_MODEL_NAME,
+      safetySettings: safetySettings,
+    });
 
     console.log(
-      `[${JOB_NAME}-Gemini] Requesting analysis from ${GEMINI_MODEL_NAME}...`
+      `[${JOB_NAME}-Gemini] Requesting analysis from ${GEMINI_MODEL_NAME} with config:`,
+      JSON.stringify(generationConfig)
     );
-    // --- 使用傳入的完整 prompt ---
-    const result = await model.generateContent(prompt);
+
+    // --- 呼叫 generateContent ---
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: generationConfig,
+    });
+
+    // --- 處理回應 ---
     const response = result.response;
-    const text = response.text();
-    console.log(`[${JOB_NAME}-Gemini] Analysis successful.`);
-    return text || null;
+    if (!response) {
+      if (result.promptFeedback?.blockReason) {
+        const reason = result.promptFeedback.blockReason;
+        const message = result.promptFeedback.blockReasonMessage || "N/A";
+        console.error(
+          `[${JOB_NAME}-Gemini] Prompt blocked due to: ${reason}. Message: ${message}`
+        );
+        return { error: `請求觸發 ${reason} 規則而被阻擋` };
+      }
+      console.error(`[${JOB_NAME}-Gemini] No response received from Gemini.`);
+      return { error: "Gemini 未返回有效回應" };
+    }
+
+    if (response.promptFeedback?.blockReason) {
+      const reason = response.promptFeedback.blockReason;
+      const message = response.promptFeedback.blockReasonMessage || "N/A";
+      console.error(
+        `[${JOB_NAME}-Gemini] Response blocked due to: ${reason}. Message: ${message}`
+      );
+      return { error: `回應觸發 ${reason} 規則而被阻擋` };
+    }
+
+    if (
+      !response.candidates ||
+      response.candidates.length === 0 ||
+      !response.candidates[0].content?.parts?.[0]?.text
+    ) {
+      console.error(
+        `[${JOB_NAME}-Gemini] Gemini response is empty or missing text content.`
+      );
+      console.error(
+        `[${JOB_NAME}-Gemini] Full response object (partial):`,
+        JSON.stringify(response, null, 2).substring(0, 1000)
+      );
+      return { error: "Gemini 返回了空的回應或缺少文本內容" };
+    }
+
+    const responseText = response.text
+      ? response.text()
+      : response.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    if (!responseText) {
+      console.error(
+        `[${JOB_NAME}-Gemini] Could not extract text from Gemini response.`
+      );
+      return { error: "無法從 Gemini 回應中提取文本" };
+    }
+
+    // 嘗試解析 JSON
+    try {
+      // --- <<< 新增: 清理可能的 Markdown JSON 區塊標記 >>> ---
+      const cleanedText = responseText
+        .replace(/^```json\s*|```\s*$/g, "")
+        .trim();
+      // --- <<< 清理結束 >>> ---
+
+      const jsonResult: AnalysisResultJson = JSON.parse(cleanedText); // 使用清理後的文本解析
+      if (
+        jsonResult &&
+        typeof jsonResult === "object" &&
+        (jsonResult.overall_summary_sentence ||
+          jsonResult.agenda_items?.length === 0)
+      ) {
+        console.log(`[${JOB_NAME}-Gemini] Analysis successful (JSON parsed).`);
+        return jsonResult;
+      } else {
+        console.warn(
+          `[${JOB_NAME}-Gemini] Parsed JSON is missing expected structure.`
+        );
+        console.warn(
+          `[${JOB_NAME}-Gemini] Cleaned text was:`,
+          cleanedText.substring(0, 500)
+        );
+        return { error: "AI輸出的JSON結構不符合預期" };
+      }
+    } catch (parseError) {
+      console.error(
+        `[${JOB_NAME}-Gemini] Failed to parse Gemini response as JSON: ${parseError.message}`
+      );
+      console.error(
+        `[${JOB_NAME}-Gemini] Raw response text (after potential cleaning):`,
+        responseText.substring(0, 500)
+      ); // 仍然打印原始的方便對比
+      return { error: `AI未按要求輸出有效的JSON格式: ${parseError.message}` };
+    }
   } catch (error) {
-    console.error(`[${JOB_NAME}-Gemini] Error during analysis:`, error);
-    // Consider more detailed error inspection here
-    return null; // Indicate failure
+    console.error(
+      `[${JOB_NAME}-Gemini] Error during Gemini API call or setup:`,
+      error
+    );
+    let errorMessage = `Gemini API 呼叫失敗: ${error.message}`;
+    if (
+      error.message?.includes("SAFETY") ||
+      error.message?.includes("blocked")
+    ) {
+      errorMessage = `內容或回應觸發安全過濾規則: ${error.message}`;
+    } else if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+      errorMessage = `網路錯誤，無法連接 Gemini API: ${error.message}`;
+    }
+    return { error: errorMessage };
   }
 }
 
@@ -57,57 +196,53 @@ async function processSingleAgenda(
 ): Promise<{
   success: boolean;
   analysisPerformed: boolean;
-  errorMessage?: string;
+  errorMessageForLog?: string;
+  resultObjectToStore: AnalysisResultJson | AnalysisErrorJson;
 }> {
   const { agenda_id, parsed_content_url, category_code } = agenda;
-  let analysisResultText: string | null = null;
-  let finalStatus: "completed" | "failed" = "failed"; // Default to failed
+  let analysisResultObject: AnalysisResultJson | AnalysisErrorJson;
+  let finalStatus: "completed" | "failed" = "failed";
   let analysisPerformed = false;
-  let errorMessage: string | undefined = undefined;
+  let errorMessageForLog: string | undefined = undefined;
 
   console.log(
     `\n[${JOB_NAME}] Processing Agenda ID: ${agenda_id}, Category: ${category_code}`
   );
 
-  // --- 檢查是否為應跳過的索引類別 ---
+  // --- 檢查是否應跳過 ---
   if (shouldSkipAnalysis(category_code)) {
     console.log(
-      `[${JOB_NAME}] Agenda ${agenda_id} category (${category_code}) should be skipped. Skipping analysis.`
+      `[${JOB_NAME}] Agenda ${agenda_id} category (${category_code}) should be skipped.`
     );
-    analysisResultText = "此類別無需摘要 (例如 索引、未知類別)";
+    analysisResultObject = { error: "此類別無需摘要 (例如 索引、未知類別)" };
     finalStatus = "completed";
-
-    // 直接更新狀態並返回
     try {
-      const { error: updateSkipError } = await supabase
+      await supabase
         .from("gazette_agendas")
         .update({
           analysis_status: finalStatus,
-          analysis_result: analysisResultText,
-          analyzed_at: new Date().toISOString(), // Mark as "analyzed" now
+          analysis_result: analysisResultObject, // 直接傳遞物件
+          analyzed_at: new Date().toISOString(),
         })
         .eq("agenda_id", agenda_id);
-      if (updateSkipError) {
-        console.error(
-          `[${JOB_NAME}] !!! CRITICAL: Failed to update status for skipped index agenda ${agenda_id}: ${updateSkipError.message}`
-        );
-        // Even if update fails, we return success=true because the *intended* processing (skipping) is done conceptually.
-        // The error log is the important part here.
-      } else {
-        console.log(
-          `[${JOB_NAME}] Marked index agenda ${agenda_id} as completed.`
-        );
-      }
+      console.log(
+        `[${JOB_NAME}] Marked skipped agenda ${agenda_id} as completed in DB.`
+      );
     } catch (e) {
       console.error(
-        `[${JOB_NAME}] !!! CRITICAL: Exception during status update for skipped index agenda ${agenda_id}: ${e.message}`
+        `[${JOB_NAME}] !!! CRITICAL: Exception during status update for skipped agenda ${agenda_id}: ${e.message}`
       );
     }
-
-    return { success: true, analysisPerformed: false }; // Success because skipping is the correct action
+    return {
+      success: true,
+      analysisPerformed: false,
+      resultObjectToStore: analysisResultObject,
+    };
   }
 
-  // --- 以下為需要分析的流程 ---
+  // --- 需要分析的流程 ---
+  let contentText: string = "";
+  let truncated = false;
   try {
     // 1. Mark as processing
     console.log(`[${JOB_NAME}] Marking ${agenda_id} as 'processing'...`);
@@ -115,24 +250,20 @@ async function processSingleAgenda(
       .from("gazette_agendas")
       .update({ analysis_status: "processing" })
       .eq("agenda_id", agenda_id);
-
     if (updateProcessingError) {
       console.warn(
         `[${JOB_NAME}] Failed to mark ${agenda_id} as processing: ${updateProcessingError.message}`
       );
     }
 
-    // 2. Fetch content from TXT URL with timeout
+    // 2. Fetch content
     console.log(`[${JOB_NAME}] Fetching content from: ${parsed_content_url}`);
-    let contentText: string;
-    let truncated = false;
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(
         () => controller.abort(),
         CONTENT_FETCH_TIMEOUT_MS
       );
-
       const contentResponse = await fetchWithRetry(
         parsed_content_url,
         { signal: controller.signal },
@@ -142,7 +273,6 @@ async function processSingleAgenda(
       clearTimeout(timeoutId);
       contentText = await contentResponse.text();
 
-      // Check and truncate content HERE before passing to prompt generation
       if (contentText.length > MAX_CONTENT_LENGTH_CHARS) {
         console.warn(
           `[${JOB_NAME}] Content for ${agenda_id} length (${contentText.length}) > ${MAX_CONTENT_LENGTH_CHARS}, truncating.`
@@ -150,7 +280,6 @@ async function processSingleAgenda(
         contentText = contentText.substring(0, MAX_CONTENT_LENGTH_CHARS);
         truncated = true;
       }
-
       console.log(
         `[${JOB_NAME}] Fetched content successfully for ${agenda_id} (${(
           contentText.length / 1024
@@ -158,114 +287,116 @@ async function processSingleAgenda(
       );
     } catch (fetchError) {
       if (fetchError.name === "AbortError") {
-        console.error(
-          `[${JOB_NAME}] Timed out fetching content for ${agenda_id} after ${CONTENT_FETCH_TIMEOUT_MS}ms.`
-        );
-        throw new Error(`Content fetch timed out`);
+        errorMessageForLog = `Content fetch timed out after ${CONTENT_FETCH_TIMEOUT_MS}ms.`;
       } else {
-        console.error(
-          `[${JOB_NAME}] Error fetching content for ${agenda_id}: ${fetchError.message}`
-        );
-        throw fetchError;
+        errorMessageForLog = `Error fetching content: ${fetchError.message}`;
       }
+      console.error(`[${JOB_NAME}] ${errorMessageForLog} for ${agenda_id}.`);
+      throw new Error(errorMessageForLog);
     }
 
-    // Ensure content is not empty after fetching
     if (!contentText || contentText.trim().length === 0) {
+      errorMessageForLog = "Fetched content is empty.";
       console.warn(
-        `[${JOB_NAME}] Fetched content for ${agenda_id} is empty. Skipping analysis.`
+        `[${JOB_NAME}] ${errorMessageForLog} for ${agenda_id}. Skipping analysis.`
       );
-      throw new Error("Fetched content is empty"); // Treat as processing error
+      throw new Error(errorMessageForLog);
     }
 
-    // 3. Analyze content if fetch was successful
+    // 3. Analyze content
     console.log(
       `[${JOB_NAME}] Analyzing content for ${agenda_id} (Category: ${category_code}) with Gemini...`
     );
-    // --- 使用 getAnalysisPrompt 獲取特定 Prompt ---
     const prompt = getAnalysisPrompt(category_code, contentText, truncated);
-    analysisResultText = await analyzeWithGemini(
-      contentText,
-      prompt,
-      geminiApiKey
-    );
-    analysisPerformed = true; // Attempted Gemini call
+    analysisResultObject = await analyzeWithGemini(prompt, geminiApiKey);
+    analysisPerformed = true;
 
-    if (analysisResultText) {
+    if (analysisResultObject && !("error" in analysisResultObject)) {
       finalStatus = "completed";
       console.log(`[${JOB_NAME}] Analysis successful for ${agenda_id}.`);
     } else {
       finalStatus = "failed";
-      errorMessage = "Gemini analysis failed or returned empty result.";
-      console.warn(`[${JOB_NAME}] ${errorMessage} for ${agenda_id}.`);
+      errorMessageForLog =
+        (analysisResultObject as AnalysisErrorJson)?.error ||
+        "Gemini analysis failed or returned invalid object.";
+      console.warn(`[${JOB_NAME}] ${errorMessageForLog} for ${agenda_id}.`);
     }
   } catch (error) {
     console.error(
       `[${JOB_NAME}] Error during processing pipeline for ${agenda_id}: ${error.message}`
     );
     finalStatus = "failed";
-    // Use caught error message if analysisResultText is not set
-    errorMessage =
-      analysisResultText === null
-        ? `Processing error: ${error.message}`
-        : errorMessage;
+    errorMessageForLog =
+      errorMessageForLog || `Processing pipeline error: ${error.message}`;
+    analysisResultObject = { error: errorMessageForLog };
   } finally {
     // 4. Update final status in Supabase ALWAYS
     console.log(
       `[${JOB_NAME}] Updating final status for ${agenda_id} to: ${finalStatus}`
     );
-    const updatePayload: any = {
+    const resultToStore: AnalysisResultJson | AnalysisErrorJson =
+      analysisResultObject ?? { error: "Unknown processing error occurred" };
+
+    const updatePayload: {
+      analysis_status: "completed" | "failed";
+      analysis_result: AnalysisResultJson | AnalysisErrorJson;
+      analyzed_at: string | null;
+    } = {
       analysis_status: finalStatus,
-      // Store result or error. If analysisResultText exists (even if empty from Gemini), use it. Otherwise use errorMessage.
-      analysis_result:
-        analysisResultText !== null
-          ? analysisResultText
-          : errorMessage ?? "Unknown processing error",
+      analysis_result: resultToStore, // 直接傳遞 JS 物件
+      analyzed_at:
+        finalStatus === "completed" && !("error" in resultToStore)
+          ? new Date().toISOString()
+          : null,
     };
-    if (finalStatus === "completed") {
-      updatePayload.analyzed_at = new Date().toISOString();
-    } else {
-      updatePayload.analyzed_at = null;
-    }
 
-    const { error: updateAnalysisError } = await supabase
-      .from("gazette_agendas")
-      .update(updatePayload)
-      .eq("agenda_id", agenda_id);
+    try {
+      const { error: updateAnalysisError } = await supabase
+        .from("gazette_agendas")
+        .update(updatePayload)
+        .eq("agenda_id", agenda_id);
 
-    if (updateAnalysisError) {
+      if (updateAnalysisError) {
+        console.error(
+          `[${JOB_NAME}] !!! CRITICAL: Failed to update final status for ${agenda_id}: ${updateAnalysisError.message}`
+        );
+        errorMessageForLog = errorMessageForLog
+          ? `${errorMessageForLog}; DB update failed.`
+          : `DB update failed: ${updateAnalysisError.message}`;
+      } else {
+        console.log(`[${JOB_NAME}] Final status updated for ${agenda_id}.`);
+      }
+    } catch (updateException) {
       console.error(
-        `[${JOB_NAME}] !!! CRITICAL: Failed to update final status for ${agenda_id}: ${updateAnalysisError.message}`
+        `[${JOB_NAME}] !!! CRITICAL: Exception during final status update for ${agenda_id}: ${updateException.message}`
       );
-      // If the final update fails, the operation wasn't truly successful from DB perspective
-      // Override success state if update fails? This is debatable. Let's keep the processing outcome for now.
-      // errorMessage = `Processing finished as ${finalStatus}, but DB update failed: ${updateAnalysisError.message}`;
-    } else {
-      console.log(`[${JOB_NAME}] Final status updated for ${agenda_id}.`);
+      errorMessageForLog = errorMessageForLog
+        ? `${errorMessageForLog}; DB update exception.`
+        : `DB update exception: ${updateException.message}`;
     }
   }
 
   return {
-    success: finalStatus === "completed",
+    success:
+      finalStatus === "completed" && !("error" in (analysisResultObject ?? {})),
     analysisPerformed,
-    errorMessage,
+    errorMessageForLog: errorMessageForLog,
+    resultObjectToStore: analysisResultObject ?? {
+      error: "Final result object was unexpectedly null",
+    },
   };
 }
 
-// --- Main Server Handler (修改 DB 查詢) ---
+// --- Main Server Handler ---
 serve(async (req) => {
   const startTime = Date.now();
   let geminiAnalysesAttempted = 0;
   let successfulAnalysesCount = 0;
   let failedProcessingCount = 0;
   let agendasCheckedCount = 0;
-  let skippedIndexCount = 0;
+  let skippedCategoryCount = 0;
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } }
-  );
+  const supabase = getSupabaseClient();
   const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
   if (!geminiApiKey) {
     console.error(`[${JOB_NAME}] Missing GEMINI_API_KEY environment variable!`);
@@ -277,7 +408,7 @@ serve(async (req) => {
   console.log(`[${JOB_NAME}] Function execution started.`);
 
   try {
-    // 1. Fetch pending or previously failed agendas - include category_code
+    // 1. Fetch pending or previously failed agendas
     console.log(
       `[${JOB_NAME}] Fetching up to ${DB_FETCH_LIMIT} agendas with status 'pending' or 'failed' and a valid txt URL...`
     );
@@ -290,6 +421,9 @@ serve(async (req) => {
       .limit(DB_FETCH_LIMIT);
 
     if (fetchError) {
+      console.error(
+        `[${JOB_NAME}] Error fetching agendas: ${fetchError.message}`
+      );
       throw new Error(`Error fetching agendas: ${fetchError.message}`);
     }
 
@@ -301,10 +435,7 @@ serve(async (req) => {
           success: true,
           message: `No agendas to process. Duration: ${duration.toFixed(2)}s.`,
         }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
+        { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -312,53 +443,43 @@ serve(async (req) => {
       `[${JOB_NAME}] Found ${agendasToProcess.length} agendas to potentially process.`
     );
 
-    // 2. Process each agenda, respecting the run limit
+    // 2. Process each agenda sequentially
     for (const agenda of agendasToProcess) {
       agendasCheckedCount++;
 
-      // Check limit *before* processing, but account for skipped items not hitting Gemini
-      // If the agenda is an index category, we don't count it towards the Gemini limit
+      // Check analysis limit before processing non-skippable items
       if (!shouldSkipAnalysis(agenda.category_code)) {
         if (geminiAnalysesAttempted >= GEMINI_ANALYSIS_LIMIT_PER_RUN) {
           console.log(
-            `[${JOB_NAME}] Reached Gemini analysis limit for this run (${GEMINI_ANALYSIS_LIMIT_PER_RUN}). Stopping further analysis processing.`
+            `[${JOB_NAME}] Reached Gemini analysis limit (${GEMINI_ANALYSIS_LIMIT_PER_RUN}). Skipping further analysis for agenda ${agenda.agenda_id} in this run.`
           );
-          // Don't break the whole loop, just skip analysis for this item and others
-          // Let the loop finish checking all DB_FETCH_LIMIT items in case there are more index items to skip
-          continue; // Skip to next agenda item in the fetched list
+          continue; // Go to the next agenda item
         }
       }
 
+      // Process the agenda item
       const result = await processSingleAgenda(agenda, supabase, geminiApiKey);
 
+      // Update counters based on the result
       if (result.analysisPerformed) {
-        geminiAnalysesAttempted++; // Count actual Gemini calls attempted
-      } else if (shouldSkipAnalysis(agenda.category_code)) {
-        skippedIndexCount++; // Count skipped index items
+        geminiAnalysesAttempted++;
+      }
+      if (shouldSkipAnalysis(agenda.category_code)) {
+        skippedCategoryCount++;
       }
 
       if (result.success) {
-        // successfulAnalysesCount should probably only count actual Gemini successes?
-        // If skipping counts as success, let's add a separate counter or refine definition.
-        // Let's count only actual analysis successes here. Skipped indices are handled separately.
-        if (result.analysisPerformed) {
-          // Only increment if analysis was done and successful
-          successfulAnalysesCount++;
-        }
+        successfulAnalysesCount++;
       } else {
-        // This counts any failure within processSingleAgenda (fetch, empty content, gemini fail, db update fail implicitly handled by status)
-        // unless it's a skipped index item which returns success: true
-        failedProcessingCount++;
-        console.warn(
-          `[${JOB_NAME}] Processing failed for agenda ${
-            agenda.agenda_id
-          }. Reason: ${result.errorMessage || "Unknown"}`
-        );
+        if (!shouldSkipAnalysis(agenda.category_code)) {
+          failedProcessingCount++;
+        }
       }
 
-      // Delay before processing the next agenda (apply delay even if skipped/limit hit?)
-      // Let's apply delay regardless to pace the entire function run
-      await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+      // Optional delay between processing items
+      if (agendasCheckedCount < agendasToProcess.length) {
+        await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+      }
     } // End agenda processing loop
   } catch (error) {
     console.error(`[${JOB_NAME}] CRITICAL ERROR in main handler:`, error);
@@ -366,6 +487,7 @@ serve(async (req) => {
       JSON.stringify({
         success: false,
         message: `Critical error: ${error.message}`,
+        stack: error.stack,
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
@@ -375,9 +497,9 @@ serve(async (req) => {
   const duration = (Date.now() - startTime) / 1000;
   const summary =
     `Checked ${agendasCheckedCount} DB rows. ` +
-    `Skipped ${skippedIndexCount} agendas (category 6, 7, 9). ` +
+    `Skipped ${skippedCategoryCount} agendas by category. ` +
     `Attempted ${geminiAnalysesAttempted} Gemini analyses ` +
-    `(${successfulAnalysesCount} completed, ${failedProcessingCount} failed processing). ` +
+    `(${successfulAnalysesCount} successful, ${failedProcessingCount} failed). ` +
     `Duration: ${duration.toFixed(2)}s.`;
   console.log(`[${JOB_NAME}] Run finished. ${summary}`);
 
