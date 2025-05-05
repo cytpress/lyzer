@@ -50,8 +50,8 @@ export interface GazetteAgenda {
   doc檔案下載位置?: string[] | null;
   屆別期別篩選條件?: string | null;
   公報編號: string;
-  公報網網址?: string | null;
-  公報完整PDF網址?: string | null;
+  公報網網址?: string | null; // <<< Data source for official_page_url
+  公報完整PDF網址?: string | null; // <<< Data source for official_pdf_url
   處理後公報網址?: ProcessedUrl[] | null;
 }
 
@@ -73,31 +73,33 @@ export interface GazetteRecord {
   fetched_at?: string; // Managed by DB default
 }
 
-// --- <<< 新增：定義 AI 輸出的 JSON 結構 Interfaces >>> ---
+// --- AI Output JSON Structure Interfaces ---
 export interface KeySpeakerJson {
-  speaker_name: string; // 發言者姓名或單位
-  speaker_viewpoint: string; // 其核心觀點/訴求/回應摘要 (Markdown allowed here)
+  speaker_name: string;
+  speaker_viewpoint: string;
 }
 
 export interface AgendaItemJson {
-  item_title: string; // 該議程項目的標題 (例如："一、 中華民國113年度中央政府總預算案...")
-  core_issue: string; // 核心議題摘要 (Markdown allowed here)
-  key_speakers: KeySpeakerJson[] | null; // 主要發言者列表 (若無則為 null)
-  controversy: string | null; // 主要爭議/攻防摘要 (Markdown allowed here)。如果無爭議，此欄位值為 null。
-  result_status_next: string; // 結果/進度/後續摘要 (Markdown allowed here)
+  item_title: string;
+  core_issue: string;
+  key_speakers: KeySpeakerJson[] | null;
+  controversy: string | null;
+  result_status_next: string;
 }
 
 export interface AnalysisResultJson {
-  summary_title: string; // 會議記錄的簡短標題 (例如："113年度中央政府總預算案三讀通過")
-  agenda_items: AgendaItemJson[]; // 包含多個議程項目
-  overall_summary_sentence: string; // 摘要開頭的總結句
+  summary_title: string;
+  agenda_items: AgendaItemJson[];
+  overall_summary_sentence: string;
 }
 
 export interface AnalysisErrorJson {
-  error: string; // 用於儲存錯誤訊息
+  error: string; // Used to store error messages in JSON format
+  details?: string; // Optional field for more details
 }
-// --- <<< JSON 結構定義結束 >>> ---
+// --- End JSON Structure Definitions ---
 
+// Interface for the record stored in the gazette_agendas table
 export interface GazetteAgendaRecord {
   agenda_id: string; // Primary Key
   gazette_id: string; // Foreign Key
@@ -112,16 +114,18 @@ export interface GazetteAgendaRecord {
   start_page?: number | null;
   end_page?: number | null;
   parsed_content_url?: string | null;
+  official_page_url?: string | null; // <<< ADDED >>> To store 公報網網址
+  official_pdf_url?: string | null; // <<< ADDED >>> To store 公報完整PDF網址
   analysis_status: "pending" | "processing" | "completed" | "failed";
-  // --- <<< 修改：analysis_result 的類型，預期儲存 JSON 結構或錯誤結構 >>> ---
-  analysis_result?: AnalysisResultJson | AnalysisErrorJson | null; // << 改為預期接收物件，存入 DB 時會 stringify
-  // --- <<< 修改結束 >>> ---
-  fetched_at?: string; // Managed by DB default
+  // analysis_result now expects a proper JSON object (or null)
+  // The fetch function should ideally store AnalysisErrorJson for failures like missing txt URL
+  analysis_result?: AnalysisResultJson | AnalysisErrorJson | null;
+  fetched_at?: string; // Managed by DB default (ISO timestamp string)
   analyzed_at?: string | null; // ISO timestamp string when analysis was done
-  updated_at?: string; // Managed by DB trigger
+  updated_at?: string; // Managed by DB trigger (ISO timestamp string)
 }
 
-// --- Shared fetch Function with Retry and Logging (保持不變) ---
+// --- Shared fetch Function with Retry and Logging ---
 export async function fetchWithRetry(
   url: string,
   options?: RequestInit,
@@ -157,6 +161,7 @@ export async function fetchWithRetry(
         } for: ${url}`
       );
 
+      // Don't retry client errors (4xx) except for 429 (Too Many Requests)
       if (
         response.status >= 400 &&
         response.status < 500 &&
@@ -178,13 +183,15 @@ export async function fetchWithRetry(
         );
       }
 
+      // Retry on server errors (5xx) or 429
       if (i < retries - 1) {
-        const delay = RETRY_DELAY_MS * Math.pow(2, i);
+        const delay = RETRY_DELAY_MS * Math.pow(2, i); // Exponential backoff
         console.log(
           `[${jobName}-fetchRetry] Waiting ${delay}ms before next retry...`
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
+        // Last attempt failed
         console.error(
           `[${jobName}-fetchRetry] Final attempt failed for ${url} with status ${response.status}`
         );
@@ -193,6 +200,7 @@ export async function fetchWithRetry(
         );
       }
     } catch (error) {
+      // Handle network errors or errors thrown from the client error check
       console.warn(
         `[${jobName}-fetchRetry] Attempt ${
           i + 1
@@ -205,6 +213,7 @@ export async function fetchWithRetry(
         );
         throw error; // Re-throw the final error
       }
+      // Wait before retrying after a network error
       const delay = RETRY_DELAY_MS * Math.pow(2, i);
       console.log(
         `[${jobName}-fetchRetry] Waiting ${delay}ms after error before next retry...`
@@ -212,17 +221,27 @@ export async function fetchWithRetry(
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+  // Should theoretically not be reached due to throws in the loop
   throw new Error(`Unexpected exit from fetchWithRetry loop for ${url}`);
 }
 
-// --- Helper to validate YYYY-MM-DD date strings (保持不變) ---
+// --- Helper to validate YYYY-MM-DD date strings ---
 export function isValidDateString(dateStr: string | null | undefined): boolean {
   if (!dateStr || typeof dateStr !== "string") return false;
+  // Basic check, doesn't validate day/month relationship or leap years
   return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
 }
 
-// --- Supabase Client Initialization Helper (保持不變) ---
+// --- Supabase Client Initialization Helper ---
+// Ensure Supabase URL and Service Role Key are set in your environment variables
+// (e.g., in your .env file for local development or Edge Function settings)
+let supabaseInstance: SupabaseClient | null = null;
+
 export function getSupabaseClient(): SupabaseClient {
+  if (supabaseInstance) {
+    return supabaseInstance;
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -235,11 +254,15 @@ export function getSupabaseClient(): SupabaseClient {
     throw new Error("Missing environment variable: SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
+  // Create a single instance for the function invocation
+  supabaseInstance = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
-      persistSession: false,
+      persistSession: false, // Required for service_role access
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
   });
+
+  console.log("Supabase client initialized."); // Log initialization
+  return supabaseInstance;
 }
