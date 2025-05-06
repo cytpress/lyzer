@@ -1,8 +1,8 @@
 // supabase/functions/_shared/prompts.ts
 
-// --- JSON 輸出 Prompt (方案三：強化數值格式，result_status_next 可為陣列) ---
+// --- JSON 輸出 Prompt (方案七：調整 categoryCode 9 處理) ---
 export function getAnalysisPrompt(
-  _categoryCode: number | null | undefined,
+  categoryCode: number | null | undefined, // <<< 傳入 categoryCode
   content: string,
   truncated: boolean = false
 ): string {
@@ -10,7 +10,31 @@ export function getAnalysisPrompt(
     ? "\n\n[注意：由於原始文本過長，輸入內容已被截斷]"
     : "";
 
-  // --- JSON 輸出 Prompt (已修改移除範例參照並釐清要求) ---
+  // --- 根據 categoryCode 提供額外提示 ---
+  let committeeHint = "";
+  if (
+    categoryCode === 1 ||
+    categoryCode === 2 ||
+    categoryCode === 4 ||
+    categoryCode === 5
+  ) {
+    committeeHint = `\n*   **關於 "committee_name"**: 由於類別代碼為 ${categoryCode}，這通常發生在「立法院院會」。請在文本中確認，如果符合，請將 "committee_name" 設為 "立法院院會"。如果文本內容特別指向某委員會(較少見)，則以文本為主。`;
+  } else if (categoryCode === 3) {
+    committeeHint =
+      '\n*   **關於 "committee_name"**: 由於類別代碼為 3，這代表某個「委員會」。請從以下 12 個常設委員會名稱中，根據文本內容判斷並選擇最符合的一個填入 "committee_name" 欄位：\n    *   內政委員會\n    *   外交及國防委員會\n    *   經濟委員會\n    *   財政委員會\n    *   教育及文化委員會\n    *   交通委員會\n    *   司法及法制委員會\n    *   社會福利及衛生環境委員會\n    *   程序委員會\n    *   紀律委員會\n    *   經費稽核委員會\n    *   修憲委員會\n    如果文本中提及多個委員會聯席會議，請選擇主導或首次提及的委員會。如果無法從文本明確判斷是哪一個委員會，請設為 null。';
+  } else if (categoryCode === 8) {
+    committeeHint =
+      '\n*   **關於 "committee_name"**: 由於類別代碼為 8 (黨團協商)，通常不歸屬於單一委員會，請將 "committee_name" 設為 "黨團協商"。';
+    // <<< 修改：新增 categoryCode 9 的處理 >>>
+  } else if (categoryCode === 9) {
+    committeeHint =
+      '\n*   **關於 "committee_name"**: 由於類別代碼為 9，這類內容較為特殊 (如總統令、咨文等)，可能與院會或特定委員會直接相關性不明確。請優先嘗試從文本內容判斷是否能歸屬到 "立法院院會" 或上述 12 個委員會之一。如果無法明確歸屬，請將 "committee_name" 設為 "其他"。';
+  } else {
+    // 包含 6 (未知), 7 (索引) 等
+    committeeHint =
+      '\n*   **關於 "committee_name"**: 根據類別代碼，此記錄類型通常不直接對應單一委員會、院會或特定分類，請將 "committee_name" 設為 null。';
+  }
+
   const prompt = `
 你是一位客觀中立的國會記錄分析師，任務是為一般公民提供清晰、詳盡且結構化的立法院會議記錄摘要。請閱讀以下文本，並**嚴格以一個符合指定結構的 JSON 物件格式**輸出分析結果。
 
@@ -21,22 +45,19 @@ export function getAnalysisPrompt(
 {
 "summary_title": "string",
 "overall_summary_sentence": "string",
+"committee_name": "string | null", // 會議所屬的委員會名稱、"立法院院會"、"黨團協商"、"其他" 或 null
 "agenda_items": [
   {
     "item_title": "string",
-    // core_issue 為字串或字串陣列
-    "core_issue": "string | string[]", // 核心議題摘要 (純文字 或 純文字陣列)
+    "core_issue": "string | string[]",
     "key_speakers": [
       {
         "speaker_name": "string",
-        // speaker_viewpoint 為字串或字串陣列
-        "speaker_viewpoint": "string | string[]" // 觀點/訴求 (純文字 或 純文字陣列)
+        "speaker_viewpoint": "string | string[]"
       }
     ] | null,
-    // controversy 為字串、字串陣列或 null
-    "controversy": "string | string[] | null", // 爭議點 (純文字 或 純文字陣列 或 null)
-    // result_status_next 為字串或字串陣列
-    "result_status_next": "string | string[]" // 結果/狀態 (純文字 或 純文字陣列)
+    "controversy": "string | string[] | null",
+    "result_status_next": "string | string[]"
   }
 ]
 }
@@ -55,6 +76,9 @@ export function getAnalysisPrompt(
         *   金額："50 億 4,750 萬元" (可包含單位，但數字部分用阿拉伯數字)
 *   **"summary_title" (字串)**: 為整個會議記錄提供一個**簡潔且概括性**的標題。
 *   **"overall_summary_sentence" (字串)**: **必須**提供一個摘要開頭的總結句，簡要列出本次記錄涵蓋的主要議程或討論主題。**此句應盡可能詳盡地提及主要討論的法案全名或關鍵議題，使其能獨立概括會議主要內容，具備足夠的資訊含量。**
+*   **"committee_name" (字串 或 null)**:
+    *   請根據**文本內容**和**下方提供的額外提示**來判斷。${committeeHint}
+    *   最終輸出的值應為 15 種可能性之一：12 個常設委員會名稱 ("內政委員會", "外交及國防委員會", "經濟委員會", "財政委員會", "教育及文化委員會", "交通委員會", "司法及法制委員會", "社會福利及衛生環境委員會", "程序委員會", "紀律委員會", "經費稽核委員會", "修憲委員會")、"立法院院會"、"黨團協商"、"其他"，或者在無法判斷或不適用時為 **null**。
 *   **"agenda_items" (陣列)**: 包含記錄中按順序出現的**所有**主要議程項目或法案。每個項目都是一個物件。
   *   **"item_title" (字串)**: 該議程項目的**核心法案名稱與議程編號**。**請務必省略提案委員的姓名列表，僅保留法案的關鍵名稱，並在結尾處參考原始文本加入如 '(三讀)' 或 '(討論事項第 X 案)' 等輔助資訊，使標題簡潔且具備描述性與上下文脈絡。**
   *   **"core_issue" (字串 或 字串陣列)**: **精確且具體地摘要**此議題/法案核心目標與內容。**應適度包含提案的背景、動機或要解決的問題，使其內容充實且易於理解。**
@@ -88,6 +112,7 @@ export function getAnalysisPrompt(
   {
     "summary_title": "程序性內容",
     "overall_summary_sentence": "本次記錄主要為程序性內容，無實質討論摘要。",
+    "committee_name": null, // 程序性內容 committee_name 設為 null
     "agenda_items": []
   }
   \`\`\`
@@ -101,10 +126,11 @@ ${content}${truncatedMessage}
   return prompt;
 }
 
-// --- 跳過分析的條件函數保持不變 ---
+// --- 跳過分析的條件函數 ---
+// <<< 修改：不再跳過 categoryCode 9 >>>
 export function shouldSkipAnalysis(
   categoryCode: number | null | undefined
 ): boolean {
-  // 跳過 6 (未知), 7 (索引), 9 (索引)
-  return categoryCode === 6 || categoryCode === 7 || categoryCode === 9;
+  // 現在只跳過 6 (未知), 7 (索引)
+  return categoryCode === 6 || categoryCode === 7;
 }
