@@ -1,427 +1,433 @@
-// supabase/functions/analyze-pending-contents/geminiAnalyzer.ts
 import {
-  GoogleGenerativeAI,
-  type GenerativeModel,
-  type Content,
+  GoogleGenAI,
+  type GenerateContentParameters,
+  type GenerateContentResponse,
   type GenerationConfig,
   type SafetySetting,
   type Schema,
-  SchemaType, // <<< 導入 SchemaType enum >>>
-} from "npm:@google/generative-ai";
+  Type,
+  type Content,
+  // Potentially needed for detailed error checking:
+  // GoogleGenerativeAIResponseError, // Uncomment if used for error instanceof checks
+} from "npm:@google/genai";
 import type {
   AnalysisResultJson,
   GeminiErrorDetail,
-  AgendaItem,
-  KeySpeaker,
-} from "../_shared/utils.ts";
-import { GEMINI_MODEL_NAME, JOB_NAME } from "./index.ts";
+} from "../_shared/types/analysis.ts";
+import { GEMINI_MODEL_NAME } from "./index.ts"; // Import model name from local index
+import { JOB_NAME_ANALYZER } from "../_shared/utils.ts"; // Import job name for logging
 
-// --- 定義回應 Schema ---
+// --- Define the expected JSON response schema for Gemini ---
+// This schema is used by the Gemini API to structure its JSON output.
+// The 'description' fields are crucial for the API and MUST remain in Traditional Chinese.
 const analysisResponseSchema: Schema = {
-  type: SchemaType.OBJECT, // <<< 使用 SchemaType.OBJECT >>>
+  type: Type.OBJECT,
   properties: {
     summary_title: {
-      type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+      type: Type.STRING,
       description: "會議或記錄的核心主題摘要標題 (50字內)",
     },
     overall_summary_sentence: {
-      type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+      type: Type.STRING,
       description: "整份議事記錄的主要內容、流程和重要結論概括 (約100-150字)",
     },
     committee_name: {
-      type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+      type: Type.STRING,
       nullable: true,
       description: "會議所屬的委員會名稱，無法判斷則為 null",
     },
     agenda_items: {
-      type: SchemaType.ARRAY, // <<< 使用 SchemaType.ARRAY >>>
+      type: Type.ARRAY,
       nullable: true,
       description: "議程項目列表",
       items: {
-        type: SchemaType.OBJECT, // <<< 使用 SchemaType.OBJECT >>>
+        type: Type.OBJECT,
         properties: {
           item_title: {
-            type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+            type: Type.STRING,
             nullable: true,
             description: "議程項目的標題或案由",
           },
           core_issue: {
-            type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
             nullable: true,
             description:
-              "核心問題或討論內容。若有多點，請用換行符 '\\n' 分隔於單一字串中。",
+              "核心問題或討論內容。若有多點，請作為陣列中的不同字串元素。",
           },
           controversy: {
-            type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
             nullable: true,
             description:
-              "主要爭議點。若有多點，請用換行符 '\\n' 分隔。無爭議則為 null。",
+              "主要爭議點。若有多點，請作為陣列中的不同字串元素。無爭議則為 null。",
           },
           key_speakers: {
-            type: SchemaType.ARRAY, // <<< 使用 SchemaType.ARRAY >>>
+            type: Type.ARRAY,
             nullable: true,
             description: "主要發言者列表",
             items: {
-              type: SchemaType.OBJECT, // <<< 使用 SchemaType.OBJECT >>>
+              type: Type.OBJECT,
               properties: {
                 speaker_name: {
-                  type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+                  type: Type.STRING,
                   nullable: true,
                   description: "發言者姓名或職稱",
                 },
                 speaker_viewpoint: {
-                  type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
                   nullable: true,
                   description:
-                    "主要觀點或立場。若有多點，請用換行符 '\\n' 分隔。",
+                    "主要觀點或立場。若有多點，請作為陣列中的不同字串元素。",
                 },
               },
-              required: ["speaker_name", "speaker_viewpoint"],
+              required: ["speaker_name"],
+              propertyOrdering: ["speaker_name", "speaker_viewpoint"],
             },
           },
           result_status_next: {
-            type: SchemaType.STRING, // <<< 使用 SchemaType.STRING >>>
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
             nullable: true,
             description:
-              "處理結果或下一步行動。若有多點，請用換行符 '\\n' 分隔。",
+              "處理結果或下一步行動。若有多點，請作為陣列中的不同字串元素。",
           },
         },
         required: ["item_title"],
+        propertyOrdering: [
+          "item_title",
+          "core_issue",
+          "controversy",
+          "key_speakers",
+          "result_status_next",
+        ],
       },
     },
   },
   required: ["summary_title", "overall_summary_sentence", "agenda_items"],
+  propertyOrdering: [
+    "summary_title",
+    "overall_summary_sentence",
+    "committee_name",
+    "agenda_items",
+  ],
 };
 
-// 輔助函數：處理可能包含換行符分隔字串的欄位，將其轉換為陣列
-function processFieldForArray(
-  fieldValue: string | string[] | null
-): string | string[] | null {
-  if (typeof fieldValue === "string" && fieldValue.includes("\n")) {
-    // 分割並去除空白元素
-    return fieldValue
-      .split("\n")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-  }
-  return fieldValue; // 如果不是帶換行符的字串，或已是陣列/null，直接返回
-}
-
+/**
+ * Analyzes text content using the Gemini API with a predefined JSON schema.
+ * It prepares the request, calls the API, and processes the response,
+ * handling various success and error conditions.
+ * @param fullPromptString The complete prompt to send to the Gemini API.
+ * @param apiKey The API key for accessing the Gemini service.
+ * @param _originalInputTextContent_for_logging_only The original text content (currently unused in this function's logic but available).
+ * @param generationConfigParams Configuration for the Gemini model's generation process.
+ * @param safetySettingsParams Safety settings to apply to the Gemini model's response.
+ * @returns A promise that resolves to either the successfully parsed `AnalysisResultJson`
+ *          or a `GeminiErrorDetail` object if an error occurs.
+ */
 export async function analyzeWithGemini(
-  fullPromptString: string, // 這個 prompt 現在主要是內容和任務描述
+  fullPromptString: string,
   apiKey: string,
-  originalInputTextContent: string,
-  // 從 index.ts 傳入基礎的 generationConfig 和 safetySettings
-  generationConfigParams: Omit<
-    GenerationConfig,
-    | "responseMimeType"
-    | "responseSchema"
-    | "candidateCount"
-    | "stopSequences"
-    | "topP"
-    | "topK"
-  >,
+  _originalInputTextContent_for_logging_only: string,
+  generationConfigParams: Partial<GenerationConfig> & {
+    thinkingConfig?: { thinkingBudget?: number };
+  },
   safetySettingsParams: SafetySetting[]
 ): Promise<AnalysisResultJson | GeminiErrorDetail> {
-  // 組合最終的 GenerationConfig，加入 schema 和 mimeType
-  const currentGenerationConfig: GenerationConfig = {
-    ...generationConfigParams,
-    responseMimeType: "application/json", // 強制 JSON 輸出
-    responseSchema: analysisResponseSchema, // 應用我們定義的 schema
-    // thinkingConfig 已暫時移除
+  const ai = new GoogleGenAI({ apiKey }); // Initialize Gemini client
+
+  // Combine provided generation config with required schema settings
+  const effectiveGenerationConfig: GenerationConfig = {
+    ...(generationConfigParams as GenerationConfig),
+    responseMimeType: "application/json", // Request JSON output
+    responseSchema: analysisResponseSchema, // Enforce the defined schema (with Chinese descriptions)
   };
 
-  // 為了日誌簡潔，可以選擇不打印完整的 schema
-  const configForLog = { ...currentGenerationConfig };
-  // delete configForLog.responseSchema; // 取消註解此行以在日誌中隱藏 schema 細節
+  // Prepare parameters for the API call according to the confirmed SDK structure
+  const params: GenerateContentParameters = {
+    model: GEMINI_MODEL_NAME,
+    contents: [
+      { role: "user", parts: [{ text: fullPromptString }] },
+    ] as Content[],
+    config: {
+      ...effectiveGenerationConfig,
+      safetySettings: safetySettingsParams,
+    },
+  };
+
   console.log(
-    `[${JOB_NAME}-Gemini] 本次呼叫的有效 generationConfig (schema 存在: ${!!configForLog.responseSchema}): ${JSON.stringify(
-      configForLog
-    )}`
-  );
-  console.log(
-    `[${JOB_NAME}-Gemini] 初始化 Gemini 客戶端，模型: ${GEMINI_MODEL_NAME}`
+    `[${JOB_NAME_ANALYZER}-Gemini] Initializing Gemini client. Model: ${
+      params.model // Log model being used
+    }. Thinking Budget: ${
+      params.config?.thinkingConfig?.thinkingBudget ?? "Default/Off"
+    }`
   );
 
-  let contentSeemsTruncatedByEllipsis = false; // 用於檢測不自然的省略號
-  function checkForEllipsisTruncation(obj: unknown): void {
-    if (typeof obj === "string" && obj.endsWith("...")) {
-      // 條件：長度大於10，且 "..." 前一個字符不是常見的句子結尾標點或空格
-      if (
-        obj.length > 10 &&
-        obj.charAt(obj.length - 4) !== " " && // 不是空格
-        obj.charAt(obj.length - 4) !== "。" && // 不是中文句號
-        obj.charAt(obj.length - 4) !== "」" && // 不是右引號
-        obj.charAt(obj.length - 4) !== "！" && // 不是驚嘆號
-        obj.charAt(obj.length - 4) !== "？" // 不是問號
-      ) {
-        contentSeemsTruncatedByEllipsis = true;
-        console.warn(
-          `[${JOB_NAME}-Gemini] 警告：在字串值中發現潛在的內容省略號截斷 (前100字元): "${obj.substring(
-            0,
-            100
-          )}..."`
-        );
-      }
-    } else if (Array.isArray(obj)) {
-      for (const item of obj) checkForEllipsisTruncation(item);
-    } else if (typeof obj === "object" && obj !== null) {
-      for (const key in obj as Record<string, unknown>) {
-        // 類型斷言
-        checkForEllipsisTruncation((obj as Record<string, unknown>)[key]);
-      }
-    }
-  }
+  let rawResponseTextForError: string | undefined = undefined; // To store raw AI output for error diagnosis
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelInstance: GenerativeModel = genAI.getGenerativeModel({
-      // 明確模型實例類型
-      model: GEMINI_MODEL_NAME,
-      safetySettings: safetySettingsParams, // 使用傳入的安全設置
-      generationConfig: currentGenerationConfig, // 使用包含 schema 的生成配置
-    });
+    // Call the Gemini API using the `ai.models.generateContent(params)` pattern
+    console.log(
+      `[${JOB_NAME_ANALYZER}-Gemini] Sending request to model ${params.model}...`
+    );
+    const result: GenerateContentResponse = await ai.models.generateContent(
+      params
+    );
+    console.log(`[${JOB_NAME_ANALYZER}-Gemini] Received response from model.`);
 
-    const contentsForApi: Content[] = [
-      // API 請求的內容結構
-      { role: "user" as const, parts: [{ text: fullPromptString }] },
-    ];
-
-    try {
-      const countTokensResponse = await modelInstance.countTokens({
-        contents: contentsForApi,
-        // 注意: responseSchema 本身也會消耗 token, countTokens 可能未完全包含此部分
-      });
+    // Process API response metadata
+    const usageMetadata = result.usageMetadata;
+    if (usageMetadata) {
       console.log(
-        `[${JOB_NAME}-Gemini] 估計的輸入 Prompt (文本部分) Token 數量: ${countTokensResponse.totalTokens}`
+        `[${JOB_NAME_ANALYZER}-Gemini] Usage - Prompt Tokens: ${usageMetadata.promptTokenCount}, Candidates Tokens: ${usageMetadata.candidatesTokenCount}, Total Tokens: ${usageMetadata.totalTokenCount}`
       );
-    } catch (countError) {
+    } else {
       console.warn(
-        `[${JOB_NAME}-Gemini] 計算輸入 Token 時發生錯誤 (用於調試): ${countError.message}`
+        `[${JOB_NAME_ANALYZER}-Gemini] Usage metadata not found in Gemini response.`
       );
     }
 
-    console.log(`[${JOB_NAME}-Gemini] 正在從 ${GEMINI_MODEL_NAME} 請求分析...`);
+    const finishReason = result.candidates?.[0]?.finishReason;
+    const safetyRatings =
+      result.promptFeedback?.safetyRatings ||
+      result.candidates?.[0]?.safetyRatings;
     console.log(
-      `[${JOB_NAME}-Gemini] 原始輸入文本字元長度: ${originalInputTextContent.length}`
+      `[${JOB_NAME_ANALYZER}-Gemini] Finish Reason: ${finishReason || "N/A"}`
     );
-    console.log(
-      `[${JOB_NAME}-Gemini] 完整 Prompt (文本部分) 字元長度: ${fullPromptString.length}`
-    );
+    if (safetyRatings && safetyRatings.length > 0) {
+      console.log(
+        `[${JOB_NAME_ANALYZER}-Gemini] Safety Ratings: ${JSON.stringify(
+          safetyRatings
+        )}`
+      );
+    }
 
-    const result = await modelInstance.generateContent({
-      contents: contentsForApi,
-      // generationConfig 和 safetySettings 已在 modelInstance 初始化時設定
-    });
-    const response = result.response;
-
-    if (response) {
-      const usageMetadata = response.usageMetadata;
-      if (usageMetadata) {
-        console.log(
-          `[${JOB_NAME}-Gemini] 用量元數據 - Prompt Tokens: ${usageMetadata.promptTokenCount}, Candidates Tokens: ${usageMetadata.candidatesTokenCount}, 總 Tokens: ${usageMetadata.totalTokenCount}`
-        );
-      } else {
-        console.warn(`[${JOB_NAME}-Gemini] Gemini 回應中未找到用量元數據。`);
-      }
-
-      const finishReason = response.candidates?.[0]?.finishReason;
-      const safetyRatings =
-        response.promptFeedback?.safetyRatings ||
-        response.candidates?.[0]?.safetyRatings;
-      console.log(`[${JOB_NAME}-Gemini] 完成原因: ${finishReason || "N/A"}`);
-      if (safetyRatings && safetyRatings.length > 0) {
-        console.log(
-          `[${JOB_NAME}-Gemini] 安全評級: ${JSON.stringify(safetyRatings)}`
-        );
-      }
-
-      const responseText = response.text ? response.text() : null;
-
-      if (finishReason === "MAX_TOKENS") {
-        console.error(
-          `[${JOB_NAME}-Gemini] 嚴重：輸出因達到 MAX_TOKENS 限制而被截斷。`
-        );
-        return {
-          error: `AI 輸出因達到最大 token 限制而被截斷 (MAX_TOKENS). Candidates Tokens: ${
-            usageMetadata?.candidatesTokenCount || "N/A"
-          }`,
-          type: "MAX_TOKENS",
-          rawOutput: responseText ?? undefined,
-        };
-      }
-      if (finishReason === "SAFETY") {
-        console.error(`[${JOB_NAME}-Gemini] 嚴重：輸出因安全設定而被停止。`);
-        return {
-          error: `AI 輸出因安全設定而被終止 (SAFETY). 評級: ${JSON.stringify(
-            safetyRatings
-          )}`,
-          type: "SAFETY",
-          rawOutput: responseText ?? undefined,
-        };
-      }
-      if (finishReason === "OTHER") {
-        console.error(
-          `[${JOB_NAME}-Gemini] 嚴重：輸出因其他原因停止。這可能與 schema 有關。`
-        );
-        return {
-          error: `AI 輸出因其他原因終止 (OTHER)。這可能與提供的 responseSchema 不相容有關。`,
-          type: "SCHEMA_ERROR_OR_OTHER",
-          rawOutput: responseText ?? undefined,
-        };
-      }
-      if (responseText === null || responseText.trim() === "") {
-        console.error(
-          `[${JOB_NAME}-Gemini] 回應文本為空或空白，即使完成原因是 ${finishReason}。`
-        );
-        return {
-          error:
-            "Gemini 回應文本為空或無法提取 (可能是 schema 約束導致無有效輸出)",
-          type: "EMPTY_RESPONSE",
-          rawOutput: responseText ?? undefined,
-        };
-      }
-
-      try {
-        // 因為 responseMimeType 是 application/json, responseText 應該就是純 JSON 字串
-        const parsedJson = JSON.parse(responseText);
-        const jsonResult = parsedJson as AnalysisResultJson; // 使用 const 進行類型斷言
-
-        contentSeemsTruncatedByEllipsis = false; // 重置標誌
-        if (finishReason === "STOP") {
-          // 仍然可以檢查 "..."
-          checkForEllipsisTruncation(jsonResult);
-        }
-
-        if (contentSeemsTruncatedByEllipsis) {
-          console.warn(
-            `[${JOB_NAME}-Gemini] 警告：輸出已完成 (STOP) 且符合 Schema，但內容中包含 '...' 省略號。`
-          );
-          // 根據需求決定是否將此情況視為錯誤並返回錯誤對象
-          // return { error: "AI輸出內容雖然符合Schema，但部分字串疑似被不自然的省略號結束", type: "CONTENT_ELLIPSIS_IN_VALID_SCHEMA", rawOutput: responseText, parsedResult: jsonResult };
-        }
-
-        // 頂層結構的基本驗證（大部分應由 API 的 schema 驗證保證）
-        if (
-          jsonResult &&
-          typeof jsonResult === "object" &&
-          typeof jsonResult.summary_title === "string" &&
-          typeof jsonResult.overall_summary_sentence === "string" &&
-          (jsonResult.agenda_items === null ||
-            Array.isArray(jsonResult.agenda_items)) // agenda_items 可以是 null 或陣列
-        ) {
-          console.log(
-            `[${JOB_NAME}-Gemini] 分析成功 (JSON 已解析且 schema 結構已由 API 驗證)。`
-          );
-
-          // 進行後處理：將 agenda_items 中特定欄位的換行符字串轉換為陣列
-          const processedResult: AnalysisResultJson = {
-            ...jsonResult, // 複製原始解析結果
-            agenda_items: jsonResult.agenda_items
-              ? jsonResult.agenda_items.map((item: AgendaItem) => {
-                  // 明確 item 類型
-                  const newItem: AgendaItem = { ...item }; // 創建副本以避免修改原始 jsonResult
-                  // 檢查欄位是否存在且為字串才進行處理
-                  if (typeof newItem.core_issue === "string")
-                    newItem.core_issue = processFieldForArray(
-                      newItem.core_issue
-                    );
-                  if (typeof newItem.controversy === "string")
-                    newItem.controversy = processFieldForArray(
-                      newItem.controversy
-                    );
-                  if (typeof newItem.result_status_next === "string")
-                    newItem.result_status_next = processFieldForArray(
-                      newItem.result_status_next
-                    );
-
-                  if (newItem.key_speakers) {
-                    newItem.key_speakers = newItem.key_speakers.map(
-                      (speaker: KeySpeaker) => {
-                        // 明確 speaker 類型
-                        const newSpeaker: KeySpeaker = { ...speaker };
-                        if (typeof newSpeaker.speaker_viewpoint === "string")
-                          newSpeaker.speaker_viewpoint = processFieldForArray(
-                            newSpeaker.speaker_viewpoint
-                          );
-                        return newSpeaker;
-                      }
-                    );
-                  }
-                  return newItem;
-                })
-              : null, // 如果原始 agenda_items 為 null，則保持 null
-          };
-          return processedResult; // 返回經過後處理的結果
-        } else {
-          console.warn(
-            `[${JOB_NAME}-Gemini] 已解析的 JSON (已由 schema 驗證) 仍缺少預期的頂層結構/類型。這種情況應該很少見。`
-          );
-          return {
-            error:
-              "AI 輸出的 JSON 結構不符合預期 (可能是 schema 非常寬鬆或 SDK 返回了意外格式)",
-            type: "INVALID_STRUCTURE_POST_SCHEMA",
-            rawOutput: responseText,
-            parsedResult: jsonResult, // 保存解析後的結果以供調試
-          };
-        }
-      } catch (parseError) {
-        // 理論上，如果 API 嚴格遵循 schema，這裡的 JSON 解析錯誤應該很少見
-        console.error(
-          `[${JOB_NAME}-Gemini] JSON 解析錯誤 (設定 responseSchema 後應很少見): ${parseError.message}.`
-        );
-        console.error(
-          `[${JOB_NAME}-Gemini] 解析失敗的原始文本 (前500 + 後500 字元):\n頭部>>>${responseText?.substring(
-            0,
-            500
-          )}\n...\n尾部>>>${responseText?.slice(-500)}`
-        );
-        return {
-          error: `AI 未按要求輸出有效 JSON (解析錯誤，即使設定了 responseSchema): ${parseError.message}`,
-          type: "JSON_PARSE_ERROR_WITH_SCHEMA",
-          rawOutput: responseText,
-        };
-      }
-    } else {
+    // Extract and validate content from the response
+    const candidate = result.candidates?.[0];
+    if (
+      !candidate ||
+      !candidate.content ||
+      !candidate.content.parts ||
+      candidate.content.parts.length === 0
+    ) {
       console.error(
-        `[${JOB_NAME}-Gemini] Gemini 結果中沒有 'response' 物件 (已設定 responseSchema)。`
+        `[${JOB_NAME_ANALYZER}-Gemini] Could not extract valid candidate content/parts from API response. Raw Response: ${JSON.stringify(
+          result
+        )}`
       );
       return {
         error:
-          "Gemini API 未返回有效的 response 物件 (即使設定了 responseSchema)",
-        type: "EMPTY_RESPONSE",
+          "Gemini API response structure incomplete or missing candidate content.",
+        type: "MALFORMED_RESPONSE",
+        rawOutput: JSON.stringify(result),
+      };
+    }
+
+    const part = candidate.content.parts[0];
+    if (!("text" in part && typeof part.text === "string")) {
+      console.error(
+        `[${JOB_NAME_ANALYZER}-Gemini] Response part does not contain identifiable text. Part Content: ${JSON.stringify(
+          part
+        )}. Raw Response: ${JSON.stringify(result)}`
+      );
+      return {
+        error:
+          "Gemini response part lacks valid text content for JSON parsing.",
+        type: "EMPTY_RESPONSE_PART",
+        rawOutput: JSON.stringify(result),
+      };
+    }
+
+    rawResponseTextForError = part.text; // Store for potential error reporting
+
+    // Handle non-STOP finish reasons which indicate potential issues
+    if (finishReason === "MAX_TOKENS") {
+      console.error(
+        `[${JOB_NAME_ANALYZER}-Gemini] CRITICAL: Output truncated due to MAX_TOKENS limit.`
+      );
+      return {
+        error: `AI output truncated (MAX_TOKENS). Candidate Tokens: ${
+          usageMetadata?.candidatesTokenCount || "N/A"
+        }`,
+        type: "MAX_TOKENS",
+        rawOutput: rawResponseTextForError,
+      };
+    }
+    if (finishReason === "SAFETY") {
+      console.error(
+        `[${JOB_NAME_ANALYZER}-Gemini] CRITICAL: Output stopped due to safety settings.`
+      );
+      return {
+        error: `AI output terminated by safety settings (SAFETY). Ratings: ${JSON.stringify(
+          safetyRatings || []
+        )}`,
+        type: "SAFETY",
+        rawOutput: rawResponseTextForError,
+      };
+    }
+    if (finishReason === "OTHER") {
+      console.error(
+        `[${JOB_NAME_ANALYZER}-Gemini] CRITICAL: Output stopped for OTHER reason (possibly schema related).`
+      );
+      return {
+        error: `AI output terminated (OTHER reason). May indicate responseSchema incompatibility.`,
+        type: "SCHEMA_ERROR_OR_OTHER",
+        rawOutput: rawResponseTextForError,
+      };
+    }
+    if (
+      finishReason !== "STOP" &&
+      finishReason !== undefined &&
+      finishReason !== null
+    ) {
+      // null can also be a valid stop
+      console.warn(
+        `[${JOB_NAME_ANALYZER}-Gemini] Unusual finish reason: '${finishReason}'. Attempting JSON parse.`
+      );
+    }
+
+    // Clean potential Markdown code block wrappers from the JSON string
+    let textToParse = part.text;
+    const markdownBlockRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/;
+    const match = textToParse.trim().match(markdownBlockRegex);
+    if (match && match[1]) {
+      textToParse = match[1].trim();
+      console.log(
+        `[${JOB_NAME_ANALYZER}-Gemini] Removed Markdown JSON wrapper from AI response.`
+      );
+    } else if (
+      textToParse.trim().startsWith("```") ||
+      textToParse.trim().endsWith("```")
+    ) {
+      // Lenient cleanup if regex fails but backticks are present
+      let tempText = textToParse.trim();
+      if (tempText.startsWith("```json")) {
+        tempText = tempText.substring(7);
+      } else if (tempText.startsWith("```")) {
+        tempText = tempText.substring(3);
+      }
+      if (tempText.endsWith("```")) {
+        tempText = tempText.substring(0, tempText.length - 3);
+      }
+      textToParse = tempText.trim();
+      if (textToParse !== part.text.trim()) {
+        console.log(
+          `[${JOB_NAME_ANALYZER}-Gemini] Attempted lenient cleanup of Markdown wrappers.`
+        );
+      }
+    }
+
+    // Parse the cleaned text as JSON
+    console.log(
+      `[${JOB_NAME_ANALYZER}-Gemini] Attempting to parse JSON from AI response...`
+    );
+    const parsedJson = JSON.parse(textToParse);
+    const jsonResult = parsedJson as AnalysisResultJson;
+
+    // Basic client-side validation of the parsed JSON structure
+    if (
+      jsonResult &&
+      typeof jsonResult === "object" &&
+      typeof jsonResult.summary_title === "string" &&
+      typeof jsonResult.overall_summary_sentence === "string" &&
+      (jsonResult.agenda_items === null ||
+        Array.isArray(jsonResult.agenda_items))
+    ) {
+      console.log(
+        `[${JOB_NAME_ANALYZER}-Gemini] Analysis successful: JSON parsed and basic structure validated.`
+      );
+      return jsonResult;
+    } else {
+      console.warn(
+        `[${JOB_NAME_ANALYZER}-Gemini] Parsed JSON failed client-side structure validation. Parsed Object: ${JSON.stringify(
+          jsonResult
+        )}`
+      );
+      return {
+        error: "Parsed JSON from AI failed client-side structure validation.",
+        type: "INVALID_STRUCTURE_POST_SCHEMA",
+        rawOutput: rawResponseTextForError,
+        parsedResult: jsonResult, // Include the problematic parsed object
       };
     }
   } catch (error) {
-    console.error(`[${JOB_NAME}-Gemini] 外部 API 呼叫錯誤:`, error);
-    let errorMessage = `Gemini API 呼叫失敗: ${error.message || String(error)}`;
-    // 增加對 schema 相關錯誤的判斷
+    // Handle errors from API call or JSON parsing
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[${JOB_NAME_ANALYZER}-Gemini] Error during API call or JSON parsing:`,
+      error
+    );
+
+    let errorMessage = `Gemini API call or JSON parsing failed: ${errorMsg}`;
+    let errorType = "API_CALL_OR_PARSE_ERROR"; // Default
+
+    // Refine error type based on error details
     if (
-      error.message?.includes("SCHEMA_ERROR") ||
-      (error.message?.includes("InvalidArgument") &&
-        error.message?.includes("response_schema"))
+      error instanceof SyntaxError ||
+      errorMsg.toLowerCase().includes("json")
     ) {
-      errorMessage = `Gemini API 呼叫失敗，可能與 responseSchema 配置有關: ${error.message}`;
-    } else if (error.message?.includes("SAFETY")) {
-      errorMessage = `內容或回應觸發安全規則: ${error.message}`;
+      errorMessage = `Failed to parse API response as JSON: ${errorMsg}`;
+      errorType = "JSON_PARSE_ERROR_WITH_SCHEMA";
+      console.error(
+        `[${JOB_NAME_ANALYZER}-Gemini] Text that failed JSON parsing (first 500 chars): ${
+          rawResponseTextForError?.substring(0, 500) ?? "N/A"
+        }`
+      );
     } else if (
-      error.message?.includes("fetch failed") ||
-      error.code === "ENOTFOUND" ||
-      error.code === "ECONNREFUSED"
+      errorMsg.includes("SCHEMA_ERROR") ||
+      (errorMsg.includes("InvalidArgument") &&
+        errorMsg.includes("response_schema"))
     ) {
-      errorMessage = `網路錯誤，無法連接 Gemini API: ${error.message}`;
-    } else if (error.message?.includes("API key not valid")) {
-      errorMessage = `Gemini API 金鑰無效: ${error.message}`;
+      errorMessage = `Gemini API call failed, possibly responseSchema related: ${errorMsg}`;
+      errorType = "SCHEMA_ERROR_OR_OTHER";
+    } else if (errorMsg.includes("SAFETY")) {
+      errorMessage = `Content/response triggered Gemini safety rules: ${errorMsg}`;
+      errorType = "SAFETY";
     } else if (
-      error.message?.includes("Deadline exceeded") ||
-      error.message?.includes("timeout")
+      errorMsg.includes("fetch failed") ||
+      (error instanceof Error &&
+        "code" in error &&
+        (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED"))
     ) {
-      errorMessage = `Gemini API 呼叫超時: ${error.message}`;
-    } else if (error.status && error.statusText) {
-      // 檢查 HTTP 錯誤
-      errorMessage = `Gemini API HTTP 錯誤 ${error.status}: ${error.statusText}. 詳細信息: ${error.message}`;
+      errorMessage = `Network error connecting to Gemini API: ${errorMsg}`;
+      errorType = "NETWORK_ERROR";
+    } else if (errorMsg.includes("API key not valid")) {
+      errorMessage = `Invalid Gemini API Key: ${errorMsg}`;
+      errorType = "AUTH_ERROR";
+    } else if (
+      errorMsg.includes("Deadline exceeded") ||
+      errorMsg.includes("timeout")
+    ) {
+      errorMessage = `Gemini API call timed out: ${errorMsg}`;
+      errorType = "TIMEOUT_ERROR";
+    } else if (error instanceof Response && !error.ok) {
+      errorMessage = `Gemini API HTTP error ${error.status}: ${
+        error.statusText
+      }. Details: ${await error
+        .text()
+        .catch(() => "(Could not read error body)")}`;
+      errorType = "HTTP_ERROR";
+    } else if (errorMsg.includes("[GoogleGenerativeAI Error]")) {
+      // Check for Google SDK specific errors
+      if (
+        errorMsg.toLowerCase().includes("quota") ||
+        errorMsg.toLowerCase().includes("resource_exhausted")
+      ) {
+        errorType = "QUOTA_EXCEEDED";
+        errorMessage = `Gemini API quota/rate limit issue: ${errorMsg}`;
+      } else if (errorMsg.toLowerCase().includes("invalid_argument")) {
+        errorType = "INVALID_ARGUMENT";
+        errorMessage = `Invalid argument to Gemini API: ${errorMsg}`;
+      } else {
+        errorType = "GOOGLE_AI_ERROR"; // Generic Google AI SDK error
+      }
     }
 
-    return { error: errorMessage, type: "API_CALL_ERROR" };
+    return {
+      error: errorMessage,
+      type: errorType,
+      rawOutput: rawResponseTextForError,
+    };
   }
 }

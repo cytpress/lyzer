@@ -1,44 +1,38 @@
-// supabase/functions/analyze-pending-contents/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
   HarmCategory,
   HarmBlockThreshold,
   type GenerationConfig,
   type SafetySetting,
-} from "npm:@google/generative-ai";
+} from "npm:@google/genai";
 import {
   getSupabaseClient,
   FETCH_DELAY_MS,
-  AnalyzedContentRecord,
-  // GeminiErrorDetail, // 如果在此文件未直接使用，根據 lint 規則可考慮移除或用 _ 别名
+  MAX_REGULAR_ATTEMPTS,
+  MAX_SHORTENED_ATTEMPTS,
+  JOB_NAME_ANALYZER,
 } from "../_shared/utils.ts";
+import type { AnalyzedContentRecord } from "../_shared/types/database.ts";
 import { processSingleAnalyzedContent } from "./contentProcessor.ts";
 
-// --- 配置 ---
-export const JOB_NAME = "analyze-pending-contents";
-export const GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-04-17";
-export const MAX_CONTENT_LENGTH_CHARS = 750000;
-export const CONTENT_FETCH_TIMEOUT_MS = 60000;
-export const MAX_REGULAR_ATTEMPTS = 2;
-export const MAX_SHORTENED_ATTEMPTS = 1;
+// --- Job Configuration ---
+export const GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-04-17"; // AI model for analysis
+export const MAX_CONTENT_LENGTH_CHARS = 750000; // Max characters before content truncation
+export const CONTENT_FETCH_TIMEOUT_MS = 60000; // Timeout for fetching external content
 
-// Gemini Generation Config - 基礎配置
-// responseMimeType 和 responseSchema 會在 analyzeWithGemini 內部根據情況添加
-// thinkingConfig 已暫時移除，因 SDK GenerationConfig 類型中未直接包含，需查閱最新文檔確認配置方式
-export const baseGenerationConfig: Omit<
-  GenerationConfig,
-  | "responseMimeType"
-  | "responseSchema"
-  | "candidateCount"
-  | "stopSequences"
-  | "topP"
-  | "topK" // Omit 更多可選但我們沒用的屬性
-> = {
+// --- Gemini API Configuration ---
+// Base config for Gemini generation
+export const baseGenerationConfig: Partial<GenerationConfig> & {
+  thinkingConfig?: { thinkingBudget?: number };
+} = {
   temperature: 0.3,
-  maxOutputTokens: 60000, // 仍然需要，以防生成的 JSON 過長
+  maxOutputTokens: 60000,
+  thinkingConfig: {
+    thinkingBudget: 0, // Set to 0 as per original
+  },
 };
 
-// Gemini Safety Settings - 安全設置
+// Safety settings for Gemini
 export const safetySettings: SafetySetting[] = [
   {
     category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -58,228 +52,252 @@ export const safetySettings: SafetySetting[] = [
   },
 ];
 
-// --- 主配置 ---
-const GEMINI_ANALYSIS_LIMIT_PER_RUN = 1; // 每次 Function 運行實際調用 AI 分析的次數
-const DB_FETCH_LIMIT = 10; // 每次從 DB 查詢待處理記錄的總上限 (包含兩種類型)
+// --- Job Execution Limits ---
+const GEMINI_ANALYSIS_LIMIT_PER_RUN = 1; // Max *new* AI analyses initiated per invocation.
+const DB_FETCH_LIMIT = 10; // Max candidate records fetched from DB per invocation.
 
+// --- Main Function Handler ---
 serve(async (_req) => {
   const startTime = Date.now();
+  // Counters for this run's summary
   let geminiAnalysesScheduledThisRun = 0;
   let successfulAnalysesCount = 0;
   let partiallyCompletedCount = 0;
-  let failedProcessingCount = 0;
+  let failedOrRetryingCount = 0;
   let skippedByCategoryCount = 0;
-  let markedForShortenedRetryCount = 0;
-  let contentsCheckedCount = 0;
-  const errorsThisRun: string[] = [];
+  let contentsCheckedCount = 0; // Total records iterated from DB
+  const errorsThisRun: string[] = []; // Collects system-level errors
 
   const supabase = getSupabaseClient();
   const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
 
   if (!geminiApiKey) {
-    console.error(`[${JOB_NAME}] 缺少 GEMINI_API_KEY 環境變數！`);
+    console.error(
+      `[${JOB_NAME_ANALYZER}] FATAL: GEMINI_API_KEY environment variable is missing!`
+    );
     return new Response(
       JSON.stringify({
         success: false,
-        message: "缺少 GEMINI_API_KEY 環境變數！",
+        message: "Missing GEMINI_API_KEY environment variable!",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
+
   console.log(
-    `[${JOB_NAME}] Function 已啟動。模型: ${GEMINI_MODEL_NAME}。每次運行 AI 分析上限: ${GEMINI_ANALYSIS_LIMIT_PER_RUN}。最大常規嘗試次數: ${MAX_REGULAR_ATTEMPTS}，最大精簡嘗試次數: ${MAX_SHORTENED_ATTEMPTS}。`
+    `[${JOB_NAME_ANALYZER}] Function started. Model: ${GEMINI_MODEL_NAME}. AI analysis limit/run: ${GEMINI_ANALYSIS_LIMIT_PER_RUN}. DB fetch limit/run: ${DB_FETCH_LIMIT}. Max Regular Attempts: ${MAX_REGULAR_ATTEMPTS}, Max Shortened Attempts: ${MAX_SHORTENED_ATTEMPTS}. Thinking Budget: ${
+      baseGenerationConfig.thinkingConfig?.thinkingBudget ?? "Default/Off" // Log actual thinking budget
+    }`
   );
 
   try {
-    // 階段一：處理需要精簡 Prompt 重試的任務
+    // Phase 1: Process items needing 'shortened_retry'
+    // These are prioritized as they have already failed regular attempts.
+    let processedInPhase1 = 0;
     if (geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN) {
       const limitForShortenedFetch = Math.min(
         DB_FETCH_LIMIT,
         GEMINI_ANALYSIS_LIMIT_PER_RUN - geminiAnalysesScheduledThisRun
       );
+
       if (limitForShortenedFetch > 0) {
         console.log(
-          `[${JOB_NAME}] 階段一：正在抓取最多 ${limitForShortenedFetch} 筆需要精簡重試的內容...`
+          `[${JOB_NAME_ANALYZER}] Phase 1: Fetching up to ${limitForShortenedFetch} 'needs_shortened_retry' items...`
         );
         const { data: shortenedRetryContents, error: fetchShortenedError } =
           await supabase
             .from("analyzed_contents")
-            .select<"*", AnalyzedContentRecord>("*") // 明確指定類型
+            .select<"*", AnalyzedContentRecord>("*")
             .eq("analysis_status", "needs_shortened_retry")
             .lt("shortened_analysis_attempts", MAX_SHORTENED_ATTEMPTS)
-            .order("updated_at", { ascending: true })
+            .order("updated_at", { ascending: true }) // Process older items first
             .limit(limitForShortenedFetch);
 
         if (fetchShortenedError) {
           console.error(
-            `[${JOB_NAME}] 資料庫錯誤 (抓取精簡重試內容): ${fetchShortenedError.message}`
+            `[${JOB_NAME_ANALYZER}] DB Error (Fetching 'needs_shortened_retry'): ${fetchShortenedError.message}`
           );
           errorsThisRun.push(
-            `資料庫錯誤 (精簡重試): ${fetchShortenedError.message}`
+            `DB Error (Phase 1 Fetch): ${fetchShortenedError.message}`
           );
         }
 
         if (shortenedRetryContents && shortenedRetryContents.length > 0) {
           console.log(
-            `[${JOB_NAME}] 找到 ${shortenedRetryContents.length} 筆內容進行精簡重試。`
+            `[${JOB_NAME_ANALYZER}] Found ${shortenedRetryContents.length} item(s) for shortened retry processing.`
           );
           for (const contentRecord of shortenedRetryContents) {
+            if (contentsCheckedCount >= DB_FETCH_LIMIT) {
+              console.log(
+                `[${JOB_NAME_ANALYZER}] DB fetch limit (${DB_FETCH_LIMIT}) reached in Phase 1.`
+              );
+              break; // Stop iterating if DB fetch limit hit
+            }
+            contentsCheckedCount++;
+            processedInPhase1++;
+
             if (
               geminiAnalysesScheduledThisRun >= GEMINI_ANALYSIS_LIMIT_PER_RUN
             ) {
               console.log(
-                `[${JOB_NAME}] 已達本輪 AI 分析上限，停止處理精簡重試任務。`
+                `[${JOB_NAME_ANALYZER}] AI analysis limit (${GEMINI_ANALYSIS_LIMIT_PER_RUN}) reached. Skipping ID: ${contentRecord.id} (shortened).`
               );
-              break;
+              continue; // Skip AI call, but allow checking other items up to DB_FETCH_LIMIT
             }
-            contentsCheckedCount++;
 
             const result = await processSingleAnalyzedContent(
               contentRecord,
               supabase,
               geminiApiKey,
-              true, // isShortenedAttempt
-              baseGenerationConfig, // 傳入基礎配置
-              safetySettings // 傳入安全設置
+              true, // isShortenedAttempt = true
+              baseGenerationConfig,
+              safetySettings
             );
 
             if (result.analysisPerformed) geminiAnalysesScheduledThisRun++;
-
             if (result.skippedByCategory) skippedByCategoryCount++;
-            else if (result.success)
-              partiallyCompletedCount++; // 精簡嘗試成功算作部分完成
-            else failedProcessingCount++;
+            else if (result.finalStatusSet === "partially_completed")
+              partiallyCompletedCount++;
+            else if (
+              result.finalStatusSet !== "completed" &&
+              result.finalStatusSet !== "skipped"
+            ) {
+              failedOrRetryingCount++;
+            }
 
             if (
               geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN &&
-              contentsCheckedCount < DB_FETCH_LIMIT
+              processedInPhase1 < shortenedRetryContents.length
             ) {
               await new Promise((resolve) =>
                 setTimeout(resolve, FETCH_DELAY_MS)
               );
             }
           }
-        } else {
-          console.log(`[${JOB_NAME}] 本輪未找到需要精簡重試的內容。`);
+        } else if (!fetchShortenedError) {
+          // Log only if fetch was successful
+          console.log(
+            `[${JOB_NAME_ANALYZER}] No eligible 'needs_shortened_retry' items found in Phase 1.`
+          );
         }
       } else {
         console.log(
-          `[${JOB_NAME}] 階段一：沒有剩餘的 AI 分析額度或資料庫抓取上限用於精簡重試。`
+          `[${JOB_NAME_ANALYZER}] Skipping Phase 1: No AI analysis budget or DB fetch capacity.`
         );
       }
     }
 
-    // 階段二：處理常規的 pending 或可重試的 failed 任務
-    const remainingAiBudgetForRegular =
+    // Phase 2: Process 'pending' or retryable 'failed' items
+    // This phase runs if limits were not exhausted in Phase 1.
+    let processedInPhase2 = 0;
+    const remainingDbFetchLimit = DB_FETCH_LIMIT - contentsCheckedCount;
+    const remainingAiBudget =
       GEMINI_ANALYSIS_LIMIT_PER_RUN - geminiAnalysesScheduledThisRun;
-    if (remainingAiBudgetForRegular > 0) {
+
+    if (remainingDbFetchLimit > 0 && remainingAiBudget > 0) {
       const limitForRegularFetch = Math.min(
-        remainingAiBudgetForRegular,
-        DB_FETCH_LIMIT - contentsCheckedCount // 減去已檢查的數量
+        remainingDbFetchLimit,
+        remainingAiBudget
       );
 
-      if (limitForRegularFetch > 0) {
-        console.log(
-          `[${JOB_NAME}] 階段二：正在抓取最多 ${limitForRegularFetch} 筆待處理/失敗的內容進行常規分析...`
+      console.log(
+        `[${JOB_NAME_ANALYZER}] Phase 2: Fetching up to ${limitForRegularFetch} 'pending' or retryable 'failed' items...`
+      );
+      const { data: regularContents, error: fetchRegularError } = await supabase
+        .from("analyzed_contents")
+        .select<"*", AnalyzedContentRecord>("*")
+        .in("analysis_status", ["pending", "failed"])
+        .lt("analysis_attempts", MAX_REGULAR_ATTEMPTS)
+        .order("created_at", { ascending: true }) // Process oldest pending first
+        .limit(limitForRegularFetch);
+
+      if (fetchRegularError) {
+        console.error(
+          `[${JOB_NAME_ANALYZER}] DB Error (Fetching 'pending'/'failed'): ${fetchRegularError.message}`
         );
-        const { data: regularContents, error: fetchRegularError } =
-          await supabase
-            .from("analyzed_contents")
-            .select<"*", AnalyzedContentRecord>("*") // 明確指定類型
-            .in("analysis_status", ["pending", "failed"])
-            .lt("analysis_attempts", MAX_REGULAR_ATTEMPTS)
-            .order("created_at", { ascending: true }) // 或者按 updated_at 升序處理最早失敗的
-            .limit(limitForRegularFetch);
+        errorsThisRun.push(
+          `DB Error (Phase 2 Fetch): ${fetchRegularError.message}`
+        );
+      }
 
-        if (fetchRegularError) {
-          console.error(
-            `[${JOB_NAME}] 資料庫錯誤 (抓取常規內容): ${fetchRegularError.message}`
-          );
-          errorsThisRun.push(`資料庫錯誤 (常規): ${fetchRegularError.message}`);
-        }
-
-        if (regularContents && regularContents.length > 0) {
-          console.log(
-            `[${JOB_NAME}] 找到 ${regularContents.length} 筆內容進行常規分析。`
-          );
-          for (const contentRecord of regularContents) {
-            if (
-              geminiAnalysesScheduledThisRun >= GEMINI_ANALYSIS_LIMIT_PER_RUN
-            ) {
-              console.log(
-                `[${JOB_NAME}] 已達本輪 AI 分析上限，停止處理常規任務。`
-              );
-              break;
-            }
-            contentsCheckedCount++;
-
-            const result = await processSingleAnalyzedContent(
-              contentRecord,
-              supabase,
-              geminiApiKey,
-              false, // isShortenedAttempt
-              baseGenerationConfig, // 傳入基礎配置
-              safetySettings // 傳入安全設置
-            );
-
-            if (result.skippedByCategory) {
-              skippedByCategoryCount++;
-            } else if (result.analysisPerformed) {
-              geminiAnalysesScheduledThisRun++;
-              if (result.success) {
-                successfulAnalysesCount++;
-              } else if (result.needsShortenedRetry) {
-                markedForShortenedRetryCount++;
-                // 相關日誌已在 processSingleAnalyzedContent 中打印
-              } else {
-                failedProcessingCount++;
-                // 相關日誌已在 processSingleAnalyzedContent 中打印
-              }
-            } else if (!result.success && !result.skippedByCategory) {
-              // AI 分析前的處理失敗 (例如內容抓取失敗)
-              failedProcessingCount++;
-              // 相關日誌已在 processSingleAnalyzedContent 中打印
-            }
-
-            if (
-              geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN &&
-              contentsCheckedCount < DB_FETCH_LIMIT
-            ) {
-              await new Promise((resolve) =>
-                setTimeout(resolve, FETCH_DELAY_MS)
-              );
-            }
-          }
-        } else {
-          console.log(
-            `[${JOB_NAME}] 本輪未找到待處理/失敗的內容進行常規分析 (或抓取上限為0)。`
-          );
-        }
-      } else {
+      if (regularContents && regularContents.length > 0) {
         console.log(
-          `[${JOB_NAME}] 階段二：沒有剩餘的 AI 分析額度或資料庫抓取上限用於常規分析。`
+          `[${JOB_NAME_ANALYZER}] Found ${regularContents.length} item(s) for regular analysis processing.`
+        );
+        for (const contentRecord of regularContents) {
+          if (contentsCheckedCount >= DB_FETCH_LIMIT) {
+            console.log(
+              `[${JOB_NAME_ANALYZER}] DB fetch limit (${DB_FETCH_LIMIT}) reached in Phase 2.`
+            );
+            break;
+          }
+          contentsCheckedCount++;
+          processedInPhase2++;
+
+          if (geminiAnalysesScheduledThisRun >= GEMINI_ANALYSIS_LIMIT_PER_RUN) {
+            console.log(
+              `[${JOB_NAME_ANALYZER}] AI analysis limit (${GEMINI_ANALYSIS_LIMIT_PER_RUN}) reached. Skipping ID: ${contentRecord.id} (regular).`
+            );
+            continue;
+          }
+
+          const result = await processSingleAnalyzedContent(
+            contentRecord,
+            supabase,
+            geminiApiKey,
+            false, // isShortenedAttempt = false
+            baseGenerationConfig,
+            safetySettings
+          );
+
+          if (result.analysisPerformed) geminiAnalysesScheduledThisRun++;
+          if (result.skippedByCategory) skippedByCategoryCount++;
+          else if (result.finalStatusSet === "completed")
+            successfulAnalysesCount++;
+          else if (
+            result.finalStatusSet !== "partially_completed" &&
+            result.finalStatusSet !== "skipped"
+          ) {
+            failedOrRetryingCount++;
+          }
+
+          if (
+            geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN &&
+            processedInPhase2 < regularContents.length
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+          }
+        }
+      } else if (!fetchRegularError) {
+        // Log only if fetch was successful
+        console.log(
+          `[${JOB_NAME_ANALYZER}] No eligible 'pending' or retryable 'failed' items found in Phase 2.`
         );
       }
     } else {
       console.log(
-        `[${JOB_NAME}] AI 分析上限已在階段一後達到。跳過階段二的常規任務。`
+        `[${JOB_NAME_ANALYZER}] Skipping Phase 2: DB fetch limit or AI analysis limit already reached.`
       );
     }
 
-    if (contentsCheckedCount === 0) {
+    if (contentsCheckedCount === 0 && errorsThisRun.length === 0) {
       console.log(
-        `[${JOB_NAME}] 本次運行未檢查任何內容 (無論是精簡重試還是常規任務)。`
+        `[${JOB_NAME_ANALYZER}] No content items found matching processing criteria in this run.`
       );
     }
   } catch (error) {
-    console.error(`[${JOB_NAME}] CRITICAL 主處理程序錯誤:`, error);
-    errorsThisRun.push(`嚴重錯誤: ${error.message}`);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[${JOB_NAME_ANALYZER}] CRITICAL: Unhandled error in main processing loop:`,
+      error
+    );
+    errorsThisRun.push(`Critical error: ${errorMsg}`);
     return new Response(
       JSON.stringify({
         success: false,
-        message: `嚴重錯誤: ${error.message}`,
+        message: `Critical error: ${errorMsg}`,
         errors: errorsThisRun,
-        stack: error.stack, // 開發時可包含堆疊追蹤
+        stack: error instanceof Error ? error.stack : undefined,
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
@@ -287,20 +305,30 @@ serve(async (_req) => {
 
   const duration = (Date.now() - startTime) / 1000;
   let summary =
-    `已檢查 ${contentsCheckedCount} 個內容網址。` +
-    `嘗試進行 ${geminiAnalysesScheduledThisRun} 次 AI 分析。` +
-    `結果: ${successfulAnalysesCount} 次完全成功, ${partiallyCompletedCount} 次部分成功 (精簡), ${failedProcessingCount} 次實際失敗。` +
-    `${markedForShortenedRetryCount} 筆標記為精簡重試。` +
-    `${skippedByCategoryCount} 筆因類別跳過。`;
+    `Checked ${contentsCheckedCount} DB record(s). ` +
+    `Attempted ${geminiAnalysesScheduledThisRun} AI analysis(es). ` +
+    `Results: ${successfulAnalysesCount} completed, ${partiallyCompletedCount} partially completed, ${failedOrRetryingCount} failed/retrying, ${skippedByCategoryCount} skipped.`;
   if (errorsThisRun.length > 0) {
-    summary += `發生系統錯誤: ${errorsThisRun.join("; ")}。`;
+    summary += ` Encountered ${errorsThisRun.length} system error(s).`;
   }
-  summary += `執行時間: ${duration.toFixed(2)} 秒。`;
+  summary += ` Duration: ${duration.toFixed(2)}s.`;
 
-  console.log(`[${JOB_NAME}] 運行結束。${summary}`);
+  console.log(`[${JOB_NAME_ANALYZER}] Run finished. ${summary}`);
 
   return new Response(
-    JSON.stringify({ success: true, message: summary, errors: errorsThisRun }),
+    JSON.stringify({
+      success: errorsThisRun.length === 0, // Overall success depends on system errors
+      message: summary,
+      details: {
+        checked: contentsCheckedCount,
+        aiAttempts: geminiAnalysesScheduledThisRun,
+        completed: successfulAnalysesCount,
+        partiallyCompleted: partiallyCompletedCount,
+        failedOrRetrying: failedOrRetryingCount,
+        skipped: skippedByCategoryCount,
+      },
+      errors: errorsThisRun,
+    }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 });

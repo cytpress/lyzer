@@ -328,3 +328,14 @@ entrypoint = "./functions/analyze-pending-agendas/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/analyze-pending-agendas/*.html" ]
+
+[functions.rescue-stuck-analyses]
+enabled = true
+verify_jwt = true
+import_map = "./functions/rescue-stuck-analyses/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/rescue-stuck-analyses/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/rescue-stuck-analyses/*.html" ]
