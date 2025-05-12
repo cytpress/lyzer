@@ -1,9 +1,13 @@
--- supabase/migrations/YYYYMMDDHHMMSS_refactor_analyzed_contents.sql
+-- supabase/migrations/YYYYMMDDHHMMSS_initialize_app_schema_v2.sql
 -- ======================================================================
--- Schema Refactor Script for Gazette Data Processing
--- Target: Introduces analyzed_contents table for unique URL analysis,
---         adjusts gazette_agendas, and sets up related components.
--- Uses built-in gen_random_uuid() instead of uuid-ossp extension.
+-- Supabase App Schema Initialization Script
+-- Version: 2.0
+-- Description: Creates tables for gazettes, gazette_agendas,
+--              analyzed_contents, and job_state.
+--              Ensures gazette_agendas.parsed_content_url is NOT unique.
+-- WARNING: This script is designed for a fresh setup or reset.
+--          If you have existing tables with the same names,
+--          they might be dropped or altered. BACKUP YOUR DATA.
 -- ======================================================================
 -- ------------ 啟用必要的擴充功能 ------------
 CREATE EXTENSION IF NOT EXISTS "plpgsql"
@@ -14,19 +18,10 @@ CREATE EXTENSION IF NOT EXISTS "pg_net"
 WITH
     SCHEMA "extensions";
 
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements"
-WITH
-    SCHEMA "extensions";
-
 CREATE EXTENSION IF NOT EXISTS "pgcrypto"
 WITH
     SCHEMA "extensions";
 
-CREATE EXTENSION IF NOT EXISTS "pgjwt"
-WITH
-    SCHEMA "extensions";
-
--- CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions"; -- <<< 不再需要 >>>
 -- ------------ 設定模式和超時 ------------
 SET
     statement_timeout = 0;
@@ -58,170 +53,169 @@ SET
 SET
     row_security = off;
 
-COMMENT ON SCHEMA "public" IS 'standard public schema';
-
--- ------------ 更新 updated_at 的觸發器函數 ------------
+-- ------------ 通用 updated_at 觸發器函數 ------------
 CREATE
-OR REPLACE FUNCTION public.update_updated_at_column () RETURNS trigger LANGUAGE plpgsql AS $$
+OR REPLACE FUNCTION public.trigger_set_timestamp () RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION public.update_updated_at_column () IS '通用函數：在 UPDATE 操作前自動更新 updated_at 欄位為當前時間';
+COMMENT ON FUNCTION public.trigger_set_timestamp () IS '在 UPDATE 操作前自動更新 updated_at 欄位為當前時間';
 
 -- ======================================================================
--- 建表與設定 (Tables and Configuration)
+-- 表定義 (Tables Definitions)
 -- ======================================================================
--- 1. gazettes 表
+-- 1. gazettes 表 (公報主表)
+DROP TABLE IF EXISTS public.gazettes CASCADE;
+
 CREATE TABLE
     public.gazettes (
-        gazette_id text NOT NULL PRIMARY KEY,
-        volume integer,
-        issue integer,
-        booklet integer,
-        publish_date date,
-        fetched_at timestamptz NOT NULL DEFAULT now()
+        gazette_id TEXT NOT NULL PRIMARY KEY,
+        volume INTEGER,
+        issue INTEGER,
+        booklet INTEGER,
+        publish_date DATE,
+        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-COMMENT ON TABLE public.gazettes IS '立法院公報基本資料';
+COMMENT ON TABLE public.gazettes IS '儲存立法院公報的基本元數據。';
 
--- ... (欄位註解省略)
--- 2. 新增表：analyzed_contents
-CREATE TABLE
-    public.analyzed_contents (
-        id uuid NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY, -- <<< 修改：使用 gen_random_uuid() >>>
-        parsed_content_url text NOT NULL UNIQUE,
-        analysis_status text NOT NULL DEFAULT 'pending'::text CONSTRAINT analyzed_contents_analysis_status_check CHECK (
-            analysis_status = ANY (
-                ARRAY[
-                    'pending'::text,
-                    'processing'::text,
-                    'completed'::text,
-                    'failed'::text
-                ]
-            )
-        ),
-        analysis_result jsonb,
-        committee_name text DEFAULT NULL,
-        analyzed_at timestamptz DEFAULT NULL,
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
-    );
+-- ... (欄位註解)
+CREATE TRIGGER set_gazettes_updated_at BEFORE
+UPDATE ON public.gazettes FOR EACH ROW
+EXECUTE FUNCTION public.trigger_set_timestamp ();
 
-COMMENT ON TABLE public.analyzed_contents IS '儲存每個唯一 parsed_content_url 對應內容的 AI 分析結果';
+-- 2. gazette_agendas 表 (公報議程元數據表)
+DROP TABLE IF EXISTS public.gazette_agendas CASCADE;
 
--- ... (欄位註解省略)
--- 3. gazette_agendas 表
 CREATE TABLE
     public.gazette_agendas (
-        agenda_id text NOT NULL PRIMARY KEY,
-        gazette_id text NOT NULL,
-        volume integer,
-        issue integer,
-        booklet integer,
-        session integer,
-        term integer,
-        meeting_dates date[],
-        subject text,
-        category_code integer,
-        start_page integer,
-        end_page integer,
-        parsed_content_url text,
-        official_page_url text,
-        official_pdf_url text,
-        fetched_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
+        agenda_id TEXT NOT NULL PRIMARY KEY,
+        gazette_id TEXT NOT NULL,
+        volume INTEGER,
+        issue INTEGER,
+        booklet INTEGER,
+        session INTEGER,
+        term INTEGER,
+        meeting_dates DATE[],
+        subject TEXT,
+        category_code INTEGER,
+        start_page INTEGER,
+        end_page INTEGER,
+        parsed_content_url TEXT, -- <<< 關鍵：這裡不加 UNIQUE 約束 >>>
+        official_page_url TEXT,
+        official_pdf_url TEXT,
+        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT fk_gazette FOREIGN KEY (gazette_id) REFERENCES public.gazettes (gazette_id) ON DELETE CASCADE
     );
 
-COMMENT ON TABLE public.gazette_agendas IS '立法院公報議程元數據 (分析結果關聯至 analyzed_contents)';
+COMMENT ON TABLE public.gazette_agendas IS '儲存每個公報中包含的議程元數據。parsed_content_url 在此表允許重複。';
 
--- ... (欄位註解省略)
--- 4. job_state 表
+COMMENT ON COLUMN public.gazette_agendas.parsed_content_url IS '議程內容純文字版本的 URL，用於 AI 分析。在此表中允許重複，因為一個內容可能對應多個議程項。';
+
+CREATE TRIGGER set_gazette_agendas_updated_at BEFORE
+UPDATE ON public.gazette_agendas FOR EACH ROW
+EXECUTE FUNCTION public.trigger_set_timestamp ();
+
+-- 3. analyzed_contents 表 (AI 分析結果表)
+DROP TABLE IF EXISTS public.analyzed_contents CASCADE;
+
+CREATE TABLE
+    public.analyzed_contents (
+        id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
+        parsed_content_url TEXT NOT NULL UNIQUE, -- <<< 這裡 parsed_content_url 必須是唯一的 >>>
+        analysis_status TEXT NOT NULL DEFAULT 'pending'::TEXT,
+        analysis_result JSONB,
+        committee_name TEXT,
+        analyzed_at TIMESTAMPTZ,
+        analysis_attempts INTEGER NOT NULL DEFAULT 0,
+        shortened_analysis_attempts INTEGER NOT NULL DEFAULT 0,
+        processing_started_at TIMESTAMPTZ,
+        error_message TEXT,
+        last_error_type TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT analyzed_contents_analysis_status_check CHECK (
+            analysis_status IN (
+                'pending',
+                'processing',
+                'completed',
+                'failed',
+                'skipped',
+                'needs_shortened_retry',
+                'processing_shortened',
+                'partially_completed'
+            )
+        )
+    );
+
+COMMENT ON TABLE public.analyzed_contents IS '儲存對每個唯一 parsed_content_url 的 AI 分析結果及狀態。';
+
+COMMENT ON COLUMN public.analyzed_contents.parsed_content_url IS '被分析內容的唯一純文字 URL，這是此表的主業務鍵之一。';
+
+CREATE TRIGGER set_analyzed_contents_updated_at BEFORE
+UPDATE ON public.analyzed_contents FOR EACH ROW
+EXECUTE FUNCTION public.trigger_set_timestamp ();
+
+-- 4. job_state 表 (任務執行狀態追蹤)
+DROP TABLE IF EXISTS public.job_state CASCADE;
+
 CREATE TABLE
     public.job_state (
-        job_name text NOT NULL PRIMARY KEY,
-        last_processed_id text,
-        last_run_at timestamptz,
-        updated_at timestamptz NOT NULL DEFAULT now()
+        job_name TEXT NOT NULL PRIMARY KEY,
+        last_processed_id TEXT,
+        last_run_at TIMESTAMPTZ,
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
-COMMENT ON TABLE public.job_state IS '追蹤背景任務 (如爬蟲、分析器) 的執行狀態';
+COMMENT ON TABLE public.job_state IS '追蹤背景任務 (如爬蟲、分析器) 的執行狀態和進度。';
 
--- ... (欄位註解省略)
--- ======================================================================
--- 添加外鍵約束
--- ======================================================================
-ALTER TABLE public.gazette_agendas
-ADD CONSTRAINT gazette_agendas_gazette_id_fkey FOREIGN KEY (gazette_id) REFERENCES public.gazettes (gazette_id) ON DELETE CASCADE;
-
-COMMENT ON CONSTRAINT gazette_agendas_gazette_id_fkey ON public.gazette_agendas IS '確保 gazette_agendas 中的 gazette_id 參照到有效的 gazettes 記錄。級聯刪除。';
+CREATE TRIGGER set_job_state_updated_at BEFORE
+UPDATE ON public.job_state FOR EACH ROW
+EXECUTE FUNCTION public.trigger_set_timestamp ();
 
 -- ======================================================================
--- 創建索引
+-- 創建索引 (Indexes for Performance)
 -- ======================================================================
--- gazettes 表索引
-CREATE INDEX IF NOT EXISTS idx_gazettes_publish_date ON public.gazettes USING btree (publish_date);
+-- gazettes 表
+CREATE INDEX IF NOT EXISTS idx_gazettes_publish_date ON public.gazettes (publish_date DESC);
 
--- analyzed_contents 表索引
-CREATE UNIQUE INDEX IF NOT EXISTS idx_analyzed_contents_parsed_url ON public.analyzed_contents USING btree (parsed_content_url);
+-- gazette_agendas 表
+CREATE INDEX IF NOT EXISTS idx_gazette_agendas_gazette_id ON public.gazette_agendas (gazette_id);
 
-CREATE INDEX IF NOT EXISTS idx_analyzed_contents_status ON public.analyzed_contents USING btree (analysis_status);
+CREATE INDEX IF NOT EXISTS idx_gazette_agendas_category_code ON public.gazette_agendas (category_code);
 
-CREATE INDEX IF NOT EXISTS idx_analyzed_contents_committee ON public.analyzed_contents USING btree (committee_name);
+CREATE INDEX IF NOT EXISTS idx_gazette_agendas_meeting_dates ON public.gazette_agendas USING GIN (meeting_dates);
 
-CREATE INDEX IF NOT EXISTS idx_analyzed_contents_pending ON public.analyzed_contents (analysis_status)
-WHERE
-    analysis_status = 'pending'::text;
-
-CREATE INDEX IF NOT EXISTS idx_analyzed_contents_result_gin ON public.analyzed_contents USING gin (analysis_result);
-
--- gazette_agendas 表索引
-CREATE INDEX IF NOT EXISTS idx_gazette_agendas_gazette_id ON public.gazette_agendas USING btree (gazette_id);
-
-CREATE INDEX IF NOT EXISTS idx_gazette_agendas_category_code ON public.gazette_agendas USING btree (category_code);
-
-CREATE INDEX IF NOT EXISTS idx_gazette_agendas_meeting_dates ON public.gazette_agendas USING gin (meeting_dates);
-
-CREATE INDEX IF NOT EXISTS idx_gazette_agendas_parsed_content_url ON public.gazette_agendas USING btree (parsed_content_url)
+-- 為 parsed_content_url 在 gazette_agendas 中創建一個常規（非唯一）索引，如果經常需要通過它查詢
+CREATE INDEX IF NOT EXISTS idx_gazette_agendas_parsed_content_url_non_unique ON public.gazette_agendas (parsed_content_url)
 WHERE
     parsed_content_url IS NOT NULL;
 
-COMMENT ON INDEX public.idx_gazette_agendas_parsed_content_url IS '加速根據 parsed_content_url 查找關聯的議程元數據';
-
--- ======================================================================
--- 綁定觸發器
--- ======================================================================
 -- analyzed_contents 表
-DROP TRIGGER IF EXISTS update_analyzed_contents_updated_at ON public.analyzed_contents;
+-- UNIQUE 約束已在 parsed_content_url 上創建唯一索引，無需重複創建 idx_analyzed_contents_parsed_url
+CREATE INDEX IF NOT EXISTS idx_analyzed_contents_status_attempts ON public.analyzed_contents (analysis_status, analysis_attempts);
 
-CREATE TRIGGER update_analyzed_contents_updated_at BEFORE
-UPDATE ON public.analyzed_contents FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column ();
+CREATE INDEX IF NOT EXISTS idx_analyzed_contents_status_short_attempts ON public.analyzed_contents (analysis_status, shortened_analysis_attempts);
 
-COMMENT ON TRIGGER update_analyzed_contents_updated_at ON public.analyzed_contents IS '當 analyzed_contents 記錄被更新時，自動更新其 updated_at 欄位';
+CREATE INDEX IF NOT EXISTS idx_analyzed_contents_status_updated_at ON public.analyzed_contents (analysis_status, updated_at);
 
--- gazette_agendas 表
-DROP TRIGGER IF EXISTS update_gazette_agendas_updated_at ON public.gazette_agendas;
+CREATE INDEX IF NOT EXISTS idx_analyzed_contents_committee ON public.analyzed_contents (committee_name)
+WHERE
+    committee_name IS NOT NULL;
 
-CREATE TRIGGER update_gazette_agendas_updated_at BEFORE
-UPDATE ON public.gazette_agendas FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column ();
-
-COMMENT ON TRIGGER update_gazette_agendas_updated_at ON public.gazette_agendas IS '當 gazette_agendas 記錄被更新時，自動更新其 updated_at 欄位';
-
--- job_state 表
-DROP TRIGGER IF EXISTS update_job_state_updated_at ON public.job_state;
-
-CREATE TRIGGER update_job_state_updated_at BEFORE
-UPDATE ON public.job_state FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column ();
-
-COMMENT ON TRIGGER update_job_state_updated_at ON public.job_state IS '當 job_state 記錄被更新時，自動更新其 updated_at 欄位';
+CREATE INDEX IF NOT EXISTS idx_analyzed_contents_result_gin ON public.analyzed_contents USING GIN (analysis_result);
 
 -- ======================================================================
--- 設定權限
+-- 設定權限 (Permissions - 根據需要調整)
 -- ======================================================================
 GRANT USAGE ON SCHEMA public TO postgres,
 anon,
@@ -229,21 +223,11 @@ authenticated,
 service_role;
 
 GRANT
-EXECUTE ON FUNCTION public.update_updated_at_column () TO postgres,
+EXECUTE ON FUNCTION public.trigger_set_timestamp () TO postgres,
 anon,
 authenticated,
 service_role;
 
--- Service role 需要完全權限
-GRANT ALL ON TABLE public.gazettes TO service_role;
-
-GRANT ALL ON TABLE public.analyzed_contents TO service_role;
-
-GRANT ALL ON TABLE public.gazette_agendas TO service_role;
-
-GRANT ALL ON TABLE public.job_state TO service_role;
-
--- 前端 (anon, authenticated) 權限
 GRANT
 SELECT
     ON TABLE public.gazettes TO anon,
@@ -251,70 +235,76 @@ SELECT
 
 GRANT
 SELECT
-    (
-        id,
-        parsed_content_url,
-        analysis_status,
-        analysis_result,
-        committee_name,
-        analyzed_at,
-        created_at,
-        updated_at
-    ) ON TABLE public.analyzed_contents TO anon,
+    ON TABLE public.gazette_agendas TO anon,
     authenticated;
 
 GRANT
 SELECT
-    (
-        agenda_id,
-        gazette_id,
-        volume,
-        issue,
-        booklet,
-        session,
-        term,
-        meeting_dates,
-        subject,
-        category_code,
-        start_page,
-        end_page,
-        parsed_content_url,
-        official_page_url,
-        official_pdf_url,
-        fetched_at,
-        updated_at
-    ) ON TABLE public.gazette_agendas TO anon,
+    ON TABLE public.analyzed_contents TO anon,
     authenticated;
 
--- 設定預設權限
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-GRANT ALL ON SEQUENCES TO postgres,
-service_role;
+GRANT
+SELECT
+    ON TABLE public.job_state TO service_role;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-GRANT ALL ON FUNCTIONS TO postgres,
-service_role;
+-- job_state 通常只給 service_role
+GRANT ALL ON TABLE public.gazettes TO service_role;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
-GRANT ALL ON TABLES TO postgres,
-service_role;
+GRANT ALL ON TABLE public.gazette_agendas TO service_role;
+
+GRANT ALL ON TABLE public.analyzed_contents TO service_role;
+
+GRANT ALL ON TABLE public.job_state TO service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT
+SELECT
+    ON TABLES TO anon,
+    authenticated;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON TABLES TO service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON FUNCTIONS TO service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT ALL ON SEQUENCES TO service_role;
 
 -- ======================================================================
--- 初始資料設定
+-- 初始資料設定 (Initial Data Setup)
 -- ======================================================================
 INSERT INTO
-    public.job_state (job_name, last_processed_id, last_run_at)
+    public.job_state (job_name, last_run_at, notes)
 VALUES
-    ('fetch-new-gazettes', NULL, NULL) ON CONFLICT (job_name)
-DO NOTHING;
+    (
+        'fetch-new-gazettes',
+        NULL,
+        'Tracks the fetching of new gazettes from ly.govapi.tw.'
+    ) ON CONFLICT (job_name)
+DO
+UPDATE
+SET
+    notes = EXCLUDED.notes,
+    last_run_at = NULL,
+    last_processed_id = NULL;
 
+-- 如果重置，也清空 last_processed_id
 INSERT INTO
-    public.job_state (job_name, last_processed_id, last_run_at)
+    public.job_state (job_name, last_run_at, notes)
 VALUES
-    ('analyze-pending-contents', NULL, NULL) -- <<< Job Name 已修改 >>>
-    ON CONFLICT (job_name)
-DO NOTHING;
+    (
+        'analyze-pending-contents',
+        NULL,
+        'Tracks the AI analysis of pending gazette contents.'
+    ) ON CONFLICT (job_name)
+DO
+UPDATE
+SET
+    notes = EXCLUDED.notes,
+    last_run_at = NULL,
+    last_processed_id = NULL;
 
 -- ======================================================================
--- End of Initialization Script
+-- End of Schema Initialization Script
 -- ======================================================================
