@@ -1,13 +1,10 @@
-// supabase/functions/fetch-new-gazettes/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
   getSupabaseClient,
-  // isValidDateString, // isValidDateString 的使用已移至 databaseUpdater.ts
   Gazette,
-  GazetteAgenda, // 需要此類型，因為 fetchAllAgendasForGazetteFromAPI 返回 GazetteAgenda[]
-  // GazetteRecord, // GazetteRecord 的構造已移至 databaseUpdater.ts
-  // GazetteAgendaRecord, // 同上
-} from "../_shared/utils.ts"; // <<< 路徑修正 >>>
+  GazetteAgenda,
+  JOB_NAME_FETCHER, // 從 _shared 導入
+} from "../_shared/utils.ts";
 import {
   fetchRecentGazettesFromAPI,
   fetchAllAgendasForGazetteFromAPI,
@@ -20,11 +17,10 @@ import {
 } from "./databaseUpdater.ts";
 
 // --- Configuration (導出給其他模塊用) ---
-export const JOB_NAME_FETCHER = "fetch-new-gazettes";
+// JOB_NAME_FETCHER 已從 _shared/utils.ts 導入
 export const LY_GAZETTE_API_URL_BASE = "https://ly.govapi.tw/v2/gazettes";
-export const GAZETTES_PER_PAGE = 100; // 與你日誌一致
+export const GAZETTES_PER_PAGE = 100;
 export const AGENDAS_PER_PAGE = 100;
-// FETCH_DELAY_MS 和 LY_API_USER_AGENT 從 utils.ts 導入並在 fetchWithRetry 中使用，index.ts 無需直接關心
 
 serve(async (_req) => {
   const startTime = Date.now();
@@ -67,15 +63,15 @@ serve(async (_req) => {
     const newGazettesToProcess: Gazette[] = [];
     if (fetchedGazettesFromAPI.length > 0) {
       for (const gazette of fetchedGazettesFromAPI) {
-        // 在 fetchRecentGazettesFromAPI 中已經有對 公報編號 的初步檢查和日誌
-        // 這裡可以再做一次保險檢查，或者相信 fetcher 已經過濾
         if (
           !gazette ||
           typeof gazette.公報編號 !== "string" ||
           String(gazette.公報編號).trim() === ""
         ) {
           console.warn(
-            `[${JOB_NAME_FETCHER}] Main loop: Skipping a gazette due to invalid '公報編號'.`
+            `[${JOB_NAME_FETCHER}] Main loop: Skipping a gazette due to invalid '公報編號'. API Object: ${JSON.stringify(
+              gazette
+            )}`
           );
           continue;
         }
@@ -100,7 +96,7 @@ serve(async (_req) => {
       await updateJobStateInDB(
         supabase,
         JOB_NAME_FETCHER,
-        lastProcessedIdFromDB,
+        lastProcessedIdFromDB, // 即使沒有新公報，也用舊的 ID 更新 last_run_at
         "No new gazettes found."
       );
       return new Response(
@@ -112,59 +108,58 @@ serve(async (_req) => {
     const uniqueUrlsToAdd = new Set<string>();
 
     for (const gazetteFromApi of newGazettesToProcess) {
-      // gazetteFromApi 的類型是 Gazette
-      const currentGazetteId = String(gazetteFromApi.公報編號).trim(); // 已在上一步檢查過，這裡再次 trim 以防萬一
+      const currentGazetteIdFromApi = String(gazetteFromApi.公報編號).trim();
 
       console.log(
-        `\n[${JOB_NAME_FETCHER}] Processing NEW Gazette ID: "${currentGazetteId}" (Publish Date: ${gazetteFromApi.發布日期})`
+        `\n[${JOB_NAME_FETCHER}] Processing NEW Gazette ID: "${currentGazetteIdFromApi}" (Publish Date: ${gazetteFromApi.發布日期})`
       );
       processedNewGazetteCount++;
       let currentGazetteHasErrors = false;
 
-      // 直接將從 API 獲取的 gazetteFromApi (Gazette 類型) 傳遞給處理函數
       const upsertGazetteRes = await upsertGazetteRecordToDB(
         supabase,
         gazetteFromApi
       );
-      if (!upsertGazetteRes.success) {
-        errorsThisRun.push(
-          `Error upserting gazette "${
-            upsertGazetteRes.gazetteId || "UNKNOWN_ID"
-          }": ${upsertGazetteRes.error}`
-        );
+      if (!upsertGazetteRes.success || !upsertGazetteRes.gazetteId) {
+        const errorMsg = `Error upserting gazette (API ID: "${currentGazetteIdFromApi}"): ${
+          upsertGazetteRes.error ||
+          "Unknown error or missing gazetteId after upsert"
+        }`;
+        console.error(`[${JOB_NAME_FETCHER}] ${errorMsg}`);
+        errorsThisRun.push(errorMsg);
         currentGazetteHasErrors = true;
-        continue;
+        continue; // 跳過此公報的後續處理
       }
-      // 確保 currentGazetteId 是從 upsertGazetteRes.gazetteId 獲取的已驗證 ID
-      const confirmedGazetteId = upsertGazetteRes.gazetteId!;
+      const confirmedGazetteId = upsertGazetteRes.gazetteId; // 這是數據庫中實際的 gazette_id
 
       const { agendas: fetchedApiAgendas, errorOccurred: agendaFetchErr } =
-        await fetchAllAgendasForGazetteFromAPI(confirmedGazetteId);
+        await fetchAllAgendasForGazetteFromAPI(confirmedGazetteId); // 使用確認的 ID
       if (agendaFetchErr) {
         overallAgendaFetchErrors++;
         currentGazetteHasErrors = true;
-        errorsThisRun.push(
-          `Failed to fetch all agendas for gazette ${confirmedGazetteId}`
-        );
+        const errorMsg = `Failed to fetch all agendas for gazette ${confirmedGazetteId}`;
+        console.warn(`[${JOB_NAME_FETCHER}] ${errorMsg}`);
+        errorsThisRun.push(errorMsg);
+        // 即使抓取議程失敗，公報本身已存儲，所以不 continue，但標記錯誤
       }
 
       let agendasSavedThisGazette = 0;
       if (fetchedApiAgendas && fetchedApiAgendas.length > 0) {
         for (const apiAgenda of fetchedApiAgendas) {
-          // apiAgenda 的類型是 GazetteAgenda
           fetchedNewAgendaCount++;
-          // upsertAgendaRecordToDB 現在接收原始的 apiAgenda (GazetteAgenda 類型)
           const upsertAgendaRes = await upsertAgendaRecordToDB(
             supabase,
             apiAgenda,
-            confirmedGazetteId
+            confirmedGazetteId // 使用確認的父級 ID
           );
           if (!upsertAgendaRes.success) {
             overallAgendaSaveErrors++;
             currentGazetteHasErrors = true;
-            errorsThisRun.push(
-              `Error upserting agenda ${apiAgenda.公報議程編號}: ${upsertAgendaRes.error}`
-            );
+            const errorMsg = `Error upserting agenda ${
+              apiAgenda.公報議程編號 || "UNKNOWN_AGENDA_ID"
+            } for gazette ${confirmedGazetteId}: ${upsertAgendaRes.error}`;
+            console.warn(`[${JOB_NAME_FETCHER}] ${errorMsg}`);
+            errorsThisRun.push(errorMsg);
           } else {
             agendasSavedThisGazette++;
             totalAgendasSavedThisRun++;
@@ -205,7 +200,7 @@ serve(async (_req) => {
     }
 
     const finalLastProcessedIdToSave =
-      latestSuccessfullyProcessedGazetteIdThisRun ?? lastProcessedIdFromDB;
+      latestSuccessfullyProcessedGazetteIdThisRun ?? lastProcessedIdFromDB; // 如果本輪所有新公報都失敗，則保留舊的ID
     let finalJobNotes =
       errorsThisRun.length > 0
         ? `Run completed with ${errorsThisRun.length} errors (see function logs).`
@@ -220,7 +215,7 @@ serve(async (_req) => {
     await updateJobStateInDB(
       supabase,
       JOB_NAME_FETCHER,
-      finalLastProcessedIdToSave,
+      finalLastProcessedIdToSave, // 可以是 null 如果是首次運行且沒有成功處理任何記錄
       finalJobNotes
     );
   } catch (error) {
@@ -230,14 +225,15 @@ serve(async (_req) => {
       error.stack
     );
     errorsThisRun.push(`Critical unhandled error: ${error.message}`);
+    // 發生嚴重錯誤時，不更新 last_processed_id (傳入 undefined)
     await updateJobStateInDB(
       supabase,
       JOB_NAME_FETCHER,
-      undefined,
+      undefined, // 保持上一次的 last_processed_id
       `Run FAILED with critical error: ${
         error.message
       }. Errors: ${errorsThisRun.join("; ")}`
-    ); // undefined 表示不更新 last_processed_id
+    );
     return new Response(
       JSON.stringify({
         success: false,
@@ -250,7 +246,6 @@ serve(async (_req) => {
   }
 
   const duration = (Date.now() - startTime) / 1000;
-  // ... (summary 日誌和返回，與我上次提供的一致) ...
   let summary = `Run finished. Processed ${processedNewGazetteCount} new gazettes. Fetched ${fetchedNewAgendaCount} agendas. Saved ${totalAgendasSavedThisRun} agenda records. Added/Ensured ${newUrlsAddedToQueueCount} unique URLs in queue. `;
   if (errorsThisRun.length > 0) {
     summary += `Encountered system errors: ${errorsThisRun.length}. `;
@@ -265,7 +260,7 @@ serve(async (_req) => {
   }
   const finalLPIForSummary =
     latestSuccessfullyProcessedGazetteIdThisRun ??
-    "None (or kept previous if all new failed)";
+    "None this run (or kept previous if all new failed)";
   summary += `Duration: ${duration.toFixed(
     2
   )}s. Last fully successful Gazette ID processed in this run: ${finalLPIForSummary}.`;

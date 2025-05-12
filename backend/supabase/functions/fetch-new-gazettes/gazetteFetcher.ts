@@ -1,36 +1,34 @@
-// supabase/functions/fetch-new-gazettes/gazetteFetcher.ts
 import {
-  fetchWithRetry, // 從 utils 導入
+  fetchWithRetry,
   Gazette,
   GazetteApiResponse,
   GazetteAgenda,
   AgendaApiResponse,
-  FETCH_DELAY_MS, // 從 utils 導入
-} from "../_shared/utils.ts"; // <<< 確認路徑是 '../' >>>
-// 從同目錄的 index.ts 導入此 Function 特有的配置
+  FETCH_DELAY_MS,
+  JOB_NAME_FETCHER, // 從 _shared 導入
+} from "../_shared/utils.ts";
 import {
-  JOB_NAME_FETCHER,
+  // JOB_NAME_FETCHER, // 不再從這裡導入
   LY_GAZETTE_API_URL_BASE,
   GAZETTES_PER_PAGE,
   AGENDAS_PER_PAGE,
-} from "./index.ts";
+} from "./index.ts"; // 從同目錄的 index.ts 導入此 Function 特有的配置
 
 export async function fetchRecentGazettesFromAPI(): Promise<Gazette[]> {
   const gazetteListUrl = `${LY_GAZETTE_API_URL_BASE}?page=1&per_page=${GAZETTES_PER_PAGE}`;
   console.log(
     `[${JOB_NAME_FETCHER}] Fetching recent gazettes: ${gazetteListUrl}`
   );
-  await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+  await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS)); // 使用共享的 FETCH_DELAY_MS
 
   const response = await fetchWithRetry(
     gazetteListUrl,
     undefined,
-    3,
-    JOB_NAME_FETCHER
+    3, // 可以考慮將此重試次數也設為共享常量
+    JOB_NAME_FETCHER // 傳遞 Job Name 給 fetchWithRetry
   );
   const gazetteApiData: GazetteApiResponse = await response.json();
 
-  // vvvv 添加詳細日誌，檢查 API 返回的原始數據 vvvv
   console.log(
     `[${JOB_NAME_FETCHER}] DEBUG: Raw API response for gazettes (first 2 objects):`,
     JSON.stringify(gazetteApiData.gazettes?.slice(0, 2), null, 2)
@@ -42,7 +40,6 @@ export async function fetchRecentGazettesFromAPI(): Promise<Gazette[]> {
         firstGazette
       ).join(", ")}]`
     );
-    // 特別檢查 '公報編號' 是否存在以及其值
     if (Object.hasOwn(firstGazette, "公報編號")) {
       console.log(
         `[${JOB_NAME_FETCHER}] DEBUG: First gazette's '公報編號' value: "${
@@ -55,7 +52,6 @@ export async function fetchRecentGazettesFromAPI(): Promise<Gazette[]> {
       );
     }
   }
-  // ^^^^ 調試日誌結束 ^^^^
 
   console.log(
     `[${JOB_NAME_FETCHER}] Received ${
@@ -73,7 +69,6 @@ export async function fetchAllAgendasForGazetteFromAPI(
   const allAgendasForThisGazette: GazetteAgenda[] = [];
   let fetchErrorOccurred = false;
 
-  // 檢查傳入的 gazetteId 是否有效
   if (!gazetteId || typeof gazetteId !== "string" || gazetteId.trim() === "") {
     console.error(
       `[${JOB_NAME_FETCHER}] fetchAllAgendasForGazetteFromAPI called with invalid gazetteId: "${gazetteId}"`
@@ -91,14 +86,14 @@ export async function fetchAllAgendasForGazetteFromAPI(
         totalPages === 1 && currentPage === 1 ? "?" : totalPages
       } from: ${agendaApiUrl}`
     );
-    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+    await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS)); // 使用共享的 FETCH_DELAY_MS
 
     try {
       const agendaResponse = await fetchWithRetry(
         agendaApiUrl,
         undefined,
         3,
-        JOB_NAME_FETCHER
+        JOB_NAME_FETCHER // 傳遞 Job Name
       );
       const agendaData: AgendaApiResponse = await agendaResponse.json();
 
