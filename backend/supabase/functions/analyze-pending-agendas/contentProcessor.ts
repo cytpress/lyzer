@@ -9,9 +9,7 @@ import type {
   GeminiErrorDetail,
   AnalysisStatus,
 } from "../_shared/types/analysis.ts";
-import type {
-  AnalyzedContentRecord,
-} from "../_shared/types/database.ts";
+import type { AnalyzedContentRecord } from "../_shared/types/database.ts";
 import {
   getAnalysisPrompt,
   getShortenedAnalysisPrompt,
