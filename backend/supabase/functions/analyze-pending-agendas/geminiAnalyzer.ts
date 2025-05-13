@@ -1,3 +1,4 @@
+// backend/supabase/functions/analyze-pending-agendas/geminiAnalyzer.ts
 import {
   GoogleGenAI,
   type GenerateContentParameters,
@@ -7,91 +8,105 @@ import {
   type Schema,
   Type,
   type Content,
-  // Potentially needed for detailed error checking:
-  // GoogleGenerativeAIResponseError, // Uncomment if used for error instanceof checks
 } from "npm:@google/genai";
 import type {
   AnalysisResultJson,
   GeminiErrorDetail,
-} from "../_shared/types/analysis.ts";
-import { GEMINI_MODEL_NAME } from "./index.ts"; // Import model name from local index
-import { JOB_NAME_ANALYZER } from "../_shared/utils.ts"; // Import job name for logging
+} from "../_shared/types/analysis.ts"; // Ensure this path is correct
+import { GEMINI_MODEL_NAME } from "./index.ts"; // Ensure this path is correct
+import { JOB_NAME_ANALYZER } from "../_shared/utils.ts"; // Ensure this path is correct
 
-// --- Define the expected JSON response schema for Gemini ---
-// This schema is used by the Gemini API to structure its JSON output.
-// The 'description' fields are crucial for the API and MUST remain in Traditional Chinese.
+// Define the speaker detail schema to be reused
+const speakerDetailSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    speaker_name: {
+      type: Type.STRING,
+      nullable: true,
+      description:
+        "發言者姓名及其職稱/單位。例如：'黃國昌 立法委員' 或 '陳建仁 行政院院長' 或 '王美花 經濟部部長'。",
+    },
+    speaker_viewpoint: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      nullable: true,
+      description:
+        "該發言者針對當前議程提出的具體論點、主要理由、建議、質詢、答覆或專業意見。避免程序性發言。若有多個獨立觀點，請作為陣列元素。",
+    },
+  },
+  required: ["speaker_name"], // speaker_viewpoint can be null if no clear viewpoint
+  propertyOrdering: ["speaker_name", "speaker_viewpoint"],
+};
+
+// Define the expected JSON response schema for Gemini
 const analysisResponseSchema: Schema = {
   type: Type.OBJECT,
   properties: {
     summary_title: {
       type: Type.STRING,
-      description: "會議或記錄的核心主題摘要標題 (50字內)",
+      description: "代表全文核心焦點的高度概括性摘要標題 (50字內)。",
     },
     overall_summary_sentence: {
       type: Type.STRING,
-      description: "整份議事記錄的主要內容、流程和重要結論概括 (約100-150字)",
+      description:
+        "整份議事記錄的主要內容、流程、法案全名或關鍵議題、以及重要結論的概括性總結，使讀者能快速理解會議核心 (約100-150字)。",
     },
     committee_name: {
-      type: Type.STRING,
+      type: Type.ARRAY,
       nullable: true,
-      description: "會議所屬的委員會名稱，無法判斷則為 null",
+      description:
+        "會議所屬的一個或多個委員會名稱陣列。單一委員會僅一個元素，聯席會議則包含所有相關委員會。請參考Prompt中提供的委員會列表和判斷邏輯。無法判斷則為 null 或空陣列。",
+      items: {
+        type: Type.STRING,
+      },
     },
     agenda_items: {
       type: Type.ARRAY,
       nullable: true,
-      description: "議程項目列表",
+      description: "議事記錄中所有主要議程項目的詳細列表。",
       items: {
         type: Type.OBJECT,
         properties: {
           item_title: {
             type: Type.STRING,
             nullable: true,
-            description: "議程項目的標題或案由",
+            description:
+              "議程項目的核心法案名稱與議程編號，例如 '某某法案修正草案 (討論事項第一案)'。請省略提案人姓名。",
           },
           core_issue: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
             nullable: true,
             description:
-              "核心問題或討論內容。若有多點，請作為陣列中的不同字串元素。",
+              "該議程項目詳細的核心問題、背景或主要討論內容，反映討論深度。若有多點，請作為陣列中的不同字串元素，確保每個元素論述完整。",
           },
           controversy: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
             nullable: true,
             description:
-              "主要爭議點。若有多點，請作為陣列中的不同字串元素。無爭議則為 null。",
+              "該議程項目主要的爭議點，包含不同意見的具體內容和理由。若有多點，作為陣列元素，確保描述清晰。無明顯爭議則為 null。",
           },
-          key_speakers: {
+          legislator_speakers: {
             type: Type.ARRAY,
             nullable: true,
-            description: "主要發言者列表",
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                speaker_name: {
-                  type: Type.STRING,
-                  nullable: true,
-                  description: "發言者姓名或職稱",
-                },
-                speaker_viewpoint: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  nullable: true,
-                  description:
-                    "主要觀點或立場。若有多點，請作為陣列中的不同字串元素。",
-                },
-              },
-              required: ["speaker_name"],
-              propertyOrdering: ["speaker_name", "speaker_viewpoint"],
-            },
+            description:
+              "主要質詢或提案的「立法委員」列表及其觀點。若無相關發言則為 null 或空陣列。",
+            items: speakerDetailSchema,
+          },
+          respondent_speakers: {
+            type: Type.ARRAY,
+            nullable: true,
+            description:
+              "主要答詢或報告的「政府官員」或「相關事業單位代表」或「專家學者」、「公民代表」、「產業代表」列表及其觀點/回應。若無相關發言則為 null 或空陣列。",
+            items: speakerDetailSchema,
           },
           result_status_next: {
             type: Type.ARRAY,
             items: { type: Type.STRING },
             nullable: true,
             description:
-              "處理結果或下一步行動。若有多點，請作為陣列中的不同字串元素。",
+              "關於此議程的最終處理結果、審查進度或下一步行動的清晰且相對完整的說明，反映實際情況。若有多點，作為陣列元素。",
           },
         },
         required: ["item_title"],
@@ -99,13 +114,19 @@ const analysisResponseSchema: Schema = {
           "item_title",
           "core_issue",
           "controversy",
-          "key_speakers",
+          "legislator_speakers", 
+          "respondent_speakers", 
           "result_status_next",
         ],
       },
     },
   },
-  required: ["summary_title", "overall_summary_sentence", "agenda_items"],
+  required: [
+    "summary_title",
+    "overall_summary_sentence",
+    "committee_name",
+    "agenda_items",
+  ],
   propertyOrdering: [
     "summary_title",
     "overall_summary_sentence",
@@ -114,60 +135,47 @@ const analysisResponseSchema: Schema = {
   ],
 };
 
-/**
- * Analyzes text content using the Gemini API with a predefined JSON schema.
- * It prepares the request, calls the API, and processes the response,
- * handling various success and error conditions.
- * @param fullPromptString The complete prompt to send to the Gemini API.
- * @param apiKey The API key for accessing the Gemini service.
- * @param _originalInputTextContent_for_logging_only The original text content (currently unused in this function's logic but available).
- * @param generationConfigParams Configuration for the Gemini model's generation process.
- * @param safetySettingsParams Safety settings to apply to the Gemini model's response.
- * @returns A promise that resolves to either the successfully parsed `AnalysisResultJson`
- *          or a `GeminiErrorDetail` object if an error occurs.
- */
 export async function analyzeWithGemini(
   fullPromptString: string,
   apiKey: string,
-  _originalInputTextContent_for_logging_only: string,
+  _originalInputTextContent_for_logging_only: string, // Keep for potential future use in logging
   generationConfigParams: Partial<GenerationConfig> & {
     thinkingConfig?: { thinkingBudget?: number };
   },
   safetySettingsParams: SafetySetting[]
 ): Promise<AnalysisResultJson | GeminiErrorDetail> {
-  const ai = new GoogleGenAI({ apiKey }); // Initialize Gemini client
+  const ai = new GoogleGenAI({ apiKey });
 
-  // Combine provided generation config with required schema settings
   const effectiveGenerationConfig: GenerationConfig = {
     ...(generationConfigParams as GenerationConfig),
-    responseMimeType: "application/json", // Request JSON output
-    responseSchema: analysisResponseSchema, // Enforce the defined schema (with Chinese descriptions)
+    responseMimeType: "application/json",
+    responseSchema: analysisResponseSchema,
   };
 
-  // Prepare parameters for the API call according to the confirmed SDK structure
   const params: GenerateContentParameters = {
     model: GEMINI_MODEL_NAME,
     contents: [
       { role: "user", parts: [{ text: fullPromptString }] },
-    ] as Content[],
+    ] as Content[], // Cast to Content[] to satisfy SDK, assuming single user message
     config: {
+      // Renamed from 'generationConfig' to 'config' as per SDK changes for some models
       ...effectiveGenerationConfig,
-      safetySettings: safetySettingsParams,
+      safetySettings: safetySettingsParams, // Ensure safetySettings is correctly placed
     },
   };
 
   console.log(
     `[${JOB_NAME_ANALYZER}-Gemini] Initializing Gemini client. Model: ${
-      params.model // Log model being used
+      params.model
     }. Thinking Budget: ${
-      params.config?.thinkingConfig?.thinkingBudget ?? "Default/Off"
+      (params.config as GenerationConfig)?.thinkingConfig?.thinkingBudget ??
+      "Default/Off" // Accessing thinkingBudget
     }`
   );
 
-  let rawResponseTextForError: string | undefined = undefined; // To store raw AI output for error diagnosis
+  let rawResponseTextForError: string | undefined = undefined;
 
   try {
-    // Call the Gemini API using the `ai.models.generateContent(params)` pattern
     console.log(
       `[${JOB_NAME_ANALYZER}-Gemini] Sending request to model ${params.model}...`
     );
@@ -176,7 +184,6 @@ export async function analyzeWithGemini(
     );
     console.log(`[${JOB_NAME_ANALYZER}-Gemini] Received response from model.`);
 
-    // Process API response metadata
     const usageMetadata = result.usageMetadata;
     if (usageMetadata) {
       console.log(
@@ -203,7 +210,6 @@ export async function analyzeWithGemini(
       );
     }
 
-    // Extract and validate content from the response
     const candidate = result.candidates?.[0];
     if (
       !candidate ||
@@ -226,6 +232,7 @@ export async function analyzeWithGemini(
 
     const part = candidate.content.parts[0];
     if (!("text" in part && typeof part.text === "string")) {
+      // Check if 'text' property exists and is a string
       console.error(
         `[${JOB_NAME_ANALYZER}-Gemini] Response part does not contain identifiable text. Part Content: ${JSON.stringify(
           part
@@ -239,9 +246,8 @@ export async function analyzeWithGemini(
       };
     }
 
-    rawResponseTextForError = part.text; // Store for potential error reporting
+    rawResponseTextForError = part.text;
 
-    // Handle non-STOP finish reasons which indicate potential issues
     if (finishReason === "MAX_TOKENS") {
       console.error(
         `[${JOB_NAME_ANALYZER}-Gemini] CRITICAL: Output truncated due to MAX_TOKENS limit.`
@@ -267,8 +273,9 @@ export async function analyzeWithGemini(
       };
     }
     if (finishReason === "OTHER") {
+      // Handle "OTHER" which can indicate schema issues
       console.error(
-        `[${JOB_NAME_ANALYZER}-Gemini] CRITICAL: Output stopped for OTHER reason (possibly schema related).`
+        `[${JOB_NAME_ANALYZER}-Gemini] CRITICAL: Output stopped for OTHER reason (possibly schema related). Raw Response: ${rawResponseTextForError}`
       );
       return {
         error: `AI output terminated (OTHER reason). May indicate responseSchema incompatibility.`,
@@ -276,18 +283,19 @@ export async function analyzeWithGemini(
         rawOutput: rawResponseTextForError,
       };
     }
+    // Allow "STOP" or undefined/null as valid finish reasons for JSON mode if content is present
     if (
       finishReason !== "STOP" &&
       finishReason !== undefined &&
       finishReason !== null
     ) {
-      // null can also be a valid stop
       console.warn(
-        `[${JOB_NAME_ANALYZER}-Gemini] Unusual finish reason: '${finishReason}'. Attempting JSON parse.`
+        `[${JOB_NAME_ANALYZER}-Gemini] Unusual finish reason: '${finishReason}'. Attempting JSON parse. Raw Response: ${rawResponseTextForError}`
       );
+      // Potentially return error if this is unexpected for JSON mode.
+      // For now, proceed to parse if text is available.
     }
 
-    // Clean potential Markdown code block wrappers from the JSON string
     let textToParse = part.text;
     const markdownBlockRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/;
     const match = textToParse.trim().match(markdownBlockRegex);
@@ -300,7 +308,6 @@ export async function analyzeWithGemini(
       textToParse.trim().startsWith("```") ||
       textToParse.trim().endsWith("```")
     ) {
-      // Lenient cleanup if regex fails but backticks are present
       let tempText = textToParse.trim();
       if (tempText.startsWith("```json")) {
         tempText = tempText.substring(7);
@@ -318,11 +325,10 @@ export async function analyzeWithGemini(
       }
     }
 
-    // Parse the cleaned text as JSON
     console.log(
       `[${JOB_NAME_ANALYZER}-Gemini] Attempting to parse JSON from AI response...`
     );
-    const parsedJson = JSON.parse(textToParse);
+    const parsedJson = JSON.parse(textToParse); // textToParse should be a string here
     const jsonResult = parsedJson as AnalysisResultJson;
 
     // Basic client-side validation of the parsed JSON structure
@@ -331,9 +337,29 @@ export async function analyzeWithGemini(
       typeof jsonResult === "object" &&
       typeof jsonResult.summary_title === "string" &&
       typeof jsonResult.overall_summary_sentence === "string" &&
+      (jsonResult.committee_name === null ||
+        Array.isArray(jsonResult.committee_name)) && // committee_name is array or null
       (jsonResult.agenda_items === null ||
         Array.isArray(jsonResult.agenda_items))
     ) {
+      if (jsonResult.committee_name && jsonResult.committee_name.length > 0) {
+        if (
+          !jsonResult.committee_name.every((name) => typeof name === "string")
+        ) {
+          console.warn(
+            `[${JOB_NAME_ANALYZER}-Gemini] Parsed JSON failed client-side validation: committee_name array contains non-string elements. Parsed Object: ${JSON.stringify(
+              jsonResult
+            )}`
+          );
+          return {
+            error:
+              "Parsed JSON from AI failed: committee_name array elements are not all strings.",
+            type: "INVALID_STRUCTURE_POST_SCHEMA",
+            rawOutput: rawResponseTextForError,
+            parsedResult: jsonResult,
+          };
+        }
+      }
       console.log(
         `[${JOB_NAME_ANALYZER}-Gemini] Analysis successful: JSON parsed and basic structure validated.`
       );
@@ -347,12 +373,11 @@ export async function analyzeWithGemini(
       return {
         error: "Parsed JSON from AI failed client-side structure validation.",
         type: "INVALID_STRUCTURE_POST_SCHEMA",
-        rawOutput: rawResponseTextForError,
-        parsedResult: jsonResult, // Include the problematic parsed object
+        rawOutput: rawResponseTextForError, // Use the stored raw text
+        parsedResult: jsonResult,
       };
     }
   } catch (error) {
-    // Handle errors from API call or JSON parsing
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(
       `[${JOB_NAME_ANALYZER}-Gemini] Error during API call or JSON parsing:`,
@@ -360,12 +385,11 @@ export async function analyzeWithGemini(
     );
 
     let errorMessage = `Gemini API call or JSON parsing failed: ${errorMsg}`;
-    let errorType = "API_CALL_OR_PARSE_ERROR"; // Default
+    let errorType: GeminiErrorDetail["type"] = "API_CALL_OR_PARSE_ERROR"; // Default
 
-    // Refine error type based on error details
     if (
-      error instanceof SyntaxError ||
-      errorMsg.toLowerCase().includes("json")
+      error instanceof SyntaxError || // JSON.parse error
+      errorMsg.toLowerCase().includes("json") // Other JSON related errors
     ) {
       errorMessage = `Failed to parse API response as JSON: ${errorMsg}`;
       errorType = "JSON_PARSE_ERROR_WITH_SCHEMA";
@@ -375,7 +399,7 @@ export async function analyzeWithGemini(
         }`
       );
     } else if (
-      errorMsg.includes("SCHEMA_ERROR") ||
+      errorMsg.includes("SCHEMA_ERROR") || // Specific schema error strings
       (errorMsg.includes("InvalidArgument") &&
         errorMsg.includes("response_schema"))
     ) {
@@ -385,10 +409,14 @@ export async function analyzeWithGemini(
       errorMessage = `Content/response triggered Gemini safety rules: ${errorMsg}`;
       errorType = "SAFETY";
     } else if (
-      errorMsg.includes("fetch failed") ||
+      errorMsg.includes("fetch failed") || // General network errors
       (error instanceof Error &&
-        "code" in error &&
-        (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED"))
+        "cause" in error &&
+        typeof error.cause === "object" &&
+        error.cause !== null &&
+        "code" in error.cause &&
+        (error.cause.code === "ENOTFOUND" ||
+          error.cause.code === "ECONNREFUSED")) // Deno specific network error codes
     ) {
       errorMessage = `Network error connecting to Gemini API: ${errorMsg}`;
       errorType = "NETWORK_ERROR";
@@ -396,12 +424,13 @@ export async function analyzeWithGemini(
       errorMessage = `Invalid Gemini API Key: ${errorMsg}`;
       errorType = "AUTH_ERROR";
     } else if (
-      errorMsg.includes("Deadline exceeded") ||
+      errorMsg.includes("Deadline exceeded") || // Timeout errors
       errorMsg.includes("timeout")
     ) {
       errorMessage = `Gemini API call timed out: ${errorMsg}`;
       errorType = "TIMEOUT_ERROR";
     } else if (error instanceof Response && !error.ok) {
+      // HTTP errors
       errorMessage = `Gemini API HTTP error ${error.status}: ${
         error.statusText
       }. Details: ${await error
@@ -409,7 +438,7 @@ export async function analyzeWithGemini(
         .catch(() => "(Could not read error body)")}`;
       errorType = "HTTP_ERROR";
     } else if (errorMsg.includes("[GoogleGenerativeAI Error]")) {
-      // Check for Google SDK specific errors
+      // SDK specific errors
       if (
         errorMsg.toLowerCase().includes("quota") ||
         errorMsg.toLowerCase().includes("resource_exhausted")
@@ -427,7 +456,7 @@ export async function analyzeWithGemini(
     return {
       error: errorMessage,
       type: errorType,
-      rawOutput: rawResponseTextForError,
+      rawOutput: rawResponseTextForError, // Include raw text if available
     };
   }
 }

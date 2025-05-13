@@ -31,7 +31,7 @@ export interface AnalyzedContentRecord {
   parsed_content_url: string;
   analysis_status: AnalysisStatus;
   analysis_result?: AnalysisResultJson | GeminiErrorDetail | null; // Stores success JSON or error details.
-  committee_name?: string | null;
+  committee_name?: string[] | null;
   analyzed_at?: string | null; // Timestamp of successful completion.
   analysis_attempts: number; // Counter for regular analysis.
   shortened_analysis_attempts: number; // Counter for shortened prompt analysis.

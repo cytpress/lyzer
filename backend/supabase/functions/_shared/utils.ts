@@ -15,8 +15,7 @@ export const LY_API_USER_AGENT =
   "LyGazetteSummarizerBot/2.1 (+https://github.com/your-username/your-repo)"; // TODO: Replace with your project/contact info.
 
 // --- Constants for Analysis Logic ---
-export const MAX_REGULAR_ATTEMPTS = 2; // Max attempts for standard analysis prompt.
-export const MAX_SHORTENED_ATTEMPTS = 1; // Max attempts for shortened analysis prompt.
+export const MAX_REGULAR_ATTEMPTS = 3; // Max attempts for standard analysis prompt.
 export const STUCK_PROCESSING_THRESHOLD_MINUTES = 15; // Time before a 'processing' job is considered stuck.
 
 // --- Shared fetch Function with Retry and Logging ---
