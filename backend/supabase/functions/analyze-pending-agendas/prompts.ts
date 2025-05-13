@@ -104,6 +104,7 @@ export function getAnalysisPrompt(
 --- 範例結束 ---
 `;
 
+  // The entire returned string is the prompt
   return `
 ${fewShotExample}
 
