@@ -1,7 +1,16 @@
 import "./App.css";
+import { Outlet } from "react-router-dom";
 
 function App() {
-  return <h1>test</h1>;
+  return (
+    <div>
+      <header></header>
+      <main>
+        <Outlet />
+      </main>
+      <footer></footer>
+    </div>
+  );
 }
 
 export default App;
