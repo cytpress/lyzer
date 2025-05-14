@@ -22,10 +22,10 @@ export const CONTENT_FETCH_TIMEOUT_MS = 60000;
 export const baseGenerationConfig: Partial<GenerationConfig> & {
   thinkingConfig?: { thinkingBudget?: number };
 } = {
-  temperature: 0.3,
+  temperature: 0.6,
   maxOutputTokens: 60000,
   thinkingConfig: {
-    thinkingBudget: 0,
+    thinkingBudget: 2000,
   },
 };
 
