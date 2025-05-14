@@ -34,7 +34,6 @@ export interface AnalyzedContentRecord {
   committee_name?: string[] | null;
   analyzed_at?: string | null; // Timestamp of successful completion.
   analysis_attempts: number; // Counter for regular analysis.
-  shortened_analysis_attempts: number; // Counter for shortened prompt analysis.
   processing_started_at?: string | null; // Timestamp when processing began (for detecting stuck jobs).
   error_message?: string | null; // Brief error from last failed attempt.
   last_error_type?: string | null; // Categorical type of last error.
