@@ -5,19 +5,19 @@ export interface HomePageGazetteItem {
   committee_names: string[];
   summary_title: string;
   overall_summary_sentence: string;
-  publish_date: string;
+  meeting_date: string;
+  analyzed_at: string;
 }
 
 export interface DetailedGazetteItem {
-  id: string;
+  analyzed_content_id: string;
   parsed_content_url: string;
   analysis_result: AnalysisResultJson;
   committee_names: string[];
-  analysis_status: string;
 
   agenda_id: string;
   agenda_subject: string;
-  agenda_meeting_dates: string[];
+  agenda_meeting_date: string;
   agenda_start_page: number;
   agenda_end_page: number;
   agenda_official_page_url: string;
