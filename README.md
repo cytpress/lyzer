@@ -1,5 +1,6 @@
+
 ```
-ly
+ly-gazette
 ├─ backend
 │  ├─ package-lock.json
 │  ├─ package.json
@@ -44,7 +45,9 @@ ly
 │     │     │  └─ database.ts
 │     │     └─ utils.ts
 │     └─ migrations
-│        └─ 20250429054202_remote_schema.sql
+│        ├─ 20250429054202_remote_schema.sql
+│        ├─ gazette_item_details_view.sql
+│        └─ gazette_item_homepage_view.sql
 ├─ frontend
 │  └─ lygazsum
 │     ├─ eslint.config.js
@@ -60,16 +63,19 @@ ly
 │     │  ├─ assets
 │     │  │  └─ react.svg
 │     │  ├─ components
+│     │  │  └─ GazetteListItem.tsx
 │     │  ├─ index.css
 │     │  ├─ main.tsx
 │     │  ├─ pages
+│     │  │  ├─ DetailedGazettePage.tsx
 │     │  │  └─ HomePage.tsx
 │     │  ├─ routes.tsx
 │     │  ├─ services
 │     │  │  ├─ gazetteService.ts
 │     │  │  └─ supabaseClient.ts
 │     │  ├─ types
-│     │  │  └─ supabase.ts
+│     │  │  ├─ analysisTypes.ts
+│     │  │  └─ models.ts
 │     │  └─ vite-env.d.ts
 │     ├─ tsconfig.app.json
 │     ├─ tsconfig.json
