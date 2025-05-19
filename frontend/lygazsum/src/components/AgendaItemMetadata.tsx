@@ -25,52 +25,52 @@ export default function AgendaItemMetadata({
 
   return (
     <div>
-      原始數據
+      <h3 className="text-xl font-semibold mb-2">原始數據</h3>
       <table>
         <tbody>
-          <tr>
-            <th>公報索引編號</th>
-            <td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">公報索引編號</th>
+            <td className="table-data-cell">
               第{gazette_volume}卷 第{gazette_issue}期 第{gazette_booklet}冊
             </td>
           </tr>
-          <tr>
-            <th>所屬委員會</th>
-            <td>{committee_names.join("、")}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">所屬委員會</th>
+            <td className="table-data-cell">{committee_names.join("、")}</td>
           </tr>
-          <tr>
-            <th>會議日期</th>
-            <td>{agenda_meeting_date}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">會議日期</th>
+            <td className="table-data-cell">{agenda_meeting_date}</td>
           </tr>
-          <tr>
-            <th>原始案由</th>
-            <td>{agenda_subject}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">原始案由</th>
+            <td className="table-data-cell">{agenda_subject}</td>
           </tr>
-          <tr>
-            <th>公報發布網址</th>
-            <td>{agenda_official_page_url}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">公報發布網址</th>
+            <td className="table-data-cell">{agenda_official_page_url}</td>
           </tr>
-          <tr>
-            <th>公報發布日期</th>
-            <td>{gazette_publish_date}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">公報發布日期</th>
+            <td className="table-data-cell">{gazette_publish_date}</td>
           </tr>
-          <tr>
-            <th>公報原始pdf</th>
-            <td>{agenda_official_pdf_url}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">公報原始pdf</th>
+            <td className="table-data-cell">{agenda_official_pdf_url}</td>
           </tr>
-          <tr>
-            <th>章節所屬頁碼</th>
-            <td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">章節所屬頁碼</th>
+            <td className="table-data-cell">
               {agenda_start_page} ~ {agenda_end_page}
             </td>
           </tr>
-          <tr>
-            <th>章節ID</th>
-            <td>{agenda_id}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">章節ID</th>
+            <td className="table-data-cell">{agenda_id}</td>
           </tr>
-          <tr>
-            <th>公報ID</th>
-            <td>{parent_gazette_id}</td>
+          <tr className="table-row-hover">
+            <th className="table-header-cell">公報ID</th>
+            <td className="table-data-cell">{parent_gazette_id}</td>
           </tr>
         </tbody>
       </table>

@@ -27,16 +27,26 @@ export default function DetailedGazettePage() {
     data.analysis_result;
 
   return (
-    <div>
-      <h1>{summary_title}</h1>
-      <p>{overall_summary_sentence}</p>
-      {agenda_items?.map((item, itemIndex) => (
-        <AgendaItemAnalysisDisplay
-          item={item}
-          key={`agenda-item-${itemIndex}`}
-        />
-      ))}
-      <AgendaItemMetadata metadata={data} />
+    <div className="flex flex-row lg:gap-x-8 lg:px-8">
+      <article className="w-full lg:w-3/4">
+        <h1 className="text-3xl text-slate-900 mb-4">{summary_title}</h1>
+        <p className="text-base text-slate-800 mb-6 ">
+          {overall_summary_sentence}
+        </p>
+        <div className="space-y-6">
+          {agenda_items?.map((item, itemIndex) => (
+            <AgendaItemAnalysisDisplay
+              item={item}
+              key={`agenda-item-${itemIndex}`}
+            />
+          ))}
+          <AgendaItemMetadata metadata={data} />
+        </div>
+      </article>
+      <nav className="w-full lg:w-1/4 shrink-0 p-4 lg:p-6 hidden lg:block sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
+        <h3 className="font-semibold text-slate-700 mb-3">在本頁中</h3>
+        <p className="text-sm text-slate-500">SCROLL!!</p>
+      </nav>
     </div>
   );
 }

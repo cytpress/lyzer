@@ -1,6 +1,6 @@
 
 ```
-ly-gazette
+ly
 ├─ backend
 │  ├─ package-lock.json
 │  ├─ package.json
@@ -63,6 +63,8 @@ ly-gazette
 │     │  ├─ assets
 │     │  │  └─ react.svg
 │     │  ├─ components
+│     │  │  ├─ AgendaItemAnalysisDisplay.tsx
+│     │  │  ├─ AgendaItemMetadata.tsx
 │     │  │  └─ GazetteListItem.tsx
 │     │  ├─ index.css
 │     │  ├─ main.tsx
