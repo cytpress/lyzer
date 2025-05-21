@@ -18,7 +18,7 @@ export default function Homepage() {
 
   return (
     <div>
-      <ul>
+      <ul className="space-y-6">
         {data.map((gazetteItem) => (
           <GazetteListItem key={gazetteItem.id} gazetteItem={gazetteItem} />
         ))}

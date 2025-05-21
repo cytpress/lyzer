@@ -5,11 +5,7 @@ export function SiteHeader() {
     <header className="bg-amber-200 ">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link to="/" className="flex flex-row items-center space-x-4">
-          <img
-            src="../public/vite.svg"
-            alt="placeholder"
-            className="h-8 w-auto"
-          />
+          <img src="/vite.svg" alt="placeholder" className="h-8 w-auto" />
           <p>LZY 立院公報懶人包</p>
         </Link>
 
