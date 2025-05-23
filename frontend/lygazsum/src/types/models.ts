@@ -29,3 +29,9 @@ export interface DetailedGazetteItem {
   gazette_booklet: number;
   gazette_publish_date: string;
 }
+
+export interface TocEntry {
+  id: string;
+  text: string;
+  level: number;
+}

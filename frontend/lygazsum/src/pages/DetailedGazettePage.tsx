@@ -1,9 +1,10 @@
-import { DetailedGazetteItem } from "../types/models";
+import { DetailedGazetteItem, TocEntry } from "../types/models";
 import { useQuery } from "@tanstack/react-query";
 import { fetchDetailedGazetteById } from "../services/gazetteService";
 import { useParams } from "react-router-dom";
 import AgendaItemAnalysisDisplay from "../components/AgendaItemAnalysisDisplay";
 import AgendaItemMetadata from "../components/AgendaItemMetadata";
+import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfContent";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();
@@ -26,6 +27,68 @@ export default function DetailedGazettePage() {
   const { summary_title, overall_summary_sentence, agenda_items } =
     data.analysis_result;
 
+  const tocEntries: TocEntry[] = [];
+  agenda_items?.forEach((item, itemIndex) => {
+    if (item.core_issue) {
+      tocEntries.push({
+        id: `item-${itemIndex}-core-issues`,
+        text: "核心議題",
+        level: 1,
+      });
+    }
+    if (item.controversy) {
+      tocEntries.push({
+        id: `item-${itemIndex}-controversies`,
+        text: "相關爭議",
+        level: 1,
+      });
+    }
+    if (item.legislator_speakers) {
+      tocEntries.push({
+        id: `item-${itemIndex}-legislators-response`,
+        text: "立法委員發言",
+        level: 1,
+      });
+      item.legislator_speakers.forEach((speaker) => {
+        if (speaker.speaker_name) {
+          tocEntries.push({
+            id: `item-${itemIndex}-${speaker.speaker_name}`,
+            text: speaker.speaker_name,
+            level: 2,
+          });
+        }
+      });
+    }
+    if (item.respondent_speakers) {
+      tocEntries.push({
+        id: `item-${itemIndex}-respondents-response`,
+        text: "相關人員回覆",
+        level: 1,
+      });
+      item.respondent_speakers.forEach((speaker) => {
+        if (speaker.speaker_name) {
+          tocEntries.push({
+            id: `item-${itemIndex}-${speaker.speaker_name}`,
+            text: speaker.speaker_name,
+            level: 2,
+          });
+        }
+      });
+    }
+    if (item.result_status_next) {
+      tocEntries.push({
+        id: `item-${itemIndex}-result-next`,
+        text: "相關後續",
+        level: 1,
+      });
+    }
+    tocEntries.push({
+      id: "metadata-table",
+      text: "原始資料",
+      level: 1,
+    });
+  });
+
   return (
     <div className="flex flex-row lg:gap-x-8 lg:px-8">
       <article className="w-full lg:w-3/4">
@@ -37,16 +100,14 @@ export default function DetailedGazettePage() {
           {agenda_items?.map((item, itemIndex) => (
             <AgendaItemAnalysisDisplay
               item={item}
+              itemIndex={itemIndex}
               key={`agenda-item-${itemIndex}`}
             />
           ))}
           <AgendaItemMetadata metadata={data} />
         </div>
       </article>
-      <nav className="w-full lg:w-1/4 shrink-0 p-4 lg:p-6 hidden lg:block sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
-        <h3 className="font-semibold text-slate-700 mb-3">在本頁中</h3>
-        <p className="text-sm text-slate-500">SCROLL!!</p>
-      </nav>
+      <DetailedPageTableOfContent entries={tocEntries} />
     </div>
   );
 }
