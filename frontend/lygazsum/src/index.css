@@ -4,6 +4,10 @@
   --font-sans: "Inter", "Noto Sans TC";
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 @layer components {
   /* 將自定義組件類放在 components 層 */
   .table-header-cell {
