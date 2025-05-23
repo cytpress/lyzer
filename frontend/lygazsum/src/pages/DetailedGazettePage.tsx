@@ -6,8 +6,11 @@ import AgendaItemAnalysisDisplay from "../components/AgendaItemAnalysisDisplay";
 import AgendaItemMetadata from "../components/AgendaItemMetadata";
 import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfContent";
 import generateTocEntries from "../utils/tocUtils";
+import { useRef, useState } from "react";
 
 export default function DetailedGazettePage() {
+  const [activeTocId, setactiveTocId] = useState(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const params = useParams<{ id: string }>();
   const gazetteIdFromParams = params.id;
   const { isPending, isError, data, error } = useQuery<
@@ -20,6 +23,8 @@ export default function DetailedGazettePage() {
     },
     enabled: !!gazetteIdFromParams,
   });
+
+  
 
   if (isPending && gazetteIdFromParams) return <span>讀取中...</span>;
   if (isError) return <span>錯誤: {error.message}</span>;
@@ -50,7 +55,7 @@ export default function DetailedGazettePage() {
           <AgendaItemMetadata metadata={data} />
         </div>
       </article>
-      <DetailedPageTableOfContent entries={tocEntries} />
+      <DetailedPageTableOfContent entries={tocEntries} activeId={activeTocId} />
     </div>
   );
 }
