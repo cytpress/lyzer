@@ -26,7 +26,10 @@ export default function AgendaItemAnalysisDisplay({
       const { speaker_name, speaker_viewpoint } = speaker;
       return (
         <li key={speaker_name}>
-          <p className="font-semibold" id={`${idPrefix}-${speaker_name}`}>
+          <p
+            className="font-semibold scroll-mt-16"
+            id={`${idPrefix}-${speaker_name}`}
+          >
             {speaker_name}
           </p>
           <ul className="list-disc list-outside pl-8 mb-2">
@@ -42,7 +45,10 @@ export default function AgendaItemAnalysisDisplay({
   return (
     <div className="space-y-6">
       <h3 className="">{item_title}</h3>
-      <h3 className="text-xl font-semibold mb-2" id={`${idPrefix}-core-issues`}>
+      <h3
+        className="text-xl font-semibold mb-2 scroll-mt-16 "
+        id={`${idPrefix}-core-issues`}
+      >
         核心議題
       </h3>
       <ul className="list-disc list-outside pl-8">
@@ -53,7 +59,7 @@ export default function AgendaItemAnalysisDisplay({
         ))}
       </ul>
       <h3
-        className="text-xl font-semibold mb-2"
+        className="text-xl font-semibold mb-2 scroll-mt-16 "
         id={`${idPrefix}-controversies`}
       >
         相關爭議
@@ -64,20 +70,23 @@ export default function AgendaItemAnalysisDisplay({
         ))}
       </ul>
       <h3
-        className="text-xl font-semibold mb-2"
+        className="text-xl font-semibold mb-4 scroll-mt-16 "
         id={`${idPrefix}-legislators-response`}
       >
         立法委員發言
       </h3>
       <ul>{renderSpeakerDetails(legislator_speakers)}</ul>
       <h3
-        className="text-xl font-semibold mb-2"
+        className="text-xl font-semibold mb-2 scroll-mt-16"
         id={`${idPrefix}-respondents-response`}
       >
         相關人員回覆
       </h3>
       <ul>{renderSpeakerDetails(respondent_speakers)}</ul>
-      <h3 className="text-xl font-semibold mb-2" id={`${idPrefix}-result-next`}>
+      <h3
+        className="text-xl font-semibold mb-2 scroll-mt-16"
+        id={`${idPrefix}-result-next`}
+      >
         相關後續
       </h3>
       <ul className="list-disc list-outside pl-8">

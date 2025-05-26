@@ -15,16 +15,16 @@ export function DetailedPageTableOfContent({
       <ul>
         {entries?.map((entry) => {
           return (
-            <>
-              <li key={entry.id}>
-                <a
-                  href={`#${entry.id}`}
-                  className={entry.id === activeId ? "active" : "deactivated"}
-                >
-                  {entry.text}
-                </a>
-              </li>
-            </>
+            <li key={`toc-${entry.id}`}>
+              <a
+                href={`#${entry.id}`}
+                className={
+                  entry.id === activeId ? "text-blue-600 " : "deactivated"
+                }
+              >
+                {entry.text}
+              </a>
+            </li>
           );
         })}
       </ul>
