@@ -67,11 +67,11 @@ export default function generateTocEntries({
         level: 1,
       });
     }
-    tocEntries.push({
-      id: "metadata-table",
-      text: "原始數據",
-      level: 1,
-    });
+  });
+  tocEntries.push({
+    id: "metadata-table",
+    text: "原始數據",
+    level: 1,
   });
   return tocEntries;
 }

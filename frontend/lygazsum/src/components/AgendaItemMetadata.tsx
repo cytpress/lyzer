@@ -25,7 +25,9 @@ export default function AgendaItemMetadata({
 
   return (
     <>
-      <h3 className="text-xl font-semibold mb-2" id="metadata-table">原始數據</h3>
+      <h3 className="text-xl font-semibold mb-2" id="metadata-table">
+        原始數據
+      </h3>
       <table>
         <tbody>
           <tr className="table-row-hover">
