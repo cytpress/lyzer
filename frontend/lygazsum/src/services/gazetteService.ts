@@ -4,6 +4,7 @@ import { DetailedGazetteItem } from "../types/models";
 
 interface FetchHomepageGazetteParams {
   limit?: number;
+  selectedCommittees?: string[];
 }
 
 const VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS =
@@ -14,14 +15,20 @@ const VW_DETAILED_GAZETTE_ITEMS_COLUMNS =
 
 export async function fetchHomepageGazette({
   limit = 10,
+  selectedCommittees,
 }: FetchHomepageGazetteParams = {}): Promise<HomePageGazetteItem[]> {
   console.log(`[gazetteService] Fetching latest ${limit} analyzed contents...`);
-
-  const { data, error } = await supabase
+  let query = supabase
     .from("vw_homepage_gazette_items")
-    .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS)
-    .order("meeting_date", { ascending: false })
-    .limit(limit);
+    .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS);
+  if (selectedCommittees && selectedCommittees.length > 0) {
+    const committeeString = `{${selectedCommittees?.join(",")}}`;
+    query = query.filter("committee_names", "ov", committeeString);
+  }
+
+  query = query.order("meeting_date", { ascending: false }).limit(limit);
+
+  const { data, error } = await query;
 
   if (error) {
     console.log(
