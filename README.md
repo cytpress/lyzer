@@ -65,7 +65,11 @@ ly
 │     │  ├─ components
 │     │  │  ├─ AgendaItemAnalysisDisplay.tsx
 │     │  │  ├─ AgendaItemMetadata.tsx
-│     │  │  └─ GazetteListItem.tsx
+│     │  │  ├─ CommitteeTags.tsx
+│     │  │  ├─ DetailedPageTableOfContent.tsx
+│     │  │  ├─ GazetteListItem.tsx
+│     │  │  ├─ SiteFooter.tsx
+│     │  │  └─ SiteHeader.tsx
 │     │  ├─ index.css
 │     │  ├─ main.tsx
 │     │  ├─ pages
@@ -78,6 +82,8 @@ ly
 │     │  ├─ types
 │     │  │  ├─ analysisTypes.ts
 │     │  │  └─ models.ts
+│     │  ├─ utils
+│     │  │  └─ tocUtils.ts
 │     │  └─ vite-env.d.ts
 │     ├─ tsconfig.app.json
 │     ├─ tsconfig.json

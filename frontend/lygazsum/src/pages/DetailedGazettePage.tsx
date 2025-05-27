@@ -6,13 +6,14 @@ import AgendaItemAnalysisDisplay from "../components/AgendaItemAnalysisDisplay";
 import AgendaItemMetadata from "../components/AgendaItemMetadata";
 import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfContent";
 import generateTocEntries from "../utils/tocUtils";
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useTocObserver } from "../hooks/useTocObserver";
+import { useMemo } from "react";
 
 export default function DetailedGazettePage() {
-  const [activeTocId, setActiveTocId] = useState<string | null>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const params = useParams<{ id: string }>();
+
   const gazetteIdFromParams = params.id;
+
   const { isPending, isError, data, error } = useQuery<
     DetailedGazetteItem | null,
     Error
@@ -31,42 +32,7 @@ export default function DetailedGazettePage() {
     return [];
   }, [data]);
 
-  useEffect(() => {
-    const prevObserver = observerRef.current;
-    if (prevObserver) prevObserver.disconnect();
-
-    const observerOptions = {
-      root: null,
-      rootMargin: "-64px 0px -87% 0px",
-      threshold: 0,
-    };
-
-    function handleIntersection(entries: IntersectionObserverEntry[]) {
-      const intersectingEntries = entries.filter(
-        (entry) => entry.isIntersecting
-      );
-      setActiveTocId(
-        intersectingEntries[intersectingEntries.length - 1].target.id
-      );
-    }
-
-    const newObserver = new IntersectionObserver(
-      handleIntersection,
-      observerOptions
-    );
-    observerRef.current = newObserver;
-
-    tocEntries.forEach((entry) => {
-      const observedElement = document.getElementById(entry.id);
-      if (observedElement && observerRef.current) {
-        observerRef.current.observe(observedElement);
-      }
-    });
-
-    return () => {
-      newObserver.disconnect();
-    };
-  }, [tocEntries]);
+  const activeTocId = useTocObserver(tocEntries);
 
   if (isPending && gazetteIdFromParams) return <span>讀取中...</span>;
   if (isError) return <span>錯誤: {error.message}</span>;

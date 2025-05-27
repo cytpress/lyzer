@@ -1,4 +1,3 @@
-// src/services/gazetteService.ts
 import { supabase } from "./supabaseClient";
 import { HomePageGazetteItem } from "../types/models";
 import { DetailedGazetteItem } from "../types/models";
