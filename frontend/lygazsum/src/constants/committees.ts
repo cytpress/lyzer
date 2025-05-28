@@ -15,3 +15,5 @@ export const SPECIAL_COMMITTEES_LIST = [
   "經費稽核委員會",
   "修憲委員會",
 ];
+
+export const ITEM_PER_PAGE = 10;

@@ -9,6 +9,11 @@ export interface HomePageGazetteItem {
   analyzed_at: string;
 }
 
+export interface FetchHomepageResult {
+  itemsList: HomePageGazetteItem[];
+  totalItemsCount: number;
+}
+
 export interface DetailedGazetteItem {
   analyzed_content_id: string;
   parsed_content_url: string;

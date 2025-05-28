@@ -1,10 +1,11 @@
 import { supabase } from "./supabaseClient";
-import { HomePageGazetteItem } from "../types/models";
+import { FetchHomepageResult } from "../types/models";
 import { DetailedGazetteItem } from "../types/models";
 
 interface FetchHomepageGazetteParams {
   limit?: number;
   selectedCommittees?: string[];
+  page?: number;
 }
 
 const VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS =
@@ -16,19 +17,28 @@ const VW_DETAILED_GAZETTE_ITEMS_COLUMNS =
 export async function fetchHomepageGazette({
   limit = 10,
   selectedCommittees,
-}: FetchHomepageGazetteParams = {}): Promise<HomePageGazetteItem[]> {
+  page = 1,
+}: FetchHomepageGazetteParams = {}): Promise<FetchHomepageResult> {
   console.log(`[gazetteService] Fetching latest ${limit} analyzed contents...`);
+
+  const itemsPerPage = limit;
+  const startIndex = (page - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage - 1;
+
   let query = supabase
     .from("vw_homepage_gazette_items")
-    .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS);
+    .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS, { count: "exact" });
+
   if (selectedCommittees && selectedCommittees.length > 0) {
     const committeeString = `{${selectedCommittees?.join(",")}}`;
     query = query.filter("committee_names", "ov", committeeString);
   }
 
-  query = query.order("meeting_date", { ascending: false }).limit(limit);
+  query = query
+    .order("meeting_date", { ascending: false })
+    .range(startIndex, endIndex);
 
-  const { data, error } = await query;
+  const { data, count, error } = await query;
 
   if (error) {
     console.log(
@@ -38,7 +48,7 @@ export async function fetchHomepageGazette({
     throw error;
   }
 
-  return data ? (data as HomePageGazetteItem[]) : [];
+  return { itemsList: data, totalItemsCount: count || 0 };
 }
 
 export async function fetchDetailedGazetteById(

@@ -1,13 +1,13 @@
 import { DetailedGazetteItem } from "../types/models";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDetailedGazetteById } from "../services/gazetteService";
+import { useMemo } from "react";
 import { useParams } from "react-router-dom";
+import { fetchDetailedGazetteById } from "../services/gazetteService";
 import AgendaItemAnalysisDisplay from "../components/AgendaItemAnalysisDisplay";
 import AgendaItemMetadata from "../components/AgendaItemMetadata";
 import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfContent";
 import generateTocEntries from "../utils/tocUtils";
 import { useTocObserver } from "../hooks/useTocObserver";
-import { useMemo } from "react";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();
