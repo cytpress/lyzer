@@ -7,6 +7,7 @@ export interface HomePageGazetteItem {
   overall_summary_sentence: string;
   meeting_date: string;
   analyzed_at: string;
+  score?: number;
 }
 
 export interface FetchHomepageResult {

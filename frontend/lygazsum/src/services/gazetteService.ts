@@ -1,11 +1,11 @@
 import { supabase } from "./supabaseClient";
-import { FetchHomepageResult } from "../types/models";
-import { DetailedGazetteItem } from "../types/models";
+import { FetchHomepageResult, DetailedGazetteItem } from "../types/models";
 
 interface FetchHomepageGazetteParams {
   limit?: number;
   selectedCommittees?: string[];
   page?: number;
+  searchKeyword?: string;
 }
 
 const VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS =
@@ -18,25 +18,38 @@ export async function fetchHomepageGazette({
   limit = 10,
   selectedCommittees,
   page = 1,
+  searchKeyword,
 }: FetchHomepageGazetteParams = {}): Promise<FetchHomepageResult> {
   console.log(`[gazetteService] Fetching latest ${limit} analyzed contents...`);
 
+  let query;
+  let selectedColumns = VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS;
   const itemsPerPage = limit;
   const startIndex = (page - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage - 1;
 
-  let query = supabase
-    .from("vw_homepage_gazette_items")
-    .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS, { count: "exact" });
+  if (searchKeyword) {
+    selectedColumns += ", pgroonga_score(tableoid, ctid) AS score";
+    query = supabase
+      .from("vw_homepage_gazette_items")
+      .select(selectedColumns as "*", { count: "exact" });
 
-  if (selectedCommittees && selectedCommittees.length > 0) {
-    const committeeString = `{${selectedCommittees?.join(",")}}`;
-    query = query.filter("committee_names", "ov", committeeString);
+    query = query.filter("analysis_result", "&@~", searchKeyword);
+    query = query.order("score", { ascending: false, nullsFirst: false });
+  } else {
+    query = supabase
+      .from("vw_homepage_gazette_items")
+      .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS, { count: "exact" });
+
+    if (selectedCommittees && selectedCommittees.length > 0) {
+      const committeeString = `{${selectedCommittees?.join(",")}}`;
+      query = query.filter("committee_names", "ov", committeeString);
+    }
+
+    query = query.order("meeting_date", { ascending: false });
   }
 
-  query = query
-    .order("meeting_date", { ascending: false })
-    .range(startIndex, endIndex);
+  query = query.range(startIndex, endIndex);
 
   const { data, count, error } = await query;
 
@@ -48,7 +61,10 @@ export async function fetchHomepageGazette({
     throw error;
   }
 
-  return { itemsList: data, totalItemsCount: count || 0 };
+  return {
+    itemsList: data,
+    totalItemsCount: count || 0,
+  };
 }
 
 export async function fetchDetailedGazetteById(
