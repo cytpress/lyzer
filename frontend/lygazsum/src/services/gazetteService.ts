@@ -1,11 +1,15 @@
 import { supabase } from "./supabaseClient";
-import { FetchHomepageResult, DetailedGazetteItem } from "../types/models";
+import {
+  FetchHomepageResult,
+  DetailedGazetteItem,
+  HomePageGazetteItem,
+} from "../types/models";
 
 interface FetchHomepageGazetteParams {
   limit?: number;
   selectedCommittees?: string[];
   page?: number;
-  searchKeyword?: string;
+  searchTerm?: string;
 }
 
 const VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS =
@@ -18,24 +22,51 @@ export async function fetchHomepageGazette({
   limit = 10,
   selectedCommittees,
   page = 1,
-  searchKeyword,
+  searchTerm,
 }: FetchHomepageGazetteParams = {}): Promise<FetchHomepageResult> {
   console.log(`[gazetteService] Fetching latest ${limit} analyzed contents...`);
 
   let query;
-  let selectedColumns = VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS;
   const itemsPerPage = limit;
   const startIndex = (page - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage - 1;
 
-  if (searchKeyword) {
-    selectedColumns += ", pgroonga_score(tableoid, ctid) AS score";
-    query = supabase
-      .from("vw_homepage_gazette_items")
-      .select(selectedColumns as "*", { count: "exact" });
+  //TODO: search to be fixed!!!
+  if (searchTerm) {
+    const {
+      data: searchResult,
+      error: searchError,
+      count: searchResultCount,
+    } = await supabase.rpc(
+      "search_analyzed_contents",
+      {
+        p_search_term: searchTerm,
+        p_limit: itemsPerPage,
+        p_offset: page,
+      },
+      { count: "exact" }
+    );
+    if (searchError) throw searchError;
 
-    query = query.filter("analysis_result", "&@~", searchKeyword);
-    query = query.order("score", { ascending: false, nullsFirst: false });
+    const searchResultIdList = searchResult.map((item: any) => item.item_id);
+
+    const { data: finalSearchResult, error: finalSearchResultError } =
+      await supabase
+        .from("vw_homepage_gazette_items")
+        .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS)
+        .in("id", searchResultIdList);
+
+    return {
+      itemsList: finalSearchResult as HomePageGazetteItem[],
+      totalItemsCount: searchResultCount as number,
+    };
+    // selectedColumns += ", pgroonga_score(tableoid, ctid) AS score";
+    // query = supabase
+    //   .from("vw_homepage_gazette_items")
+    //   .select(selectedColumns as "*", { count: "exact" });
+
+    // query = query.filter("analysis_result", "&@~", searchTerm);
+    // query = query.order("score", { ascending: false, nullsFirst: false });
   } else {
     query = supabase
       .from("vw_homepage_gazette_items")

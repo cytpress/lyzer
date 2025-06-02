@@ -7,6 +7,7 @@ import {
   SPECIAL_COMMITTEES_LIST,
   ITEM_PER_PAGE,
 } from "../constants/committees";
+import { useSearch } from "../context/searchContext";
 import { HomepageFilterButton } from "../components/HomepageFilterButton";
 import { HomepagePagination } from "../components/HomepagePagination";
 import GazetteListItem from "../components/GazetteListItem";
@@ -14,17 +15,18 @@ import GazetteListItem from "../components/GazetteListItem";
 export default function Homepage() {
   const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-
+  const { searchTerm } = useSearch();
   const { isPending, isError, data, error } = useQuery<
     FetchHomepageResult,
     Error
   >({
-    queryKey: ["homepageGazettes", selectedCommittees, currentPage],
+    queryKey: ["homepageGazettes", selectedCommittees, currentPage, searchTerm],
     queryFn: () =>
       fetchHomepageGazette({
         limit: ITEM_PER_PAGE,
         page: currentPage,
         selectedCommittees,
+        searchTerm,
       }),
   });
 

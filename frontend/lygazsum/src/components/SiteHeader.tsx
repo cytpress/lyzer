@@ -1,6 +1,29 @@
 import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useSearch } from "../context/searchContext";
 
 export function SiteHeader() {
+  const [searchInputValue, setSearchInputValue] = useState("");
+  const { searchTerm, setSearchTerm } = useSearch();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  function handleSearchInputValueChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    setSearchInputValue(event.target.value);
+  }
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSubmitSearch();
+    }
+  }
+  function handleSubmitSearch() {
+    setSearchTerm(searchInputValue);
+    if (location.pathname !== "/") navigate("/");
+  }
   return (
     <header className="sticky top-0 bg-amber-200 h-16 z-50 content-center">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center ">
@@ -11,7 +34,10 @@ export function SiteHeader() {
 
         <div className="flex items-center space-x-4">
           <input
-            type="text"
+            value={searchInputValue}
+            onChange={handleSearchInputValueChange}
+            onKeyDown={handleKeyDown}
+            type="search"
             placeholder="搜尋..."
             className="px-3 py-1.5 rounded-md text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hidden md:block"
           />
