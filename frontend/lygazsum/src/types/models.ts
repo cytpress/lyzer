@@ -15,6 +15,11 @@ export interface FetchHomepageResult {
   totalItemsCount: number;
 }
 
+export interface RankedSearchResultsItem {
+  item_id: string;
+  relevance_score: number;
+}
+
 export interface DetailedGazetteItem {
   analyzed_content_id: string;
   parsed_content_url: string;

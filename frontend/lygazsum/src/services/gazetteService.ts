@@ -3,6 +3,7 @@ import {
   FetchHomepageResult,
   DetailedGazetteItem,
   HomePageGazetteItem,
+  RankedSearchResultsItem,
 } from "../types/models";
 
 interface FetchHomepageGazetteParams {
@@ -31,42 +32,71 @@ export async function fetchHomepageGazette({
   const startIndex = (page - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage - 1;
 
-  //TODO: search to be fixed!!!
   if (searchTerm) {
+    const calculatedOffset = (page - 1) * itemsPerPage;
+
     const {
-      data: searchResult,
-      error: searchError,
-      count: searchResultCount,
+      data: rankedSearchResults,
+      error: rankedSearchResultsError,
+      count: rankedSearchResultsCount,
     } = await supabase.rpc(
       "search_analyzed_contents",
       {
         p_search_term: searchTerm,
         p_limit: itemsPerPage,
-        p_offset: page,
+        p_offset: calculatedOffset,
       },
       { count: "exact" }
     );
-    if (searchError) throw searchError;
 
-    const searchResultIdList = searchResult.map((item: any) => item.item_id);
+    if (rankedSearchResultsError) throw rankedSearchResultsError;
 
-    const { data: finalSearchResult, error: finalSearchResultError } =
+    const safeRankedSearchResults = Array.isArray(rankedSearchResults)
+      ? rankedSearchResults
+      : [];
+
+    if (safeRankedSearchResults.length === 0) {
+      return {
+        itemsList: [],
+        totalItemsCount: (rankedSearchResultsCount as number) || 0,
+      };
+    }
+
+    const searchResultIdList = safeRankedSearchResults.map(
+      (item: RankedSearchResultsItem) => item.item_id
+    );
+
+    const { data: matchedItemsFromView, error: matchedItemsFromViewError } =
       await supabase
         .from("vw_homepage_gazette_items")
         .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS)
         .in("id", searchResultIdList);
 
-    return {
-      itemsList: finalSearchResult as HomePageGazetteItem[],
-      totalItemsCount: searchResultCount as number,
-    };
-    // selectedColumns += ", pgroonga_score(tableoid, ctid) AS score";
-    // query = supabase
-    //   .from("vw_homepage_gazette_items")
-    //   .select(selectedColumns as "*", { count: "exact" });
+    if (matchedItemsFromViewError) throw matchedItemsFromViewError;
 
-    // query = query.filter("analysis_result", "&@~", searchTerm);
-    // query = query.order("score", { ascending: false, nullsFirst: false });
+    const safeMatchItemsFromView = Array.isArray(matchedItemsFromView)
+      ? matchedItemsFromView
+      : [];
+
+    const mergedRankedItemsList = safeRankedSearchResults
+      .map((rankedItem: RankedSearchResultsItem) => {
+        const viewItem = safeMatchItemsFromView.find(
+          (viewItem: HomePageGazetteItem) => viewItem.id === rankedItem.item_id
+        );
+        if (viewItem) {
+          return {
+            ...viewItem,
+            score: rankedItem.relevance_score,
+          };
+        }
+        return null;
+      })
+      .filter((item) => item !== null);
+
+    return {
+      itemsList: mergedRankedItemsList,
+      totalItemsCount: rankedSearchResultsCount as number,
+    };
   } else {
     query = supabase
       .from("vw_homepage_gazette_items")
@@ -85,10 +115,6 @@ export async function fetchHomepageGazette({
   const { data, count, error } = await query;
 
   if (error) {
-    console.log(
-      "[gazetteService] Error fetching Homepage Gazette items",
-      error
-    );
     throw error;
   }
 
@@ -101,8 +127,6 @@ export async function fetchHomepageGazette({
 export async function fetchDetailedGazetteById(
   id: string
 ): Promise<DetailedGazetteItem | null> {
-  console.log(`[gazetteService] Fetching detailed gazette for ID: ${id}`);
-
   const { data, error } = await supabase
     .from("vw_detailed_gazette_items")
     .select(VW_DETAILED_GAZETTE_ITEMS_COLUMNS)
@@ -111,16 +135,11 @@ export async function fetchDetailedGazetteById(
 
   // more than 1 rows
   if (error) {
-    console.log(
-      `[gazetteService] Error fetching Detailed Gazette item for ID: ${id}`,
-      error
-    );
     throw error;
   }
 
   // no data found
   if (!data) {
-    console.log(`[gazetteService] ID: ${id} Gazette item not found `);
     return null;
   }
 
