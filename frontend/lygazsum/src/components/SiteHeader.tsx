@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom";
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useSearch } from "../context/searchContext";
+import { useSearchFilter } from "../context/SearchFilterContext";
 
 export function SiteHeader() {
   const [searchInputValue, setSearchInputValue] = useState("");
-  const { searchTerm, setSearchTerm } = useSearch();
+  const { searchTerm, setSearchTerm } = useSearchFilter();
   const navigate = useNavigate();
   const location = useLocation();
 

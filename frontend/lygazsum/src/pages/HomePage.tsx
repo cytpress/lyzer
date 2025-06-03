@@ -7,15 +7,16 @@ import {
   SPECIAL_COMMITTEES_LIST,
   ITEM_PER_PAGE,
 } from "../constants/committees";
-import { useSearch } from "../context/searchContext";
+import { useSearchFilter } from "../context/SearchFilterContext";
 import { HomepageFilterButton } from "../components/HomepageFilterButton";
 import { HomepagePagination } from "../components/HomepagePagination";
 import GazetteListItem from "../components/GazetteListItem";
 
 export default function Homepage() {
-  const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
+  // const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const { searchTerm } = useSearch();
+  const { searchTerm, selectedCommittees, handleCommitteesToggle } =
+    useSearchFilter();
   const { isPending, isError, data, error } = useQuery<
     FetchHomepageResult,
     Error
@@ -33,16 +34,6 @@ export default function Homepage() {
   if (isPending) return <span>讀取中...</span>;
   if (isError) return <span>錯誤: {error.message}</span>;
   if (!data || data.itemsList.length === 0) return <span>查無公報資料</span>;
-
-  function handleCommitteesToggle(committeeName: string) {
-    setSelectedCommittees((prevList) => {
-      if (!selectedCommittees.includes(committeeName)) {
-        return [...prevList, committeeName];
-      } else {
-        return prevList.filter((committee) => committee !== committeeName);
-      }
-    });
-  }
 
   function handlePageChange(pageNumber: number) {
     setCurrentPage(pageNumber);

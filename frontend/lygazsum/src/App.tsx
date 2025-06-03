@@ -2,7 +2,7 @@ import "./App.css";
 import { Outlet } from "react-router-dom";
 import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
-import { SearchProvider } from "./context/searchContext";
+import { SearchProvider } from "./context/SearchFilterContext";
 
 function App() {
   return (
