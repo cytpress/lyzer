@@ -43,6 +43,7 @@ export async function fetchHomepageGazette({
       "search_analyzed_contents",
       {
         p_search_term: searchTerm,
+        p_selected_committees: selectedCommittees,
         p_limit: itemsPerPage,
         p_offset: calculatedOffset,
       },

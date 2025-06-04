@@ -1,7 +1,7 @@
 import { FetchHomepageResult } from "../types/models";
 import { fetchHomepageGazette } from "../services/gazetteService";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   NORMAL_COMMITTEES_LIST,
   SPECIAL_COMMITTEES_LIST,
@@ -10,13 +10,14 @@ import {
 import { useSearchFilter } from "../context/SearchFilterContext";
 import { HomepageFilterButton } from "../components/HomepageFilterButton";
 import { HomepagePagination } from "../components/HomepagePagination";
-import GazetteListItem from "../components/GazetteListItem";
+import GazetteListItem from "../components/HomepageItemsList";
 
 export default function Homepage() {
-  // const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+
   const { searchTerm, selectedCommittees, handleCommitteesToggle } =
     useSearchFilter();
+
   const { isPending, isError, data, error } = useQuery<
     FetchHomepageResult,
     Error
@@ -30,6 +31,10 @@ export default function Homepage() {
         searchTerm,
       }),
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCommittees, searchTerm]);
 
   if (isPending) return <span>讀取中...</span>;
   if (isError) return <span>錯誤: {error.message}</span>;

@@ -1,5 +1,5 @@
 import { HomePageGazetteItem } from "../types/models";
-import CommitteeTags from "./CommitteeTags";
+import CommitteeTags from "./HomepageCommitteeTags";
 import { Link } from "react-router-dom";
 interface GazetteListItemProps {
   gazetteItem: HomePageGazetteItem;

@@ -5,6 +5,7 @@ interface SearchFilterContextType {
   setSearchTerm: (term: string) => void;
   selectedCommittees: string[];
   handleCommitteesToggle: (committeeName: string) => void;
+  clearFilterAndSearchTerm: () => void;
 }
 
 const SearchFilterContext = createContext<SearchFilterContextType | undefined>(
@@ -29,6 +30,11 @@ export function SearchProvider({ children }: SearchProviderProps) {
     });
   }
 
+  function clearFilterAndSearchTerm() {
+    setSearchTerm("");
+    setSelectedCommittees([]);
+  }
+
   return (
     <SearchFilterContext.Provider
       value={{
@@ -36,6 +42,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
         setSearchTerm,
         selectedCommittees,
         handleCommitteesToggle,
+        clearFilterAndSearchTerm,
       }}
     >
       {children}
