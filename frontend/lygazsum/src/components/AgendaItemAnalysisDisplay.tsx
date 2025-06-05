@@ -19,6 +19,8 @@ export default function AgendaItemAnalysisDisplay({
   } = item;
 
   const idPrefix = `item-${itemIndex}`;
+  const subtitleClasses = "text-neutral-900 text-xl font-semibold mt-10 mb-4";
+  const textClasses = "text-neutral-800 leading-relaxed mb-2";
 
   function renderSpeakerDetails(speakers: SpeakerDetail[] | null) {
     if (!speakers || speakers.length === 0) return <li>無相關發言紀錄</li>;
@@ -26,11 +28,13 @@ export default function AgendaItemAnalysisDisplay({
       const { speaker_name, speaker_viewpoint } = speaker;
       return (
         <li key={speaker_name}>
-          <section id={`${idPrefix}-${speaker_name}`} className="scroll-mt-16">
-            <p className="font-semibold ">{speaker_name}</p>
+          <section id={`${idPrefix}-${speaker_name}`} className="scroll-mt-24">
+            <p className="font-semibold mt-6 mb-2">{speaker_name}</p>
             <ul className="list-disc list-outside pl-8 mb-2">
               {speaker_viewpoint?.map((viewpoint) => (
-                <li key={viewpoint}>{viewpoint}</li>
+                <li key={viewpoint} className={textClasses}>
+                  {viewpoint}
+                </li>
               ))}
             </ul>
           </section>
@@ -40,53 +44,49 @@ export default function AgendaItemAnalysisDisplay({
   }
 
   return (
-    <div className="space-y-6">
-      <h3 className="">{item_title}</h3>
-      <section id={`${idPrefix}-core-issues`} className="scroll-mt-16">
-        <h3 className="text-xl font-semibold mb-2  ">核心議題</h3>
+    <>
+      <h3 className={subtitleClasses}>議題摘要</h3>
+      <p className="text-neutral-800 leading-relaxed mb-4">{item_title}</p>
+      <section id={`${idPrefix}-core-issues`} className="scroll-mt-24">
+        <h3 className={subtitleClasses}>核心議題</h3>
         <ul className="list-disc list-outside pl-8">
           {core_issue?.map((issue) => (
-            <li key={issue} className="">
+            <li key={issue} className={textClasses}>
               {issue}
             </li>
           ))}
         </ul>
       </section>
-      <section id={`${idPrefix}-controversies`} className="scroll-mt-16">
-        <h3
-          className="text-xl font-semibold mb-2"
-          id={`${idPrefix}-controversies`}
-        >
+      <section id={`${idPrefix}-controversies`} className="scroll-mt-24">
+        <h3 className={subtitleClasses} id={`${idPrefix}-controversies`}>
           相關爭議
         </h3>
         <ul className="list-disc list-outside pl-8">
           {controversy?.map((controversy) => (
-            <li key={controversy}>{controversy}</li>
+            <li key={controversy} className={textClasses}>
+              {controversy}
+            </li>
           ))}
         </ul>
       </section>
-      <h3
-        className="text-xl font-semibold mb-4 scroll-mt-16 "
-        id={`${idPrefix}-legislators-response`}
-      >
+      <h3 className={subtitleClasses} id={`${idPrefix}-legislators-response`}>
         立法委員發言
       </h3>
       <ul>{renderSpeakerDetails(legislator_speakers)}</ul>
-      <h3
-        className="text-xl font-semibold mb-2 scroll-mt-16"
-        id={`${idPrefix}-respondents-response`}
-      >
+      <h3 className={subtitleClasses} id={`${idPrefix}-respondents-response`}>
         相關人員回覆
       </h3>
       <ul>{renderSpeakerDetails(respondent_speakers)}</ul>
-      <section className="scroll-mt-16" id={`${idPrefix}-result-next`}>
-        <h3 className="text-xl font-semibold mb-2 ">相關後續</h3>
+      <section className="scroll-mt-24" id={`${idPrefix}-result-next`}>
+        <h3 className={subtitleClasses}>相關後續</h3>
         <ul className="list-disc list-outside pl-8">
           {result_status_next?.map((result_status_next) => (
-            <li key={result_status_next}>{result_status_next}</li>
+            <li key={result_status_next} className={textClasses}>
+              {result_status_next}
+            </li>
           ))}
         </ul>
       </section>
-    </div>
+    </>
   );
 }

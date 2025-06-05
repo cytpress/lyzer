@@ -42,22 +42,22 @@ export default function DetailedGazettePage() {
     data.analysis_result;
 
   return (
-    <div className="flex flex-row lg:gap-x-8 lg:px-8">
-      <article className="w-full lg:w-3/4 py-6">
-        <h1 className="text-3xl text-slate-900 mb-4">{summary_title}</h1>
-        <p className="text-base text-slate-800 mb-6 ">
+    <div className="flex flex-row">
+      <article className="w-full lg:w-2/3 pt-10 mr-16">
+        <h1 className="text-3xl font-semibold mb-6 text-neutral-900">
+          {summary_title}
+        </h1>
+        <p className="text-base leading-relaxed text-neutral-800 mb-6 ">
           {overall_summary_sentence}
         </p>
-        <div className="space-y-6">
-          {agenda_items?.map((item, itemIndex) => (
-            <AgendaItemAnalysisDisplay
-              item={item}
-              itemIndex={itemIndex}
-              key={`agenda-item-${itemIndex}`}
-            />
-          ))}
-          <AgendaItemMetadata metadata={data} />
-        </div>
+        {agenda_items?.map((item, itemIndex) => (
+          <AgendaItemAnalysisDisplay
+            item={item}
+            itemIndex={itemIndex}
+            key={`agenda-item-${itemIndex}`}
+          />
+        ))}
+        <AgendaItemMetadata metadata={data} />
       </article>
       <DetailedPageTableOfContent entries={tocEntries} activeId={activeTocId} />
     </div>

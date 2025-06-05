@@ -6,10 +6,10 @@ import { SearchProvider } from "./context/SearchFilterContext";
 
 function App() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-neutral-50">
       <SearchProvider>
         <SiteHeader />
-        <main className="flex-grow container mx-auto px-4">
+        <main className="flex-grow container max-w-7xl mx-auto ">
           <Outlet />
         </main>
         <SiteFooter />

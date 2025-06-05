@@ -9,17 +9,23 @@ export function DetailedPageTableOfContent({
   entries,
   activeId,
 }: TableOfContentsProps) {
+  const indentClasses = "pl-6 p-2";
   return (
-    <nav className="w-full lg:w-1/4 shrink-0 p-4 lg:p-6 hidden lg:block sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
-      <h3 className="font-semibold text-slate-700 mb-3">在本頁中</h3>
+    <nav className="w-full lg:w-1/3 shrink-0 pt-14 pl-6 hidden lg:block sticky top-18 h-[calc(100vh-4rem)] overflow-y-auto border-l border-neutral-300">
+      <h3 className="font-semibold text-neutral-500 mb-3">在本頁中</h3>
       <ul>
         {entries?.map((entry) => {
           return (
-            <li key={`toc-${entry.id}`}>
+            <li
+              key={`toc-${entry.id}`}
+              className={entry.level === 2 ? indentClasses : "p-2"}
+            >
               <a
                 href={`#${entry.id}`}
                 className={
-                  entry.id === activeId ? "text-blue-600 " : "deactivated"
+                  entry.id === activeId
+                    ? "text-neutral-900 font-medium"
+                    : "text-neutral-600"
                 }
               >
                 {entry.text}

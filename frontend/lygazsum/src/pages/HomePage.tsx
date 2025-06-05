@@ -44,34 +44,29 @@ export default function Homepage() {
     setCurrentPage(pageNumber);
   }
 
+  const allCommittees = [...NORMAL_COMMITTEES_LIST, ...SPECIAL_COMMITTEES_LIST];
+
   return (
     <>
-      <div className="flex flex-col items-center">
-        <div>
-          {NORMAL_COMMITTEES_LIST.map((committee) => (
+      <div className="overflow-x-auto whitespace-nowrap py-4 my-2 flex justify-center">
+        <div className="inline-flex items-center space-x-3 px-2">
+          {allCommittees.map((committee) => (
             <HomepageFilterButton
+              key={committee}
               committeeName={committee}
               onToggle={handleCommitteesToggle}
-            />
-          ))}
-        </div>
-        <div>
-          {SPECIAL_COMMITTEES_LIST.map((committee) => (
-            <HomepageFilterButton
-              committeeName={committee}
-              onToggle={handleCommitteesToggle}
+              isSelected={selectedCommittees.includes(committee)}
             />
           ))}
         </div>
       </div>
 
-      <div>
-        <ul className="space-y-6">
-          {data.itemsList.map((gazetteItem) => (
-            <GazetteListItem key={gazetteItem.id} gazetteItem={gazetteItem} />
-          ))}
-        </ul>
-      </div>
+      <ul className="space-y-4">
+        {data.itemsList.map((gazetteItem) => (
+          <GazetteListItem key={gazetteItem.id} gazetteItem={gazetteItem} />
+        ))}
+      </ul>
+
       <HomepagePagination
         currentPage={currentPage}
         totalItemsCount={data.totalItemsCount}

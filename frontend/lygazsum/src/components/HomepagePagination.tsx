@@ -1,4 +1,5 @@
 import generatePaginationRange from "../utils/generatePaginationRange";
+import { ChevronRightIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
 
 interface PaginationProps {
   currentPage: number;
@@ -18,24 +19,39 @@ export function HomepagePagination({
     currentPage,
     maxPage,
   });
+
+  const currentPageClasses = "min-w-9 min-h-9 text-blue-600 hover:bg-neutral-200";
+  const nonCurrentPageClasses =
+    "min-w-9 min-h-9 text-neutral-600 hover:bg-neutral-200";
+
   return (
-    <div className="flex flex-row justify-center">
+    <div className="flex items-center justify-center my-6 space-x-2">
       <button
+        className="px-2 py-2 text-neutral-600 hover:bg-neutral-200"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
       >
-        上一頁
+        <ChevronLeftIcon className="h-5 w-5" />
       </button>
       {currentPagination.map((pageNumber) => (
-        <button onClick={() => onPageChange(pageNumber)} key={pageNumber}>
+        <button
+          className={
+            currentPage === pageNumber
+              ? currentPageClasses
+              : nonCurrentPageClasses
+          }
+          onClick={() => onPageChange(pageNumber)}
+          key={pageNumber}
+        >
           {pageNumber}
         </button>
       ))}
       <button
+        className="px-2 py-2 text-neutral-600 hover:bg-neutral-200"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === maxPage}
       >
-        下一頁
+        <ChevronRightIcon className="h-5 w-5" />
       </button>
     </div>
   );
