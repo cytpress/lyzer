@@ -3,7 +3,10 @@
 @theme {
   --font-sans: "Inter", "Noto Sans TC";
 }
-
-html {
-  scroll-behavior: smooth;
+@layer base {
+  html,
+  body,
+  #root {
+    @apply h-full overflow-hidden scroll-smooth;
+  }
 }

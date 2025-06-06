@@ -45,8 +45,10 @@ export default function AgendaItemAnalysisDisplay({
 
   return (
     <>
-      <h3 className={subtitleClasses}>議題摘要</h3>
-      <p className="text-neutral-800 leading-relaxed mb-4">{item_title}</p>
+      <section id={`${idPrefix}-item-title`} className="scroll-mt-24">
+        <h3 className={subtitleClasses}>議題摘要</h3>
+        <p className="text-neutral-800 leading-relaxed mb-4">{item_title}</p>
+      </section>
       <section id={`${idPrefix}-core-issues`} className="scroll-mt-24">
         <h3 className={subtitleClasses}>核心議題</h3>
         <ul className="list-disc list-outside pl-8">
@@ -69,14 +71,14 @@ export default function AgendaItemAnalysisDisplay({
           ))}
         </ul>
       </section>
-      <h3 className={subtitleClasses} id={`${idPrefix}-legislators-response`}>
-        立法委員發言
-      </h3>
-      <ul>{renderSpeakerDetails(legislator_speakers)}</ul>
-      <h3 className={subtitleClasses} id={`${idPrefix}-respondents-response`}>
-        相關人員回覆
-      </h3>
-      <ul>{renderSpeakerDetails(respondent_speakers)}</ul>
+      <section id={`${idPrefix}-legislators-response`}>
+        <h3 className={subtitleClasses}>立法委員發言</h3>
+        <ul>{renderSpeakerDetails(legislator_speakers)}</ul>
+      </section>
+      <section id={`${idPrefix}-respondents-response`}>
+        <h3 className={subtitleClasses}>相關人員回覆</h3>
+        <ul>{renderSpeakerDetails(respondent_speakers)}</ul>
+      </section>
       <section className="scroll-mt-24" id={`${idPrefix}-result-next`}>
         <h3 className={subtitleClasses}>相關後續</h3>
         <ul className="list-disc list-outside pl-8">
