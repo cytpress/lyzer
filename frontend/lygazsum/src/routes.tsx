@@ -1,6 +1,6 @@
 import App from "./App";
 import { createBrowserRouter } from "react-router-dom";
-import HomePage from "./pages/Homepage";
+import Homepage from "./pages/Homepage";
 import DetailedGazettePage from "./pages/DetailedGazettePage";
 
 export const routesConfig = createBrowserRouter([
@@ -10,7 +10,7 @@ export const routesConfig = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <HomePage />,
+        element: <Homepage />,
       },
       {
         path: "/detailedGazette/:id",
