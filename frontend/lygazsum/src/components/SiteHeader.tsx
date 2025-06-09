@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSearchFilter } from "../context/SearchFilterContext";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 export function SiteHeader() {
   const [searchInputValue, setSearchInputValue] = useState("");
@@ -65,6 +65,17 @@ export function SiteHeader() {
               placeholder="搜尋..."
               className="px-3 py-2 w-60 pr-10 rounded-2xl text-sm text-neutral-900 border-2 border-neutral-300 focus:outline-none focus:border-neutral-500"
             />
+            <button
+              className="
+                absolute inset-y-0 right-8
+                flex items-center
+                px-3
+                text-neutral-400
+                focus:outline-none
+              "
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
             <button
               type="submit"
               className="

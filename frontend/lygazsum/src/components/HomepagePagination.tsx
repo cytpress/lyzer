@@ -6,6 +6,7 @@ interface PaginationProps {
   totalItemsCount: number;
   itemsPerPage: number;
   onPageChange: (pageNumber: number) => void;
+  currentWindowWidth: number;
 }
 
 export function HomepagePagination({
@@ -13,19 +14,22 @@ export function HomepagePagination({
   totalItemsCount,
   itemsPerPage,
   onPageChange,
+  currentWindowWidth,
 }: PaginationProps) {
   const maxPage = Math.ceil(totalItemsCount / itemsPerPage);
   const currentPagination = generatePaginationRange({
     currentPage,
     maxPage,
+    currentWindowWidth,
   });
 
-  const currentPageClasses = "min-w-9 min-h-9 text-blue-600 hover:bg-neutral-200";
+  const currentPageClasses =
+    "min-w-9 min-h-9 text-blue-600 hover:bg-neutral-200";
   const nonCurrentPageClasses =
     "min-w-9 min-h-9 text-neutral-600 hover:bg-neutral-200";
 
   return (
-    <div className="flex items-center justify-center my-6 space-x-2">
+    <div className="flex items-center justify-center py-2 md:my-6 space-x-2">
       <button
         className="px-2 py-2 text-neutral-600 hover:bg-neutral-200"
         onClick={() => onPageChange(currentPage - 1)}

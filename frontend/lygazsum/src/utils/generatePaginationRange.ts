@@ -1,12 +1,9 @@
+import { BREAKPOINT_MD } from "../constants/breakpoints";
 interface GeneratePaginationRangeParams {
   currentPage: number;
   maxPage: number;
+  currentWindowWidth: number;
 }
-
-const LEFT_COUNT = 5;
-const RIGHT_COUNT = 4;
-// left + right + 1(current) = 10
-const PAGINATION_WINDOW_SIZE = 10;
 
 function range(start: number, end: number): number[] {
   if (start > end) return [];
@@ -17,7 +14,13 @@ function range(start: number, end: number): number[] {
 export default function generatePaginationRange({
   currentPage,
   maxPage,
+  currentWindowWidth,
 }: GeneratePaginationRangeParams) {
+  const LEFT_COUNT = currentWindowWidth > BREAKPOINT_MD ? 4 : 2;
+  const RIGHT_COUNT = currentWindowWidth > BREAKPOINT_MD ? 5 : 2;
+  // left + right + 1(current) = 10
+  const PAGINATION_WINDOW_SIZE = currentWindowWidth > BREAKPOINT_MD ? 10 : 5;
+
   // maxPage <= 10
   if (maxPage <= PAGINATION_WINDOW_SIZE) return range(1, maxPage);
 

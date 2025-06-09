@@ -11,12 +11,15 @@ import { useSearchFilter } from "../context/SearchFilterContext";
 import { HomepageFilterButton } from "../components/HomepageFilterButton";
 import { HomepagePagination } from "../components/HomepagePagination";
 import GazetteListItem from "../components/HomepageItemsList";
+import { useWindowSize } from "../hooks/useWindowSize";
 
 export default function Homepage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { searchTerm, selectedCommittees, handleCommitteesToggle } =
     useSearchFilter();
+
+  const currentWindowWidth = useWindowSize();
 
   const { isPending, isError, data, error } = useQuery<
     FetchHomepageResult,
@@ -72,6 +75,7 @@ export default function Homepage() {
         totalItemsCount={data.totalItemsCount}
         itemsPerPage={ITEM_PER_PAGE}
         onPageChange={handlePageChange}
+        currentWindowWidth={currentWindowWidth}
       />
     </>
   );
