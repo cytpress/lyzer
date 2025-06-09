@@ -1,6 +1,6 @@
 import { DetailedGazetteItem } from "../types/models";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { fetchDetailedGazetteById } from "../services/gazetteService";
 import AgendaItemAnalysisDisplay from "../components/DetailedPageAgendaItemDisplay";
@@ -25,14 +25,59 @@ export default function DetailedGazettePage() {
     enabled: !!gazetteIdFromParams,
   });
 
-  const tocEntries = useMemo(() => {
+  const baseTocEntries = useMemo(() => {
     if (data && data.analysis_result) {
       return generateTocEntries({ analysisResult: data.analysis_result });
     }
     return [];
   }, [data]);
 
-  const activeTocId = useTocObserver(tocEntries);
+  const activeTocId = useTocObserver(baseTocEntries);
+  const [intersectingTargetIds, setIntersectingTargetIds] = useState<string[]>(
+    []
+  );
+
+  useEffect(() => {
+    const observerOptions = {
+      rootMargin: "-64px 0px -85% 0px",
+      threshold: 0,
+    };
+
+    function handleIntersection(entries: IntersectionObserverEntry[]) {
+      setIntersectingTargetIds((prevIds) => {
+        const newIdsSet = new Set(prevIds);
+        entries.forEach((entry) => {
+          const targetId = (entry.target as HTMLElement).dataset
+            .tocObserverTarget;
+          if (targetId) {
+            if (entry.isIntersecting) {
+              newIdsSet.add(targetId);
+            } else {
+              newIdsSet.delete(targetId);
+            }
+          }
+        });
+        return Array.from(newIdsSet);
+      });
+    }
+
+    const tocSectionObserver = new IntersectionObserver(
+      handleIntersection,
+      observerOptions
+    );
+
+    const sectionsTargetsToObserved = document.querySelectorAll(
+      "[data-toc-observer-target]"
+    );
+
+    sectionsTargetsToObserved.forEach((sectionTarget) => {
+      tocSectionObserver.observe(sectionTarget);
+    });
+
+    return () => {
+      tocSectionObserver.disconnect();
+    };
+  }, [baseTocEntries]);
 
   if (isPending && gazetteIdFromParams) return <span>讀取中...</span>;
   if (isError) return <span>錯誤: {error.message}</span>;
@@ -59,7 +104,11 @@ export default function DetailedGazettePage() {
         ))}
         <AgendaItemMetadata metadata={data} />
       </article>
-      <DetailedPageTableOfContent entries={tocEntries} activeId={activeTocId} />
+      <DetailedPageTableOfContent
+        entries={baseTocEntries}
+        activeId={activeTocId}
+        expandedGroupIds={intersectingTargetIds}
+      />
     </div>
   );
 }

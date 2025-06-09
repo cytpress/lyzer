@@ -60,9 +60,7 @@ export default function AgendaItemAnalysisDisplay({
         </ul>
       </section>
       <section id={`${idPrefix}-controversies`} className="scroll-mt-24">
-        <h3 className={subtitleClasses} id={`${idPrefix}-controversies`}>
-          相關爭議
-        </h3>
+        <h3 className={subtitleClasses}>相關爭議</h3>
         <ul className="list-disc list-outside pl-8">
           {controversy?.map((controversy) => (
             <li key={controversy} className={textClasses}>
@@ -71,12 +69,16 @@ export default function AgendaItemAnalysisDisplay({
           ))}
         </ul>
       </section>
-      <section id={`${idPrefix}-legislators-response`}>
-        <h3 className={subtitleClasses}>立法委員發言</h3>
+      <section data-toc-observer-target={`${idPrefix}-legislators-speech`}>
+        <h3 className={subtitleClasses} id={`${idPrefix}-legislators-speech`}>
+          立法委員發言
+        </h3>
         <ul>{renderSpeakerDetails(legislator_speakers)}</ul>
       </section>
-      <section id={`${idPrefix}-respondents-response`}>
-        <h3 className={subtitleClasses}>相關人員回覆</h3>
+      <section data-toc-observer-target={`${idPrefix}-respondents-response`}>
+        <h3 className={subtitleClasses} id={`${idPrefix}-respondents-response`}>
+          相關人員發言
+        </h3>
         <ul>{renderSpeakerDetails(respondent_speakers)}</ul>
       </section>
       <section className="scroll-mt-24" id={`${idPrefix}-result-next`}>

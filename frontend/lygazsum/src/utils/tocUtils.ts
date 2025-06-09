@@ -36,38 +36,38 @@ export default function generateTocEntries({
         level: 1,
       });
     }
-    if (item.legislator_speakers) {
+    if (item.legislator_speakers && item.legislator_speakers.length > 0) {
+      const legislatorsTocChildren: TocEntry[] = item.legislator_speakers.map(
+        (speaker) => {
+          return {
+            id: `${idPrefix}-${speaker.speaker_name}`,
+            text: speaker.speaker_name!,
+            level: 2,
+          };
+        }
+      );
       tocEntries.push({
-        id: `${idPrefix}-legislators-response`,
+        id: `${idPrefix}-legislators-speech`,
         text: "立法委員發言",
         level: 1,
-      });
-      item.legislator_speakers.forEach((speaker) => {
-        if (speaker.speaker_name) {
-          tocEntries.push({
-            id: `${idPrefix}-${speaker.speaker_name}`,
-            text: speaker.speaker_name,
-            level: 2,
-            isCurrentlyVisible: false,
-          });
-        }
+        children: legislatorsTocChildren,
       });
     }
-    if (item.respondent_speakers) {
+    if (item.respondent_speakers && item.respondent_speakers.length > 0) {
+      const respondentsTocChildren: TocEntry[] = item.respondent_speakers.map(
+        (speaker) => {
+          return {
+            id: `${idPrefix}-${speaker.speaker_name}`,
+            text: speaker.speaker_name!,
+            level: 2,
+          };
+        }
+      );
       tocEntries.push({
         id: `${idPrefix}-respondents-response`,
         text: "相關人員回覆",
         level: 1,
-      });
-      item.respondent_speakers.forEach((speaker) => {
-        if (speaker.speaker_name) {
-          tocEntries.push({
-            id: `${idPrefix}-${speaker.speaker_name}`,
-            text: speaker.speaker_name,
-            level: 2,
-            isCurrentlyVisible: false,
-          });
-        }
+        children: respondentsTocChildren,
       });
     }
     if (item.result_status_next) {

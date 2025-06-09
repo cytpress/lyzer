@@ -30,12 +30,19 @@ export function useTocObserver(tocEntries: TocEntry[]): string | null {
       );
       observerRef.current = newObserver;
 
-      tocEntries.forEach((entry) => {
-        const observedElement = document.getElementById(entry.id);
-        if (observedElement && observerRef.current) {
-          observerRef.current.observe(observedElement);
-        }
-      });
+      function observeAllEntries(entries: TocEntry[]) {
+        entries.forEach((entry) => {
+          const observedElement = document.getElementById(entry.id);
+          if (observedElement && observerRef.current) {
+            observerRef.current.observe(observedElement);
+          }
+
+          if (entry.children && entry.children.length > 0) {
+            observeAllEntries(entry.children);
+          }
+        });
+      }
+      observeAllEntries(tocEntries);
 
       return () => {
         newObserver.disconnect();
