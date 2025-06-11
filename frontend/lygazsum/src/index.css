@@ -10,3 +10,8 @@
     @apply h-full overflow-hidden scroll-smooth;
   }
 }
+
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none; 
+}

@@ -9,7 +9,7 @@ export function useTocObserver(tocEntries: TocEntry[]): string | null {
   useEffect(() => {
     const observerOptions = {
       root: scrollContainerRef?.current,
-      rootMargin: "-64px 0px -85% 0px",
+      rootMargin: "-73px 0px -86% 0px",
       threshold: 0,
     };
 
@@ -30,19 +30,19 @@ export function useTocObserver(tocEntries: TocEntry[]): string | null {
       );
       observerRef.current = newObserver;
 
-      function observeAllEntries(entries: TocEntry[]) {
+      function observeEntries(entries: TocEntry[]) {
         entries.forEach((entry) => {
-          const observedElement = document.getElementById(entry.id);
-          if (observedElement && observerRef.current) {
-            observerRef.current.observe(observedElement);
+          const elementToObserve = document.getElementById(entry.id);
+          if (elementToObserve) {
+            newObserver.observe(elementToObserve);
           }
 
           if (entry.children && entry.children.length > 0) {
-            observeAllEntries(entry.children);
+            observeEntries(entry.children);
           }
         });
       }
-      observeAllEntries(tocEntries);
+      observeEntries(tocEntries);
 
       return () => {
         newObserver.disconnect();

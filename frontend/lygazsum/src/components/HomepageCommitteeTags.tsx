@@ -17,7 +17,7 @@ export default function CommitteeTags({
         return (
           <span
             key={index}
-            className={`text-sm px-1.5 py-1 rounded-sm text-neutral-600 ${bgColor}`}
+            className={`text-xs md:text-sm px-1.5 py-1 rounded-sm text-neutral-600 ${bgColor}`}
           >
             {currentWindowWidth > BREAKPOINT_MD ? committeeName : shortName}
           </span>

@@ -24,20 +24,17 @@ export default function AgendaItemMetadata({
   } = metadata;
 
   const tableHeaderClasses =
-    "text-neutral-800 font-medium text-left whitespace-nowrap leading-relaxed p-4 border-b rounded-lg border-neutral-300";
+    "w-32 text-neutral-800 text-base font-medium text-left whitespace-nowrap leading-relaxed p-3 md:p-4 border-b border-neutral-300";
   const tableDataCellClasses =
-    "text-neutral-800 leading-relaxed p-4 border-b border-l rounded-lg border-neutral-300";
+    "text-neutral-800 text-base leading-relaxed p-3 md:p-4 border-b border-l border-neutral-300  wrap-break-word";
 
   return (
-    <>
-      <h3
-        className="text-neutral-900 text-xl font-semibold mt-10 mb-4"
-        id="metadata-table"
-      >
+    <section id="metadata-table" className="scroll-mt-24">
+      <h3 className="text-neutral-900 text-lg md:text-xl font-semibold mb-2 md:mb-4 mt-10">
         原始數據
       </h3>
-      <div className="overflow-hidden rounded-xl border border-neutral-300 mb-10">
-        <table>
+      <div className="overflow-hidden rounded-xl border border-neutral-300 mb-6 md:mb-10">
+        <table className="table-fixed w-full">
           <tbody>
             <tr className="odd:bg-neutral-200/50">
               <th className={tableHeaderClasses}>公報索引編號</th>
@@ -92,6 +89,6 @@ export default function AgendaItemMetadata({
           </tbody>
         </table>
       </div>
-    </>
+    </section>
   );
 }

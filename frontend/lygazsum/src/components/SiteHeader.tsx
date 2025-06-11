@@ -1,21 +1,18 @@
 import { Link } from "react-router-dom";
-import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useState } from "react";
 import { useSearchFilter } from "../context/SearchFilterContext";
-import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { SearchOverlay } from "./SearchOverlay";
 
 export function SiteHeader() {
-  const [searchInputValue, setSearchInputValue] = useState("");
+  const [searchIsOpen, setIsSearchOpen] = useState(false);
 
-  const { setSearchTerm, searchTerm, clearFilterAndSearchTerm } =
-    useSearchFilter();
-
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    setSearchInputValue(searchTerm);
-  }, [searchTerm]);
+  const {
+    searchInputValue,
+    setSearchInputValue,
+    clearFilterAndSearchTerm,
+    handleSubmitSearch,
+  } = useSearchFilter();
 
   function handleSearchInputValueChange(
     event: React.ChangeEvent<HTMLInputElement>
@@ -23,25 +20,12 @@ export function SiteHeader() {
     setSearchInputValue(event.target.value);
   }
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      handleSubmitSearch();
-    }
-  }
-
   function handleLogoCLick() {
     clearFilterAndSearchTerm();
   }
 
-  function handleSubmitSearch(event?: React.FormEvent<HTMLFormElement>) {
-    if (event) event.preventDefault();
-    setSearchTerm(searchInputValue);
-    if (location.pathname !== "/") navigate("/");
-  }
-
   return (
-    <header className="sticky top-0 border-b border-neutral-300 bg-white px-4 z-50 ">
+    <header className="sticky top-0 border-b border-neutral-300 bg-white px-4 z-40 ">
       <div className="container max-w-7xl mx-auto flex justify-between items-center py-4">
         <Link
           onClick={handleLogoCLick}
@@ -60,22 +44,10 @@ export function SiteHeader() {
             <input
               value={searchInputValue}
               onChange={handleSearchInputValueChange}
-              onKeyDown={handleKeyDown}
               type="search"
               placeholder="搜尋..."
-              className="px-3 py-2 w-60 pr-10 rounded-2xl text-sm text-neutral-900 border-2 border-neutral-300 focus:outline-none focus:border-neutral-500"
+              className="px-3 py-2 w-24 pr-10 rounded-2xl text-sm text-neutral-900 border-2 border-neutral-300 focus:outline-none focus:w-60 focus:border-neutral-500 transition-all duration-300 ease-in-out "
             />
-            <button
-              className="
-                absolute inset-y-0 right-8
-                flex items-center
-                px-3
-                text-neutral-400
-                focus:outline-none
-              "
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
             <button
               type="submit"
               className="
@@ -90,28 +62,36 @@ export function SiteHeader() {
             </button>
           </form>
 
-          <nav>
-            <ul className="flex items-center space-x-4">
-              <li>
-                <Link
-                  to="/about"
-                  className="px-2 py-2 font-medium text-neutral-700 hover:text-neutral-900 flex items-center"
-                >
-                  關於本站
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/contact"
-                  className="px-2 py-2 font-medium text-neutral-700 hover:text-neutral-900 flex items-center"
-                >
-                  聯絡我
-                </Link>
-              </li>
-            </ul>
-          </nav>
+          <div className="flex flex-row ">
+            <button
+              type="button"
+              className="md:hidden flex items-center px-3 text-neutral-700 focus:outline-none"
+              onClick={() => {
+                setIsSearchOpen(true);
+              }}
+            >
+              <MagnifyingGlassIcon className="h-5 w-5" />
+            </button>
+
+            <nav>
+              <ul className="flex items-center">
+                <li>
+                  <Link
+                    to="/about"
+                    className="px-2 py-2 font-medium text-neutral-700 hover:text-neutral-900 flex items-center"
+                  >
+                    關於本站
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
         </div>
       </div>
+      <SearchOverlay
+        searchIsOpen={searchIsOpen}
+        setIsSearchOpen={setIsSearchOpen}
+      />
     </header>
   );
 }

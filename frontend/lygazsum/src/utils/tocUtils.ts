@@ -40,7 +40,7 @@ export default function generateTocEntries({
       const legislatorsTocChildren: TocEntry[] = item.legislator_speakers.map(
         (speaker) => {
           return {
-            id: `${idPrefix}-${speaker.speaker_name}`,
+            id: `${idPrefix}-speaker-${speaker.speaker_name}`,
             text: speaker.speaker_name!,
             level: 2,
           };
@@ -57,7 +57,7 @@ export default function generateTocEntries({
       const respondentsTocChildren: TocEntry[] = item.respondent_speakers.map(
         (speaker) => {
           return {
-            id: `${idPrefix}-${speaker.speaker_name}`,
+            id: `${idPrefix}-speaker-${speaker.speaker_name}`,
             text: speaker.speaker_name!,
             level: 2,
           };

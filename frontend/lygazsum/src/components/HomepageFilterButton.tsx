@@ -13,8 +13,8 @@ export function HomepageFilterButton({
 }: HomepageFilterButtonProps) {
   const tagInfo = getCommitteeTag(committeeName);
   const { shortName, bgColor, hoverBorderColor, selectedBorderColor } = tagInfo;
-  const defaultClasses = `rounded-xl px-3 py-1 border-2 border-neutral-200 bg-white ${hoverBorderColor}`;
-  const selectedClasses = `rounded-xl px-3 py-1 border-2 ${hoverBorderColor} ${selectedBorderColor} ${bgColor}`;
+  const defaultClasses = `rounded-xl px-3 py-1 border-2 border-neutral-200 bg-white transition-all duration-300 ease-in-out  ${hoverBorderColor}`;
+  const selectedClasses = `rounded-xl px-3 py-1 border-2 transition-all duration-300 ease-in-out  ${hoverBorderColor} ${selectedBorderColor} ${bgColor}`;
 
   return (
     <button

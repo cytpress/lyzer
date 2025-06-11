@@ -8,6 +8,7 @@ import AgendaItemMetadata from "../components/DetailedPageMetadata";
 import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfContent";
 import generateTocEntries from "../utils/tocUtils";
 import { useTocObserver } from "../hooks/useTocObserver";
+import { ListBulletIcon } from "@heroicons/react/24/outline";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();
@@ -33,13 +34,14 @@ export default function DetailedGazettePage() {
   }, [data]);
 
   const activeTocId = useTocObserver(baseTocEntries);
+  const [isTocOpen, setIsTocOpen] = useState(false);
   const [intersectingTargetIds, setIntersectingTargetIds] = useState<string[]>(
     []
   );
 
   useEffect(() => {
     const observerOptions = {
-      rootMargin: "-64px 0px -85% 0px",
+      rootMargin: "-73px 0px -85% 0px",
       threshold: 0,
     };
 
@@ -87,14 +89,16 @@ export default function DetailedGazettePage() {
     data.analysis_result;
 
   return (
-    <div className="flex flex-row">
-      <article className="w-full lg:w-2/3 pt-10 mr-16">
-        <h1 className="text-3xl font-semibold mb-6 text-neutral-900">
-          {summary_title}
-        </h1>
-        <p className="text-base leading-relaxed text-neutral-800 mb-6 ">
-          {overall_summary_sentence}
-        </p>
+    <div className="flex flex-row px-6 md:px-20">
+      <article className="md:w-2/3 pt-10 md:mr-12">
+        <section>
+          <h1 className="text-2xl md:text-3xl font-semibold leading-snug mb-3 md:mb-6 text-neutral-900">
+            {summary_title}
+          </h1>
+          <p className="text-base leading-[180%] md:leading-relaxed text-neutral-800 mb-3 md:mb-6 ">
+            {overall_summary_sentence}
+          </p>
+        </section>
         {agenda_items?.map((item, itemIndex) => (
           <AgendaItemAnalysisDisplay
             item={item}
@@ -108,7 +112,19 @@ export default function DetailedGazettePage() {
         entries={baseTocEntries}
         activeId={activeTocId}
         expandedGroupIds={intersectingTargetIds}
+        isOpen={isTocOpen}
+        onClose={() => {
+          setIsTocOpen(false);
+        }}
       />
+      <button
+        onClick={() => {
+          setIsTocOpen(true);
+        }}
+        className=" md:hidden fixed top-32 right-0 p-2 border border-r-0 rounded-l-md border-neutral-300 bg-neutral-50 text-neutral-700 z-40"
+      >
+        <ListBulletIcon className="h-5 w-5" />
+      </button>
     </div>
   );
 }

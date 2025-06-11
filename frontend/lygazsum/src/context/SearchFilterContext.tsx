@@ -1,4 +1,11 @@
-import { createContext, useState, ReactNode, useContext } from "react";
+import {
+  createContext,
+  useState,
+  ReactNode,
+  useContext,
+  useEffect,
+} from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface SearchFilterContextType {
   searchTerm: string;
@@ -6,6 +13,9 @@ interface SearchFilterContextType {
   selectedCommittees: string[];
   handleCommitteesToggle: (committeeName: string) => void;
   clearFilterAndSearchTerm: () => void;
+  searchInputValue: string;
+  setSearchInputValue: (searchInputValue: string) => void;
+  handleSubmitSearch: (event?: React.FormEvent<HTMLFormElement>) => void;
 }
 
 const SearchFilterContext = createContext<SearchFilterContextType | undefined>(
@@ -18,7 +28,14 @@ interface SearchProviderProps {
 
 export function SearchProvider({ children }: SearchProviderProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchInputValue, setSearchInputValue] = useState("");
   const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    setSearchInputValue(searchTerm);
+  }, [searchTerm]);
 
   function handleCommitteesToggle(committeeName: string) {
     setSelectedCommittees((prevList) => {
@@ -32,7 +49,14 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
   function clearFilterAndSearchTerm() {
     setSearchTerm("");
+    setSearchInputValue("");
     setSelectedCommittees([]);
+  }
+
+  function handleSubmitSearch(event?: React.FormEvent<HTMLFormElement>) {
+    if (event) event.preventDefault();
+    setSearchTerm(searchInputValue);
+    if (location.pathname !== "/") navigate("/");
   }
 
   return (
@@ -43,6 +67,9 @@ export function SearchProvider({ children }: SearchProviderProps) {
         selectedCommittees,
         handleCommitteesToggle,
         clearFilterAndSearchTerm,
+        searchInputValue,
+        setSearchInputValue,
+        handleSubmitSearch,
       }}
     >
       {children}
