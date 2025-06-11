@@ -12,6 +12,10 @@ import { HomepageFilterButton } from "../components/HomepageFilterButton";
 import { HomepagePagination } from "../components/HomepagePagination";
 import GazetteListItem from "../components/HomepageItemsList";
 import { useWindowSize } from "../hooks/useWindowSize";
+import { GazetteListItemSkeleton } from "../components/skeleton/GazetteListItemSkeleton";
+import { HomepageFilterButtonSkeleton } from "../components/skeleton/FilterButtonSkeleton";
+import { ErrorDisplay } from "../components/ErrorDisplay";
+import { EmptyStateDisplay } from "../components/EmptyStateDisplay";
 
 export default function Homepage() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -21,7 +25,7 @@ export default function Homepage() {
 
   const currentWindowWidth = useWindowSize();
 
-  const { isPending, isError, data, error } = useQuery<
+  const { isPending, isError, data, error, refetch } = useQuery<
     FetchHomepageResult,
     Error
   >({
@@ -39,9 +43,32 @@ export default function Homepage() {
     setCurrentPage(1);
   }, [selectedCommittees, searchTerm]);
 
-  if (isPending) return <span>讀取中...</span>;
-  if (isError) return <span>錯誤: {error.message}</span>;
-  if (!data || data.itemsList.length === 0) return <span>查無公報資料</span>;
+  if (isPending) {
+    return (
+      <>
+        <div className="py-4 my-2 flex justify-center">
+          <div className="inline-flex items-center space-x-3 px-2">
+            {Array.from({ length: 9 }).map((_, index) => (
+              <HomepageFilterButtonSkeleton key={index} />
+            ))}
+          </div>
+        </div>
+        <ul className="space-y-4 mb-13 md:mb-25">
+          {Array.from({ length: ITEM_PER_PAGE }).map((_, index) => (
+            <GazetteListItemSkeleton key={index} />
+          ))}
+        </ul>
+      </>
+    );
+  }
+
+  if (isError) {
+    return <ErrorDisplay errorMessage={error.message} onRetry={refetch} />;
+  }
+
+  if (!data || data.itemsList.length === 0) {
+    return <EmptyStateDisplay />;
+  }
 
   function handlePageChange(pageNumber: number) {
     setCurrentPage(pageNumber);

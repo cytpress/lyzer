@@ -70,7 +70,7 @@ export function DetailedPageTableOfContent({
                       {entry.children?.map((childEntry) => {
                         return (
                           <li
-                            key={`toc-child-${entry.id}`}
+                            key={`toc-child-${childEntry.id}`}
                             className="pl-6 pt-4"
                           >
                             <a

@@ -9,13 +9,15 @@ import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfCon
 import generateTocEntries from "../utils/tocUtils";
 import { useTocObserver } from "../hooks/useTocObserver";
 import { ListBulletIcon } from "@heroicons/react/24/outline";
+import { DetailedPageSkeleton } from "../components/skeleton/DetailedPageSkeleton";
+import { ErrorDisplay } from "../components/ErrorDisplay";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();
 
   const gazetteIdFromParams = params.id;
 
-  const { isPending, isError, data, error } = useQuery<
+  const { isPending, isError, data, error, refetch } = useQuery<
     DetailedGazetteItem | null,
     Error
   >({
@@ -81,8 +83,13 @@ export default function DetailedGazettePage() {
     };
   }, [baseTocEntries]);
 
-  if (isPending && gazetteIdFromParams) return <span>讀取中...</span>;
-  if (isError) return <span>錯誤: {error.message}</span>;
+  if (isPending && gazetteIdFromParams) {
+    return <DetailedPageSkeleton />;
+  }
+
+  if (isError) {
+    return <ErrorDisplay errorMessage={error.message} onRetry={refetch} />;
+  }
   if (!data) return <span>查無公報資料</span>;
 
   const { summary_title, overall_summary_sentence, agenda_items } =

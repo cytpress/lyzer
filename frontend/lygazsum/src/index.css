@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: theme("colors.neutral.50");
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme("colors.neutral.300");
+  border-radius: 8px;
+  border: 3px solid theme("colors.neutral.50");
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme("colors.neutral.400");
+}
+
 @theme {
   --font-sans: "Inter", "Noto Sans TC";
 }
@@ -13,5 +31,5 @@
 
 input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
-  display: none; 
+  display: none;
 }

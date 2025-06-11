@@ -25,7 +25,7 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 border-b border-neutral-300 bg-white px-4 z-40 ">
+    <header className="sticky top-0 border-b border-neutral-300 bg-white z-40 ">
       <div className="container max-w-7xl mx-auto flex justify-between items-center py-4">
         <Link
           onClick={handleLogoCLick}
