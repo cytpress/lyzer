@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
-import { SiteHeader } from "./components/SiteHeader";
-import { SiteFooter } from "./components/SiteFooter";
+import { SiteHeader } from "./components/layout/SiteHeader";
+import { SiteFooter } from "./components/layout/SiteFooter";
 import { SearchProvider } from "./context/SearchFilterContext";
 import { useRef, createContext, RefObject } from "react";
 

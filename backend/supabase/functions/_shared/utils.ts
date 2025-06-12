@@ -12,7 +12,7 @@ export const MAX_RETRIES = 3; // Default max retries for fetchWithRetry.
 export const RETRY_DELAY_MS = 1000; // Initial delay for fetchWithRetry (uses exponential backoff).
 export const FETCH_DELAY_MS = 600; // General short delay between operations (e.g., API calls).
 export const LY_API_USER_AGENT =
-  "LyGazetteSummarizerBot/2.1 (+https://github.com/your-username/your-repo)"; // TODO: Replace with your project/contact info.
+  "LyGazetteSummarizerBot/2.1 (+https://github.com/cytpress/ly-gazette)"; // TODO: Replace with your project/contact info.
 
 // --- Constants for Analysis Logic ---
 export const MAX_REGULAR_ATTEMPTS = 3; // Max attempts for standard analysis prompt.

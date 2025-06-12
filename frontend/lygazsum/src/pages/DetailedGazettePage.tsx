@@ -1,6 +1,6 @@
 import { DetailedGazetteItem } from "../types/models";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { fetchDetailedGazetteById } from "../services/gazetteService";
 import AgendaItemAnalysisDisplay from "../components/DetailedPageAgendaItemDisplay";
@@ -9,8 +9,8 @@ import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfCon
 import generateTocEntries from "../utils/tocUtils";
 import { useTocObserver } from "../hooks/useTocObserver";
 import { ListBulletIcon } from "@heroicons/react/24/outline";
-import { DetailedPageSkeleton } from "../components/skeleton/DetailedPageSkeleton";
-import { ErrorDisplay } from "../components/ErrorDisplay";
+import { DetailedPageSkeleton } from "../components/feedback/DetailedPageSkeleton";
+import { ErrorDisplay } from "../components/feedback/ErrorDisplay";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();
@@ -107,11 +107,16 @@ export default function DetailedGazettePage() {
           </p>
         </section>
         {agenda_items?.map((item, itemIndex) => (
-          <AgendaItemAnalysisDisplay
-            item={item}
-            itemIndex={itemIndex}
-            key={`agenda-item-${itemIndex}`}
-          />
+          <React.Fragment key={`agenda-item-wrapper-${itemIndex}`}>
+            <AgendaItemAnalysisDisplay
+              item={item}
+              itemIndex={itemIndex}
+              key={`agenda-item-${itemIndex}`}
+            />
+            {itemIndex < agenda_items.length - 1 && (
+              <hr className="my-6 md:my-12 border-t-1 border-neutral-300" />
+            )}
+          </React.Fragment>
         ))}
         <AgendaItemMetadata metadata={data} />
       </article>

@@ -30,9 +30,9 @@ export default function AgendaItemMetadata({
 
   return (
     <section id="metadata-table" className="scroll-mt-24">
-      <h3 className="text-neutral-900 text-lg md:text-xl font-semibold mb-2 md:mb-4 mt-10">
+      <h2 className="text-neutral-900 text-lg md:text-xl font-semibold mb-2 md:mb-4 mt-10">
         原始數據
-      </h3>
+      </h2>
       <div className="overflow-hidden rounded-xl border border-neutral-300 mb-6 md:mb-10">
         <table className="table-fixed w-full">
           <tbody>

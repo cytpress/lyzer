@@ -12,10 +12,10 @@ import { HomepageFilterButton } from "../components/HomepageFilterButton";
 import { HomepagePagination } from "../components/HomepagePagination";
 import GazetteListItem from "../components/HomepageItemsList";
 import { useWindowSize } from "../hooks/useWindowSize";
-import { GazetteListItemSkeleton } from "../components/skeleton/GazetteListItemSkeleton";
-import { HomepageFilterButtonSkeleton } from "../components/skeleton/FilterButtonSkeleton";
-import { ErrorDisplay } from "../components/ErrorDisplay";
-import { EmptyStateDisplay } from "../components/EmptyStateDisplay";
+import { GazetteListItemSkeleton } from "../components/feedback/GazetteListItemSkeleton";
+import { HomepageFilterButtonSkeleton } from "../components/feedback/FilterButtonSkeleton";
+import { ErrorDisplay } from "../components/feedback/ErrorDisplay";
+import { EmptyStateDisplay } from "../components/feedback/EmptyStateDisplay";
 
 export default function Homepage() {
   const [currentPage, setCurrentPage] = useState(1);

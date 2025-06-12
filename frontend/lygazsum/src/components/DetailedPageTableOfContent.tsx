@@ -47,9 +47,16 @@ export function DetailedPageTableOfContent({
         <h3 className="font-semibold text-neutral-500 mb-3">在本頁中</h3>
         <ul>
           {entries?.map((entry) => {
+            if (entry.type === "divider") {
+              return (
+                <li key={entry.id}>
+                  <hr className="my-3 border-neutral-200" />
+                </li>
+              );
+            }
             const isExpanded = expandedGroupIds.includes(entry.id);
             return (
-              <li key={`toc-parent-${entry.id}`} className="p-2">
+              <li key={entry.id} className="p-2">
                 <a
                   href={`#${entry.id}`}
                   className={
@@ -69,10 +76,7 @@ export function DetailedPageTableOfContent({
                     <ul className="overflow-hidden">
                       {entry.children?.map((childEntry) => {
                         return (
-                          <li
-                            key={`toc-child-${childEntry.id}`}
-                            className="pl-6 pt-4"
-                          >
+                          <li key={childEntry.id} className="pl-6 pt-4">
                             <a
                               href={`#${childEntry.id}`}
                               className={

@@ -1,4 +1,4 @@
-import { useSearchFilter } from "../context/SearchFilterContext";
+import { useSearchFilter } from "../../context/SearchFilterContext";
 
 export function EmptyStateDisplay() {
   const { searchTerm, selectedCommittees, clearFilterAndSearchTerm } =

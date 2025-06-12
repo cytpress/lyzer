@@ -46,4 +46,5 @@ export interface TocEntry {
   text: string;
   level: number;
   children?: TocEntry[];
+  type?: "entry" | "divider";
 }

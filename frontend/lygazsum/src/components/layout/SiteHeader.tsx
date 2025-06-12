@@ -1,11 +1,16 @@
 import { Link } from "react-router-dom";
 import React, { useState } from "react";
-import { useSearchFilter } from "../context/SearchFilterContext";
+import { useSearchFilter } from "../../context/SearchFilterContext";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { SearchOverlay } from "./SearchOverlay";
+import { SearchOverlay } from "../SearchOverlay";
+import { useWindowSize } from "../../hooks/useWindowSize";
+import { BREAKPOINT_MD } from "../../constants/breakpoints";
+import lyzer from "../../assets/lyzer.svg";
+import lyzerNoText from "../../assets/lyzer-no-text.svg";
 
 export function SiteHeader() {
   const [searchIsOpen, setIsSearchOpen] = useState(false);
+  const currentWindowSize = useWindowSize();
 
   const {
     searchInputValue,
@@ -25,15 +30,19 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 border-b border-neutral-300 bg-white z-40 ">
+    <header className="sticky top-0 border-b border-neutral-300 bg-white z-40 px-4">
       <div className="container max-w-7xl mx-auto flex justify-between items-center py-4">
         <Link
           onClick={handleLogoCLick}
           to="/"
-          className="flex flex-row items-center space-x-2"
+          className="flex flex-row items-center gap-x-2"
         >
-          <img src="/vite.svg" alt="placeholder" className="h-8 w-auto" />
-          <p className="font-semibold text-neutral-800">LZY 立院公報懶人包</p>
+          {currentWindowSize > BREAKPOINT_MD && (
+            <img src={lyzer} alt="placeholder" className="h-9 w-auto" />
+          )}
+          {currentWindowSize < BREAKPOINT_MD && (
+            <img src={lyzerNoText} alt="placeholder" className="h-9 w-auto" />
+          )}
         </Link>
 
         <div className="flex items-center space-x-6">

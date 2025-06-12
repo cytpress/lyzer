@@ -20,6 +20,7 @@ export default function generateTocEntries({
         id: `${idPrefix}-item-title`,
         text: "議題摘要",
         level: 1,
+        type: "entry",
       });
     }
     if (item.core_issue) {
@@ -27,6 +28,7 @@ export default function generateTocEntries({
         id: `${idPrefix}-core-issues`,
         text: "核心議題",
         level: 1,
+        type: "entry",
       });
     }
     if (item.controversy) {
@@ -34,6 +36,7 @@ export default function generateTocEntries({
         id: `${idPrefix}-controversies`,
         text: "相關爭議",
         level: 1,
+        type: "entry",
       });
     }
     if (item.legislator_speakers && item.legislator_speakers.length > 0) {
@@ -43,6 +46,7 @@ export default function generateTocEntries({
             id: `${idPrefix}-speaker-${speaker.speaker_name}`,
             text: speaker.speaker_name!,
             level: 2,
+            type: "entry",
           };
         }
       );
@@ -51,6 +55,7 @@ export default function generateTocEntries({
         text: "立法委員發言",
         level: 1,
         children: legislatorsTocChildren,
+        type: "entry",
       });
     }
     if (item.respondent_speakers && item.respondent_speakers.length > 0) {
@@ -60,6 +65,7 @@ export default function generateTocEntries({
             id: `${idPrefix}-speaker-${speaker.speaker_name}`,
             text: speaker.speaker_name!,
             level: 2,
+            type: "entry",
           };
         }
       );
@@ -68,6 +74,7 @@ export default function generateTocEntries({
         text: "相關人員回覆",
         level: 1,
         children: respondentsTocChildren,
+        type: "entry",
       });
     }
     if (item.result_status_next) {
@@ -75,6 +82,16 @@ export default function generateTocEntries({
         id: `${idPrefix}-result-next`,
         text: "相關後續",
         level: 1,
+        type: "entry",
+      });
+    }
+    const isLastItem = itemIndex === agenda_items.length - 1;
+    if (!isLastItem) {
+      tocEntries.push({
+        id: `${idPrefix}-divider`,
+        text: "",
+        level: 0,
+        type: "divider",
       });
     }
   });
@@ -82,6 +99,7 @@ export default function generateTocEntries({
     id: "metadata-table",
     text: "原始數據",
     level: 1,
+    type: "entry",
   });
   return tocEntries;
 }
