@@ -1,12 +1,12 @@
 import { TocEntry } from "./../types/models";
-import { useEffect, useRef, useState} from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useTocObserver(tocEntries: TocEntry[]): string | null {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [activeTocId, setActiveTocId] = useState<string | null>(null);
   useEffect(() => {
     const observerOptions = {
-      root: window,
+      root: null,
       rootMargin: "-73px 0px -86% 0px",
       threshold: 0,
     };
