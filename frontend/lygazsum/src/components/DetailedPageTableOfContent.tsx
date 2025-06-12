@@ -15,6 +15,23 @@ export function DetailedPageTableOfContent({
   isOpen,
   onClose,
 }: TableOfContentsProps) {
+  function handleTocClick(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    targetId: string
+  ) {
+    event.preventDefault();
+
+    const targetElement = document.getElementById(targetId);
+
+    if (targetElement) {
+      targetElement.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      window.history.pushState(null, "", `#${targetId}`);
+    }
+  }
+
   const mobileTocShouldBeWider =
     activeId &&
     (activeId.includes("speaker") ||
@@ -61,6 +78,9 @@ export function DetailedPageTableOfContent({
             return (
               <li key={entry.id} className="p-2">
                 <a
+                  onClick={(e) => {
+                    handleTocClick(e, entry.id);
+                  }}
                   href={`#${entry.id}`}
                   className={
                     entry.id === activeId
@@ -81,6 +101,9 @@ export function DetailedPageTableOfContent({
                         return (
                           <li key={childEntry.id} className="pl-6 pt-4">
                             <a
+                              onClick={(e) => {
+                                handleTocClick(e, childEntry.id);
+                              }}
                               href={`#${childEntry.id}`}
                               className={
                                 childEntry.id === activeId
