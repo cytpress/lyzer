@@ -78,8 +78,8 @@ export default function Homepage() {
 
   return (
     <>
-      <div className="overflow-x-auto whitespace-nowrap py-4 my-2 flex justify-center">
-        <div className="inline-flex items-center space-x-3 px-2">
+      <div className="flex items-center overflow-x-auto whitespace-nowrap py-4 my-2">
+        <div className="space-x-3 px-2 mx-auto">
           {allCommittees.map((committee) => (
             <HomepageFilterButton
               key={committee}
