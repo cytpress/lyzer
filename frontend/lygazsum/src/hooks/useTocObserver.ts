@@ -52,7 +52,7 @@ export function useTocObserver(tocEntries: TocEntry[]): string | null {
       }
       setActiveTocId(null);
     }
-  }, [tocEntries, scrollContainerRef]);
+  }, [tocEntries]);
 
   return activeTocId;
 }
