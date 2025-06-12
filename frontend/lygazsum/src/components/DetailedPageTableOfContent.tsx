@@ -28,7 +28,7 @@ export function DetailedPageTableOfContent({
   }`;
 
   const mdTocCLasses =
-    "md:w-1/3 md:shrink-0 md:pt-14 md:pl-8 md:pb-10 md:block md:sticky md:top-18 md:h-[calc(100vh-4rem)] md:overflow-y-auto md:border-l md:border-neutral-300 md:relative md:translate-x-0";
+    "md:w-1/3 md:shrink-0 md:pt-14 md:pl-8 md:pb-10 md:block md:sticky md:top-18 md:h-[calc(100vh-4rem)] md:overflow-y-auto md:border-l md:border-neutral-300 md:translate-x-0";
 
   const resetClasses =
     "md:bg-transparent md:shadow-none md:p-0 md:border-l md:border-neutral-300 md:z-auto";
@@ -45,6 +45,7 @@ export function DetailedPageTableOfContent({
         className={`transition-[width, transform] duration-300 ease-in-out ${mobileTocClasses} ${mdTocCLasses} ${resetClasses}`}
       >
         <h3 className="font-semibold text-neutral-500 mb-3">在本頁中</h3>
+
         <ul>
           {entries?.map((entry) => {
             if (entry.type === "divider") {
@@ -54,7 +55,9 @@ export function DetailedPageTableOfContent({
                 </li>
               );
             }
+
             const isExpanded = expandedGroupIds.includes(entry.id);
+
             return (
               <li key={entry.id} className="p-2">
                 <a

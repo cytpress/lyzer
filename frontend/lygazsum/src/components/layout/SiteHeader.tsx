@@ -32,11 +32,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 border-b border-neutral-300 bg-white z-40 px-4">
       <div className="container max-w-7xl mx-auto flex justify-between items-center py-4">
-        <Link
-          onClick={handleLogoCLick}
-          to="/"
-          className="flex flex-row items-center gap-x-2"
-        >
+        <Link onClick={handleLogoCLick} to="/" className="px-2">
           {currentWindowSize > BREAKPOINT_MD && (
             <img src={lyzer} alt="placeholder" className="h-9 w-auto" />
           )}

@@ -27,7 +27,7 @@ export default function AgendaItemAnalysisDisplay({
   function renderSpeakerDetails(speakers: SpeakerDetail[] | null) {
     if (!speakers || speakers.length === 0)
       return <p className={textClasses}>無相關發言紀錄</p>;
-    return speakers.map((speaker,index) => {
+    return speakers.map((speaker, index) => {
       const { speaker_name, speaker_viewpoint } = speaker;
       return (
         <li key={`${index}-${speaker_name}`}>

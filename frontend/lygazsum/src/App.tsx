@@ -7,15 +7,13 @@ import { useScrollbarVisibility } from "./hooks/useScrollbarVisibility";
 function App() {
   useScrollbarVisibility();
   return (
-    <div className="flex flex-col min-h-dvh bg-neutral-50">
+    <div className="flex flex-col min-h-dvh bg-neutral-50 scroll-smooth">
       <SearchProvider>
-        <div className="flex-grow overflow-y-auto scroll-smooth">
-          <SiteHeader />
-          <main className="container max-w-7xl mx-auto flex-grow">
-            <Outlet />
-          </main>
-          <SiteFooter />
-        </div>
+        <SiteHeader />
+        <main className="container max-w-7xl mx-auto flex-grow">
+          <Outlet />
+        </main>
+        <SiteFooter />
       </SearchProvider>
     </div>
   );
