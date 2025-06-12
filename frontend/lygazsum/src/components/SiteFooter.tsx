@@ -45,7 +45,7 @@ export function SiteFooter() {
 
         <div className="border-t border-neutral-200 w-full max-w-3xl pt-6">
           <p className="text-xs text-neutral-500">
-            © {new Date().getFullYear()} cytpress. 本站所有內容與原始碼均採用{" "}
+            © {new Date().getFullYear()} cytpress 本站所有內容與原始碼均採用{" "}
             <a
               href="https://github.com/cytpress/ly-gazette/blob/main/LICENSE"
               target="_blank"
@@ -54,7 +54,6 @@ export function SiteFooter() {
             >
               MIT 授權
             </a>
-            .
           </p>
         </div>
       </div>
