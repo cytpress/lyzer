@@ -1,23 +1,56 @@
 @import "tailwindcss";
 
-::-webkit-scrollbar {
-  width: 12px;
+@media (min-width: 768px) {
+  /* Firefox */
+  html {
+    scrollbar-width: auto;
+    scrollbar-color: theme("colors.neutral.300") theme("colors.neutral.50");
+  }
+
+  /* Webkit (Chrome, Safari, Edge) */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: theme("colors.neutral.50");
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme("colors.neutral.300");
+    border-radius: 8px;
+    border: 3px solid theme("colors.neutral.50");
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme("colors.neutral.400");
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: theme("colors.neutral.50");
-}
+/* --- 行動裝置版 (Mobile) 滾動條樣式 --- */
+/* 寬度小於 768px 時，覆蓋上面的樣式 */
+@media (max-width: 767px) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  html.scrollbar-visible {
+    scrollbar-color: theme("colors.neutral.400") transparent;
+  }
 
-::-webkit-scrollbar-thumb {
-  background: theme("colors.neutral.300");
-  border-radius: 8px;
-  border: 3px solid theme("colors.neutral.50");
-}
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: theme("colors.neutral.400");
-}
+  ::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 6px;
+  }
 
+  html.scrollbar-visible ::-webkit-scrollbar-thumb {
+    background: theme("colors.neutral.400");
+  }
+}
 @theme {
   --font-sans: "Inter", "Noto Sans TC";
 }
@@ -25,7 +58,7 @@
   html,
   body,
   #root {
-    @apply h-full overflow-hidden scroll-smooth;
+    @apply h-full scroll-smooth;
   }
 }
 

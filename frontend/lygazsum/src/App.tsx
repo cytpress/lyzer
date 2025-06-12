@@ -2,28 +2,20 @@ import { Outlet } from "react-router-dom";
 import { SiteHeader } from "./components/layout/SiteHeader";
 import { SiteFooter } from "./components/layout/SiteFooter";
 import { SearchProvider } from "./context/SearchFilterContext";
-import { useRef, createContext, RefObject } from "react";
-
-export const ScrollContainerContext =
-  createContext<RefObject<HTMLDivElement | null> | null>(null);
+import { useScrollbarVisibility } from "./hooks/useScrollbarVisibility";
 
 function App() {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  useScrollbarVisibility();
   return (
-    <div className="flex flex-col h-screen bg-neutral-50">
+    <div className="flex flex-col min-h-dvh bg-neutral-50">
       <SearchProvider>
-        <ScrollContainerContext.Provider value={scrollContainerRef}>
-          <div
-            ref={scrollContainerRef}
-            className="flex-grow overflow-y-auto scroll-smooth"
-          >
-            <SiteHeader />
-            <main className="container max-w-7xl mx-auto">
-              <Outlet />
-            </main>
-            <SiteFooter />
-          </div>
-        </ScrollContainerContext.Provider>
+        <div className="flex-grow overflow-y-auto scroll-smooth">
+          <SiteHeader />
+          <main className="container max-w-7xl mx-auto flex-grow">
+            <Outlet />
+          </main>
+          <SiteFooter />
+        </div>
       </SearchProvider>
     </div>
   );

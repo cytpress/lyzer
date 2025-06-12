@@ -1,14 +1,12 @@
 import { TocEntry } from "./../types/models";
-import { useEffect, useRef, useState, useContext } from "react";
-import { ScrollContainerContext } from "../App";
+import { useEffect, useRef, useState} from "react";
 
 export function useTocObserver(tocEntries: TocEntry[]): string | null {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [activeTocId, setActiveTocId] = useState<string | null>(null);
-  const scrollContainerRef = useContext(ScrollContainerContext);
   useEffect(() => {
     const observerOptions = {
-      root: scrollContainerRef?.current,
+      root: window,
       rootMargin: "-73px 0px -86% 0px",
       threshold: 0,
     };
