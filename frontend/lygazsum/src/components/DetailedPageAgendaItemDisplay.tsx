@@ -1,4 +1,4 @@
-import { AgendaItemAnalysis, SpeakerDetail } from "../types/analysisTypes";
+import { AgendaItemAnalysis, SpeakerDetail } from "@/types/analysisTypes";
 
 interface AgendaItemAnalysisDisplayProps {
   item: AgendaItemAnalysis;

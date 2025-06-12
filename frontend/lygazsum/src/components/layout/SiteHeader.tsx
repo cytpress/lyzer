@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import React, { useState } from "react";
-import { useSearchFilter } from "../../context/SearchFilterContext";
+import { useSearchFilter } from "@/context/SearchFilterContext";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { SearchOverlay } from "../SearchOverlay";
-import { useWindowSize } from "../../hooks/useWindowSize";
-import { BREAKPOINT_MD } from "../../constants/breakpoints";
-import lyzer from "../../assets/lyzer.svg";
-import lyzerNoText from "../../assets/lyzer-no-text.svg";
+import { SearchOverlay } from "@/components/SearchOverlay";
+import { useWindowSize } from "@/hooks/useWindowSize";
+import { BREAKPOINT_MD } from "@/constants/breakpoints";
+import lyzer from "@/assets/lyzer.svg";
+import lyzerNoText from "@/assets/lyzer-no-text.svg";
 
 export function SiteHeader() {
   const [searchIsOpen, setIsSearchOpen] = useState(false);

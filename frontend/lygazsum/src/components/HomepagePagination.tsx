@@ -1,4 +1,4 @@
-import generatePaginationRange from "../utils/generatePaginationRange";
+import generatePaginationRange from "@/utils/generatePaginationRange";
 import { ChevronRightIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
 
 interface PaginationProps {

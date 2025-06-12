@@ -1,4 +1,4 @@
-import getCommitteeTag from "../utils/getCommitteeTag";
+import getCommitteeTag from "@/utils/getCommitteeTag";
 
 interface HomepageFilterButtonProps {
   committeeName: string;

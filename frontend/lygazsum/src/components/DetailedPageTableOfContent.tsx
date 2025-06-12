@@ -1,4 +1,4 @@
-import { TocEntry } from "../types/models";
+import { TocEntry } from "@/types/models";
 
 interface TableOfContentsProps {
   entries: TocEntry[];

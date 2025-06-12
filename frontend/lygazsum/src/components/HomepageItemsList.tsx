@@ -1,8 +1,8 @@
-import { HomePageGazetteItem } from "../types/models";
-import CommitteeTags from "./HomepageCommitteeTags";
+import { HomePageGazetteItem } from "@/types/models";
+import CommitteeTags from "@/components/HomepageCommitteeTags";
 import { Link } from "react-router-dom";
-import { useWindowSize } from "../hooks/useWindowSize";
-import { BREAKPOINT_MD } from "../constants/breakpoints";
+import { useWindowSize } from "@/hooks/useWindowSize";
+import { BREAKPOINT_MD } from "@/constants/breakpoints";
 interface GazetteListItemProps {
   gazetteItem: HomePageGazetteItem;
 }

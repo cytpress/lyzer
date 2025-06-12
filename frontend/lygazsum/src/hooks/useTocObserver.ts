@@ -1,4 +1,4 @@
-import { TocEntry } from "./../types/models";
+import { TocEntry } from "@/types/models";
 import { useEffect, useRef, useState } from "react";
 
 export function useTocObserver(tocEntries: TocEntry[]): string | null {

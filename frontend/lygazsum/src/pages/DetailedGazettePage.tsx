@@ -1,16 +1,16 @@
-import { DetailedGazetteItem } from "../types/models";
+import { DetailedGazetteItem } from "@/types/models";
 import { useQuery } from "@tanstack/react-query";
 import React, { useMemo, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { fetchDetailedGazetteById } from "../services/gazetteService";
-import AgendaItemAnalysisDisplay from "../components/DetailedPageAgendaItemDisplay";
-import AgendaItemMetadata from "../components/DetailedPageMetadata";
-import { DetailedPageTableOfContent } from "../components/DetailedPageTableOfContent";
-import generateTocEntries from "../utils/tocUtils";
-import { useTocObserver } from "../hooks/useTocObserver";
+import { fetchDetailedGazetteById } from "@/services/gazetteService";
+import AgendaItemAnalysisDisplay from "@/components/DetailedPageAgendaItemDisplay";
+import AgendaItemMetadata from "@/components/DetailedPageMetadata";
+import { DetailedPageTableOfContent } from "@/components/DetailedPageTableOfContent";
+import generateTocEntries from "@/utils/tocUtils";
+import { useTocObserver } from "@/hooks/useTocObserver";
 import { ListBulletIcon } from "@heroicons/react/24/outline";
-import { DetailedPageSkeleton } from "../components/feedback/DetailedPageSkeleton";
-import { ErrorDisplay } from "../components/feedback/ErrorDisplay";
+import { DetailedPageSkeleton } from "@/components/feedback/DetailedPageSkeleton";
+import { ErrorDisplay } from "@/components/feedback/ErrorDisplay";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();

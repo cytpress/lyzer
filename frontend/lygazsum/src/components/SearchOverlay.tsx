@@ -1,4 +1,4 @@
-import { useSearchFilter } from "../context/SearchFilterContext";
+import { useSearchFilter } from "@/context/SearchFilterContext";
 import { useRef, useEffect, useState } from "react";
 
 interface SearchOverlayProps {

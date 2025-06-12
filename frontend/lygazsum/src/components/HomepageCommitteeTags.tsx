@@ -1,5 +1,5 @@
-import getCommitteeTag from "../utils/getCommitteeTag";
-import { BREAKPOINT_MD } from "../constants/breakpoints";
+import getCommitteeTag from "@/utils/getCommitteeTag";
+import { BREAKPOINT_MD } from "@/constants/breakpoints";
 interface CommitteeTagsProps {
   committeeNames: string[];
   currentWindowWidth: number;

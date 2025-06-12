@@ -1,4 +1,4 @@
-import { DetailedGazetteItem } from "../types/models";
+import { DetailedGazetteItem } from "@/types/models";
 
 interface AgendaItemMetadataProps {
   metadata: DetailedGazetteItem;

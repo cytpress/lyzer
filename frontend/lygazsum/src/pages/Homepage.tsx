@@ -1,21 +1,21 @@
-import { FetchHomepageResult } from "../types/models";
-import { fetchHomepageGazette } from "../services/gazetteService";
+import { FetchHomepageResult } from "@/types/models";
+import { fetchHomepageGazette } from "@/services/gazetteService";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import {
   NORMAL_COMMITTEES_LIST,
   SPECIAL_COMMITTEES_LIST,
   ITEM_PER_PAGE,
-} from "../constants/committees";
-import { useSearchFilter } from "../context/SearchFilterContext";
-import { HomepageFilterButton } from "../components/HomepageFilterButton";
-import { HomepagePagination } from "../components/HomepagePagination";
-import GazetteListItem from "../components/HomepageItemsList";
-import { useWindowSize } from "../hooks/useWindowSize";
-import { GazetteListItemSkeleton } from "../components/feedback/GazetteListItemSkeleton";
-import { HomepageFilterButtonSkeleton } from "../components/feedback/FilterButtonSkeleton";
-import { ErrorDisplay } from "../components/feedback/ErrorDisplay";
-import { EmptyStateDisplay } from "../components/feedback/EmptyStateDisplay";
+} from "@/constants/committees";
+import { useSearchFilter } from "@/context/SearchFilterContext";
+import { HomepageFilterButton } from "@/components/HomepageFilterButton";
+import { HomepagePagination } from "@/components/HomepagePagination";
+import GazetteListItem from "@/components/HomepageItemsList";
+import { useWindowSize } from "@/hooks/useWindowSize";
+import { GazetteListItemSkeleton } from "@/components/feedback/GazetteListItemSkeleton";
+import { HomepageFilterButtonSkeleton } from "@/components/feedback/FilterButtonSkeleton";
+import { ErrorDisplay } from "@/components/feedback/ErrorDisplay";
+import { EmptyStateDisplay } from "@/components/feedback/EmptyStateDisplay";
 
 export default function Homepage() {
   const [currentPage, setCurrentPage] = useState(1);
