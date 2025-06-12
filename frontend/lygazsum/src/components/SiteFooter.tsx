@@ -20,9 +20,9 @@ export function SiteFooter() {
               rel="noopener noreferrer"
               className="underline hover:text-neutral-900"
             >
-              ly.govapi.tw
+              OpenFun Ltd. LYAPI
             </a>
-            （依
+            （資料依
             <a
               href="https://creativecommons.org/licenses/by/4.0/deed.zh-hant"
               target="_blank"
@@ -34,7 +34,7 @@ export function SiteFooter() {
             授權）
           </p>
           <a
-            href="https://github.com/YourUsername/YourRepo"
+            href="https://github.com/cytpress/ly-gazette"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm underline hover:text-neutral-900"
@@ -45,14 +45,14 @@ export function SiteFooter() {
 
         <div className="border-t border-neutral-200 w-full max-w-3xl pt-6">
           <p className="text-xs text-neutral-500">
-            © 2025 cytpress. The source code is licensed under the{" "}
+            © {new Date().getFullYear()} cytpress. 本站所有內容與原始碼均採用{" "}
             <a
-              href="https://github.com/YourUsername/YourRepo/blob/main/LICENSE"
+              href="https://github.com/cytpress/ly-gazette/blob/main/LICENSE"
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-neutral-900"
             >
-              MIT License
+              MIT 授權
             </a>
             .
           </p>
