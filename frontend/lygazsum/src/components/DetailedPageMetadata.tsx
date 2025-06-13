@@ -26,7 +26,7 @@ export default function AgendaItemMetadata({
   const tableHeaderClasses =
     "w-32 text-neutral-800 text-base font-medium text-left whitespace-nowrap leading-relaxed p-3 md:p-4 border-b border-neutral-300";
   const tableDataCellClasses =
-    "text-neutral-800 text-base leading-relaxed p-3 md:p-4 border-b border-l border-neutral-300  wrap-break-word";
+    "text-neutral-700 text-base leading-relaxed p-3 md:p-4 border-b border-l border-neutral-300  wrap-break-word";
 
   return (
     <section id="metadata-table" className="scroll-mt-24">
@@ -59,7 +59,14 @@ export default function AgendaItemMetadata({
             <tr className="odd:bg-neutral-200/50">
               <th className={tableHeaderClasses}>公報發布網址</th>
               <td className={tableDataCellClasses}>
-                {agenda_official_page_url}
+                <a
+                  href={agenda_official_page_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-neutral-900"
+                >
+                  {agenda_official_page_url}
+                </a>
               </td>
             </tr>
             <tr className="odd:bg-neutral-200/50">
@@ -69,7 +76,14 @@ export default function AgendaItemMetadata({
             <tr className="odd:bg-neutral-200/50">
               <th className={tableHeaderClasses}>公報原始pdf</th>
               <td className={tableDataCellClasses}>
-                {agenda_official_pdf_url}
+                <a
+                  href={agenda_official_pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-neutral-900"
+                >
+                  {agenda_official_pdf_url}
+                </a>
               </td>
             </tr>
             <tr className="odd:bg-neutral-200/50">

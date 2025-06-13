@@ -26,12 +26,13 @@ export function HomepagePagination({
   const currentPageClasses =
     "min-w-9 min-h-9 text-blue-600 hover:bg-neutral-200";
   const nonCurrentPageClasses =
-    "min-w-9 min-h-9 text-neutral-600 hover:bg-neutral-200";
+    "min-w-9 min-h-9 text-neutral-600 hover:bg-neutral-200 cursor-pointer";
 
   return (
     <div className="flex items-center justify-center py-2 md:my-6 space-x-2">
       <button
-        className="px-2 py-2 text-neutral-600 hover:bg-neutral-200"
+        
+        className="px-2 py-2 text-neutral-600 hover:bg-neutral-200 cursor-pointer"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
       >
@@ -51,7 +52,7 @@ export function HomepagePagination({
         </button>
       ))}
       <button
-        className="px-2 py-2 text-neutral-600 hover:bg-neutral-200"
+        className="px-2 py-2 text-neutral-600 hover:bg-neutral-200 cursor-pointer"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === maxPage}
       >
