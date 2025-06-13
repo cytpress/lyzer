@@ -1,5 +1,6 @@
-import { TocEntry } from "../types/models";
-import { AnalysisResultJson } from "../types/analysisTypes";
+import { TocEntry } from "@/types/models";
+import { AnalysisResultJson } from "@/types/analysisTypes";
+import { slugify } from "@/utils/slugify";
 
 interface GenerateTocEntriesParams {
   analysisResult: AnalysisResultJson;
@@ -43,7 +44,7 @@ export default function generateTocEntries({
       const legislatorsTocChildren: TocEntry[] = item.legislator_speakers.map(
         (speaker) => {
           return {
-            id: `${idPrefix}-speaker-${speaker.speaker_name}`,
+            id: `${idPrefix}-speaker-${slugify(speaker.speaker_name!)}`,
             text: speaker.speaker_name!,
             level: 2,
             type: "entry",
@@ -62,7 +63,7 @@ export default function generateTocEntries({
       const respondentsTocChildren: TocEntry[] = item.respondent_speakers.map(
         (speaker) => {
           return {
-            id: `${idPrefix}-speaker-${speaker.speaker_name}`,
+            id: `${idPrefix}-speaker-${slugify(speaker.speaker_name!)}`,
             text: speaker.speaker_name!,
             level: 2,
             type: "entry",

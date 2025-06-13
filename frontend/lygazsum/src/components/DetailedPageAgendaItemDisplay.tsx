@@ -1,4 +1,5 @@
 import { AgendaItemAnalysis, SpeakerDetail } from "@/types/analysisTypes";
+import { slugify } from "@/utils/slugify";
 
 interface AgendaItemAnalysisDisplayProps {
   item: AgendaItemAnalysis;
@@ -32,7 +33,7 @@ export default function AgendaItemAnalysisDisplay({
       return (
         <li key={`${index}-${speaker_name}`}>
           <section
-            id={`${idPrefix}-speaker-${speaker_name}`}
+            id={`${idPrefix}-speaker-${slugify(speaker_name!)}`}
             className="scroll-mt-22 md:scroll-mt-24"
           >
             <h3 className="text-base font-semibold mt-4 md:mt-6 mb-2">

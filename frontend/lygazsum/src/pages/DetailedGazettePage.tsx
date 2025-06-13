@@ -1,7 +1,7 @@
 import { DetailedGazetteItem } from "@/types/models";
 import { useQuery } from "@tanstack/react-query";
 import React, { useMemo, useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { fetchDetailedGazetteById } from "@/services/gazetteService";
 import AgendaItemAnalysisDisplay from "@/components/DetailedPageAgendaItemDisplay";
 import AgendaItemMetadata from "@/components/DetailedPageMetadata";
@@ -14,6 +14,8 @@ import { ErrorDisplay } from "@/components/feedback/ErrorDisplay";
 
 export default function DetailedGazettePage() {
   const params = useParams<{ id: string }>();
+
+  const location = useLocation();
 
   const gazetteIdFromParams = params.id;
 
@@ -40,6 +42,42 @@ export default function DetailedGazettePage() {
   const [intersectingTargetIds, setIntersectingTargetIds] = useState<string[]>(
     []
   );
+
+  useEffect(() => {
+    // 確保數據已載入且 URL 中有 hash
+    if (!isPending && location.hash) {
+      try {
+        // 從 hash 中提取 ID (移除 '#' 符號)
+        const idFromHash = location.hash.substring(1);
+
+        // 關鍵步驟：對從 URL hash 中獲取的 ID 進行解碼
+        const decodedId = decodeURIComponent(idFromHash);
+
+        // 使用一個微小的延遲來確保 DOM 渲染完成
+        setTimeout(() => {
+          const element = document.getElementById(decodedId);
+          if (element) {
+            element.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          } else {
+            // 如果找不到元素，可以打印一個警告，幫助未來調試
+            console.warn(
+              `Element with decoded id "${decodedId}" not found for scrolling.`
+            );
+          }
+        }, 100); // 100ms 延遲是一個比較穩妥的值
+      } catch (e) {
+        // 如果 URL 的 hash 格式不正確，decodeURIComponent 可能會拋出錯誤
+        console.error(
+          "Failed to decode URI component from hash:",
+          location.hash,
+          e
+        );
+      }
+    }
+  }, [isPending, location.hash, data]);
 
   useEffect(() => {
     const observerOptions = {

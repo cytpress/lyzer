@@ -1,4 +1,4 @@
-import { AnalysisResultJson } from "./analysisTypes";
+import { AnalysisResultJson } from "@/types/analysisTypes";
 
 export interface HomePageGazetteItem {
   id: string;

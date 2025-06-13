@@ -1,4 +1,4 @@
-import { BREAKPOINT_MD } from "../constants/breakpoints";
+import { BREAKPOINT_MD } from "@/constants/breakpoints";
 interface GeneratePaginationRangeParams {
   currentPage: number;
   maxPage: number;
