@@ -17,12 +17,19 @@ import { HomepageFilterButtonSkeleton } from "@/components/feedback/FilterButton
 import { ErrorDisplay } from "@/components/feedback/ErrorDisplay";
 import { EmptyStateDisplay } from "@/components/feedback/EmptyStateDisplay";
 
+/**
+ * Homepage 元件
+ * 網站的首頁，負責展示公報摘要列表、委員會篩選按鈕、分頁按鈕。
+ */
 export default function Homepage() {
+  // 管理當前分頁
   const [currentPage, setCurrentPage] = useState(1);
 
+  // 從 context 中取得搜尋詞、選中委員會列表、切換委員會選中狀態
   const { searchTerm, selectedCommittees, handleCommitteesToggle } =
     useSearchFilter();
 
+  // 取得螢幕寬度，用於分頁按鈕中渲染數量
   const currentWindowWidth = useWindowSize();
 
   const { isPending, isError, data, error, refetch } = useQuery<
@@ -39,10 +46,12 @@ export default function Homepage() {
       }),
   });
 
+  // 當有搜尋或篩選行為時，將當前頁面設定為第一頁
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedCommittees, searchTerm]);
 
+  // 頁面載入中時，顯示 HomepageFilterButtonSkeleton 作為骨架
   if (isPending) {
     return (
       <>
@@ -66,10 +75,12 @@ export default function Homepage() {
     return <ErrorDisplay errorMessage={error.message} onRetry={refetch} />;
   }
 
+  // 找不到數據、數據列表為空，提供 EmptyStateDisplay 作為空狀態顯示
   if (!data || data.itemsList.length === 0) {
     return <EmptyStateDisplay />;
   }
 
+  // 處理分頁改變，於 pagination 使用
   function handlePageChange(pageNumber: number) {
     setCurrentPage(pageNumber);
   }
@@ -78,6 +89,7 @@ export default function Homepage() {
 
   return (
     <>
+      {/* 委員會篩選按鈕列表，共8個常設委員會 + 4個特殊委員會 */}
       <div className="flex items-center overflow-x-auto whitespace-nowrap py-4 my-2">
         <div className="space-x-3 px-2 mx-auto">
           {allCommittees.map((committee) => (
@@ -91,12 +103,14 @@ export default function Homepage() {
         </div>
       </div>
 
+      {/* 公報項目列表 */}
       <ul className="space-y-4">
         {data.itemsList.map((gazetteItem) => (
           <GazetteListItem key={gazetteItem.id} gazetteItem={gazetteItem} />
         ))}
       </ul>
 
+      {/* 分頁元件列表 */}
       <HomepagePagination
         currentPage={currentPage}
         totalItemsCount={data.totalItemsCount}

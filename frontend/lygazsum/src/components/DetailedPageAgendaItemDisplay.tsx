@@ -1,11 +1,16 @@
 import { AgendaItemAnalysis, SpeakerDetail } from "@/types/analysisTypes";
 import { slugify } from "@/utils/slugify";
+import { JSX } from "react";
 
 interface AgendaItemAnalysisDisplayProps {
   item: AgendaItemAnalysis;
   itemIndex: number;
 }
 
+/**
+ * 負責渲染單一議程項目的所有分析內容。
+ * @param {AgendaItemAnalysisDisplayProps} props - 包含議程項目數據和索引的 props。
+ */
 export default function AgendaItemAnalysisDisplay({
   item,
   itemIndex,
@@ -19,13 +24,25 @@ export default function AgendaItemAnalysisDisplay({
     result_status_next,
   } = item;
 
+  // 為此議程項目下的所有元素創建唯一的 ID 前綴，用於錨點連結，同 tocUtils。
   const idPrefix = `item-${itemIndex}`;
+
+  // 用於一般 h2 標題樣式
   const subtitleClasses =
     "text-neutral-900 text-lg md:text-xl font-semibold mb-2 md:mb-4 mt-10";
+
+  // 用於內文樣式
   const textClasses =
     "text-neutral-800 text-base leading-[180%] md:leading-relaxed mb-2";
 
-  function renderSpeakerDetails(speakers: SpeakerDetail[] | null) {
+  /**
+   * 輔助函式，用於渲染發言者列表及其觀點。
+   * @param {SpeakerDetail[] | null} speakers - 發言者數據陣列。
+   * @returns {JSX.Element | JSX.Element[]}
+   */
+  function renderSpeakerDetails(
+    speakers: SpeakerDetail[] | null
+  ): JSX.Element | JSX.Element[] {
     if (!speakers || speakers.length === 0)
       return <p className={textClasses}>無相關發言紀錄</p>;
     return speakers.map((speaker, index) => {
@@ -33,6 +50,7 @@ export default function AgendaItemAnalysisDisplay({
       return (
         <li key={`${index}-${speaker_name}`}>
           <section
+            // 使用 slugify 轉換姓名，生成唯一的、可用於 TOC 點擊定位的 ID。
             id={`${idPrefix}-speaker-${slugify(speaker_name!)}`}
             className="scroll-mt-22 md:scroll-mt-24"
           >
@@ -54,6 +72,7 @@ export default function AgendaItemAnalysisDisplay({
 
   return (
     <>
+      {/* 議題摘要 */}
       <section
         id={`${idPrefix}-item-title`}
         className="scroll-mt-22 md:scroll-mt-24"
@@ -64,6 +83,7 @@ export default function AgendaItemAnalysisDisplay({
         </p>
       </section>
 
+      {/* 核心議題 */}
       <section
         id={`${idPrefix}-core-issues`}
         className="scroll-mt-22 md:scroll-mt-24"
@@ -88,6 +108,7 @@ export default function AgendaItemAnalysisDisplay({
         )}
       </section>
 
+      {/* 相關爭議 */}
       <section
         id={`${idPrefix}-controversies`}
         className="scroll-mt-22 md:scroll-mt-24"
@@ -111,6 +132,9 @@ export default function AgendaItemAnalysisDisplay({
           <p className={textClasses}>無相關爭議</p>
         )}
       </section>
+
+      {/* 立法委員發言 */}
+      {/* `data-toc-observer-target` 用於 TOC 自動展開功能 */}
       <section data-toc-observer-target={`${idPrefix}-legislators-speech`}>
         <h2
           className={`${subtitleClasses} scroll-mt-22 md:scroll-mt-24`}
@@ -120,6 +144,8 @@ export default function AgendaItemAnalysisDisplay({
         </h2>
         <ul>{renderSpeakerDetails(legislator_speakers)}</ul>
       </section>
+
+      {/* 相關人員發言 */}
       <section data-toc-observer-target={`${idPrefix}-respondents-response`}>
         <h2
           className={`${subtitleClasses} scroll-mt-22 md:scroll-mt-24`}
@@ -129,6 +155,8 @@ export default function AgendaItemAnalysisDisplay({
         </h2>
         <ul>{renderSpeakerDetails(respondent_speakers)}</ul>
       </section>
+
+      {/* 相關後續 */}
       <section
         className="scroll-mt-22 md:scroll-mt-24"
         id={`${idPrefix}-result-next`}

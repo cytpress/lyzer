@@ -44,7 +44,6 @@ export interface DetailedGazetteItem {
 export interface TocEntry {
   id: string;
   text: string;
-  level: number;
   children?: TocEntry[];
   type?: "entry" | "divider";
 }
