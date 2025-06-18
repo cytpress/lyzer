@@ -15,7 +15,7 @@ import {
 import type { AnalyzedContentRecord } from "../_shared/types/database.ts";
 import { processSingleAnalyzedContent } from "./contentProcessor.ts";
 
-export const GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-04-17";
+export const GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-05-20";
 export const MAX_CONTENT_LENGTH_CHARS = 750000;
 export const CONTENT_FETCH_TIMEOUT_MS = 60000;
 
