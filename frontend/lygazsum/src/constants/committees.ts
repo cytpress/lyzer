@@ -16,4 +16,9 @@ export const SPECIAL_COMMITTEES_LIST = [
   "修憲委員會",
 ];
 
+export const ALL_COMMITTEES_LIST = [
+  ...NORMAL_COMMITTEES_LIST,
+  ...SPECIAL_COMMITTEES_LIST,
+];
+
 export const ITEM_PER_PAGE = 10;

@@ -1,12 +1,8 @@
 import { FetchHomepageResult } from "@/types/models";
 import { fetchHomepageGazette } from "@/services/gazetteService";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import {
-  NORMAL_COMMITTEES_LIST,
-  SPECIAL_COMMITTEES_LIST,
-  ITEM_PER_PAGE,
-} from "@/constants/committees";
+import { ALL_COMMITTEES_LIST, ITEM_PER_PAGE } from "@/constants/committees";
 import { useSearchFilter } from "@/context/SearchFilterContext";
 import { HomepageFilterButton } from "@/components/HomepageFilterButton";
 import { HomepagePagination } from "@/components/HomepagePagination";
@@ -29,10 +25,13 @@ export default function Homepage() {
   const { searchTerm, selectedCommittees, handleCommitteesToggle } =
     useSearchFilter();
 
+  // 建立queryClient，供後續首次載入時，預先抓取常設委員會的篩選結果
+  const queryClient = useQueryClient();
+
   // 取得螢幕寬度，用於分頁按鈕中渲染數量
   const currentWindowWidth = useWindowSize();
 
-  const { isPending, isError, data, error, refetch } = useQuery<
+  const { isPending, isError, data, error, refetch, isSuccess } = useQuery<
     FetchHomepageResult,
     Error
   >({
@@ -44,6 +43,7 @@ export default function Homepage() {
         selectedCommittees,
         searchTerm,
       }),
+    staleTime: Infinity,
   });
 
   // 當有搜尋或篩選行為時，將當前頁面設定為第一頁
@@ -51,12 +51,36 @@ export default function Homepage() {
     setCurrentPage(1);
   }, [selectedCommittees, searchTerm]);
 
+  useEffect(() => {
+    //預載函式，預先載入所有單一委員篩選後的結果
+    function prefetchFilteredCommitteeData(committeeName: string) {
+      queryClient.prefetchQuery({
+        queryKey: ["homepageGazettes", [committeeName], 1, ""],
+        queryFn: () =>
+          fetchHomepageGazette({
+            limit: ITEM_PER_PAGE,
+            selectedCommittees: [committeeName],
+            page: 1,
+            searchTerm: "",
+          }),
+        staleTime: Infinity,
+      });
+    }
+
+    if (isSuccess) {
+      ALL_COMMITTEES_LIST.forEach((committee) => {
+        prefetchFilteredCommitteeData(committee);
+      });
+    }
+  }, [isSuccess, queryClient]);
+
   // 頁面載入中時，顯示 HomepageFilterButtonSkeleton 作為骨架
   if (isPending) {
     return (
       <>
         <div className="py-4 my-2 flex justify-center">
           <div className="inline-flex items-center space-x-3 px-2">
+            <span>委員會篩選：</span>
             {Array.from({ length: 9 }).map((_, index) => (
               <HomepageFilterButtonSkeleton key={index} />
             ))}
@@ -85,14 +109,13 @@ export default function Homepage() {
     setCurrentPage(pageNumber);
   }
 
-  const allCommittees = [...NORMAL_COMMITTEES_LIST, ...SPECIAL_COMMITTEES_LIST];
-
   return (
     <>
       {/* 委員會篩選按鈕列表，共8個常設委員會 + 4個特殊委員會 */}
       <div className="flex items-center overflow-x-auto whitespace-nowrap py-4 my-2">
         <div className="space-x-3 px-2 mx-auto">
-          {allCommittees.map((committee) => (
+          <span>委員會篩選：</span>
+          {ALL_COMMITTEES_LIST.map((committee) => (
             <HomepageFilterButton
               key={committee}
               committeeName={committee}
