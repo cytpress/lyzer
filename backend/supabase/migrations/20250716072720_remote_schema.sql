@@ -78,19 +78,16 @@ OR REPLACE FUNCTION "public"."search_analyzed_contents" (
     "relevance_score" double precision,
     "highlighted_summary" "text",
     "meeting_date" "date"
-) LANGUAGE "plpgsql" AS $$BEGIN
+) LANGUAGE "plpgsql" AS $$
+BEGIN
     IF p_search_term IS NULL OR trim(p_search_term) = '' THEN
         RETURN QUERY SELECT NULL::uuid, NULL::double precision, NULL::text, NULL::date WHERE FALSE;
     ELSE
         RETURN QUERY
         WITH ranked_ids AS (
-            SELECT
-                id,
-                pgroonga_score(tableoid, ctid) as score
-            FROM
-                public.analyzed_contents
-            WHERE
-                analysis_result &@~ p_search_term
+            SELECT id, pgroonga_score(tableoid, ctid) as score
+            FROM public.analyzed_contents
+            WHERE analysis_result &@~ p_search_term
         )
         SELECT
             ac.id,
@@ -109,27 +106,16 @@ OR REPLACE FUNCTION "public"."search_analyzed_contents" (
             OR cardinality(p_selected_committees) = 0
             OR ac.committee_name && p_selected_committees
         ORDER BY
-            CASE
-                WHEN p_sort_by = 'relevance_asc' THEN ri.score
-                ELSE NULL
-            END ASC NULLS LAST,
-            CASE
-                WHEN p_sort_by = 'relevance_desc' THEN ri.score
-                ELSE NULL
-            END DESC NULLS LAST,
-            CASE
-                WHEN p_sort_by = 'date_asc' THEN (ga.meeting_dates[1])
-                ELSE NULL
-            END ASC NULLS LAST,
-            CASE
-                WHEN p_sort_by = 'date_desc' THEN (ga.meeting_dates[1])
-                ELSE NULL
-            END DESC NULLS LAST,
+            CASE WHEN p_sort_by = 'relevance_asc' THEN ri.score ELSE NULL END ASC NULLS LAST,
+            CASE WHEN p_sort_by = 'relevance_desc' THEN ri.score ELSE NULL END DESC NULLS LAST,
+            CASE WHEN p_sort_by = 'date_asc' THEN (ga.meeting_dates[1]) ELSE NULL END ASC NULLS LAST,
+            CASE WHEN p_sort_by = 'date_desc' THEN (ga.meeting_dates[1]) ELSE NULL END DESC NULLS LAST,
             ac.id ASC
         LIMIT p_limit
         OFFSET p_offset;
     END IF;
-END;$$;
+END;
+$$;
 
 ALTER FUNCTION "public"."search_analyzed_contents" (
     "p_search_term" "text",
@@ -522,7 +508,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public"
 GRANT ALL ON TABLES TO "service_role";
 
 RESET ALL;
-
---
--- Dumped schema changes for auth and storage
---
