@@ -67,9 +67,16 @@ export default function Homepage() {
 
   useEffect(() => {
     //預載函式，預先載入所有單一委員篩選後的結果，搜尋後結果亦同
+    const prefetchSort = searchTerm ? "relevance_desc" : "date_desc";
     function prefetchFilteredCommitteeData(committeeName: string) {
       queryClient.prefetchQuery({
-        queryKey: ["homepageGazettes", [committeeName], 1, searchTerm],
+        queryKey: [
+          "homepageGazettes",
+          [committeeName],
+          1,
+          searchTerm,
+          prefetchSort,
+        ],
         queryFn: () =>
           fetchHomepageGazette({
             limit: ITEM_PER_PAGE,
