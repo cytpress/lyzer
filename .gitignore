@@ -13,3 +13,4 @@ node_modules/
 dist/
 build/
 *.log
+backend/prod_data_only.sql
