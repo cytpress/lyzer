@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@layer components {
+  .keyword {
+    @apply font-semibold text-red-500;
+  }
+}
+
 @media (min-width: 768px) {
   /* Firefox */
   html {

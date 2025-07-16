@@ -3,11 +3,18 @@ import CommitteeTags from "@/components/HomepageCommitteeTags";
 import { Link } from "react-router-dom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { BREAKPOINT_MD } from "@/constants/breakpoints";
+
 interface GazetteListItemProps {
   gazetteItem: HomePageGazetteItem;
 }
+
 export default function GazetteListItem({ gazetteItem }: GazetteListItemProps) {
   const currentWindowWidth = useWindowSize();
+
+  const summaryToShow = gazetteItem.highlighted_summary
+    ? gazetteItem.highlighted_summary
+    : gazetteItem.overall_summary_sentence;
+
   return (
     <li className="w-11/12 md:w-4/5 mx-auto">
       <Link to={`/detailedGazette/${gazetteItem.id}`}>
@@ -27,9 +34,10 @@ export default function GazetteListItem({ gazetteItem }: GazetteListItemProps) {
                 : `．${gazetteItem.meeting_date}`}
             </p>
           </div>
-          <p className="text-neutral-600 text-sm leading-relaxed line-clamp-2 md:line-clamp-3">
-            {gazetteItem.overall_summary_sentence}
-          </p>
+          <p
+            className="text-neutral-600 text-sm leading-relaxed line-clamp-2 md:line-clamp-3"
+            dangerouslySetInnerHTML={{ __html: summaryToShow }}
+          ></p>
         </div>
       </Link>
     </li>

@@ -71,45 +71,72 @@ OR REPLACE FUNCTION "public"."search_analyzed_contents" (
     "p_search_term" "text",
     "p_selected_committees" "text" [],
     "p_limit" integer,
-    "p_offset" integer
+    "p_offset" integer,
+    "p_sort_by" "text" DEFAULT 'relevance_desc'::"text"
 ) RETURNS TABLE (
     "item_id" "uuid",
-    "relevance_score" double precision
-) LANGUAGE "plpgsql" AS $$
-BEGIN
+    "relevance_score" double precision,
+    "highlighted_summary" "text",
+    "meeting_date" "date"
+) LANGUAGE "plpgsql" AS $$BEGIN
     IF p_search_term IS NULL OR trim(p_search_term) = '' THEN
-        RETURN QUERY SELECT NULL::UUID, NULL::DOUBLE PRECISION WHERE FALSE;
+        RETURN QUERY SELECT NULL::uuid, NULL::double precision, NULL::text, NULL::date WHERE FALSE;
     ELSE
         RETURN QUERY
+        WITH ranked_ids AS (
+            SELECT
+                id,
+                pgroonga_score(tableoid, ctid) as score
+            FROM
+                public.analyzed_contents
+            WHERE
+                analysis_result &@~ p_search_term
+        )
         SELECT
-            ac.id, 
-            pgroonga_score(ac.tableoid, ac.ctid)
+            ac.id,
+            ri.score,
+            pgroonga_highlight_html(
+                ac.analysis_result ->> 'overall_summary_sentence',
+                pgroonga_query_extract_keywords(p_search_term)
+            ),
+            (ga.meeting_dates[1]) as primary_meeting_date
         FROM
-            analyzed_contents AS ac 
+            ranked_ids AS ri
+        JOIN public.analyzed_contents AS ac ON ri.id = ac.id
+        LEFT JOIN public.gazette_agendas AS ga ON ac.parsed_content_url = ga.parsed_content_url
         WHERE
-            ac.analysis_result &@~ p_search_term
-            AND(
-                p_selected_committees IS NULL 
-                OR cardinality(p_selected_committees) = 0
-                OR ac.committee_name && p_selected_committees
-            )
+            p_selected_committees IS NULL
+            OR cardinality(p_selected_committees) = 0
+            OR ac.committee_name && p_selected_committees
         ORDER BY
-            pgroonga_score(ac.tableoid, ac.ctid) DESC,
-            ac.analyzed_at DESC,
+            CASE
+                WHEN p_sort_by = 'relevance_asc' THEN ri.score
+                ELSE NULL
+            END ASC NULLS LAST,
+            CASE
+                WHEN p_sort_by = 'relevance_desc' THEN ri.score
+                ELSE NULL
+            END DESC NULLS LAST,
+            CASE
+                WHEN p_sort_by = 'date_asc' THEN (ga.meeting_dates[1])
+                ELSE NULL
+            END ASC NULLS LAST,
+            CASE
+                WHEN p_sort_by = 'date_desc' THEN (ga.meeting_dates[1])
+                ELSE NULL
+            END DESC NULLS LAST,
             ac.id ASC
-        LIMIT
-            p_limit
-        OFFSET
-            p_offset;
+        LIMIT p_limit
+        OFFSET p_offset;
     END IF;
-END;
-$$;
+END;$$;
 
 ALTER FUNCTION "public"."search_analyzed_contents" (
     "p_search_term" "text",
     "p_selected_committees" "text" [],
     "p_limit" integer,
-    "p_offset" integer
+    "p_offset" integer,
+    "p_sort_by" "text"
 ) OWNER TO "postgres";
 
 CREATE
@@ -396,21 +423,24 @@ GRANT ALL ON FUNCTION "public"."search_analyzed_contents" (
     "p_search_term" "text",
     "p_selected_committees" "text" [],
     "p_limit" integer,
-    "p_offset" integer
+    "p_offset" integer,
+    "p_sort_by" "text"
 ) TO "anon";
 
 GRANT ALL ON FUNCTION "public"."search_analyzed_contents" (
     "p_search_term" "text",
     "p_selected_committees" "text" [],
     "p_limit" integer,
-    "p_offset" integer
+    "p_offset" integer,
+    "p_sort_by" "text"
 ) TO "authenticated";
 
 GRANT ALL ON FUNCTION "public"."search_analyzed_contents" (
     "p_search_term" "text",
     "p_selected_committees" "text" [],
     "p_limit" integer,
-    "p_offset" integer
+    "p_offset" integer,
+    "p_sort_by" "text"
 ) TO "service_role";
 
 GRANT ALL ON FUNCTION "public"."trigger_set_timestamp" () TO "anon";
@@ -492,3 +522,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public"
 GRANT ALL ON TABLES TO "service_role";
 
 RESET ALL;
+
+--
+-- Dumped schema changes for auth and storage
+--

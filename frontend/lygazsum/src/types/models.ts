@@ -1,5 +1,11 @@
 import { AnalysisResultJson } from "@/types/analysisTypes";
 
+export type SortByType =
+  | "relevance_desc"
+  | "relevance_asc"
+  | "date_desc"
+  | "date_asc";
+
 export interface HomePageGazetteItem {
   id: string;
   committee_names: string[];
@@ -8,6 +14,7 @@ export interface HomePageGazetteItem {
   meeting_date: string;
   analyzed_at: string;
   score?: number;
+  highlighted_summary?: string;
 }
 
 export interface FetchHomepageResult {
@@ -18,6 +25,7 @@ export interface FetchHomepageResult {
 export interface RankedSearchResultsItem {
   item_id: string;
   relevance_score: number;
+  highlighted_summary: string;
 }
 
 export interface DetailedGazetteItem {

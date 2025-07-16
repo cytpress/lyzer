@@ -6,6 +6,7 @@ import {
   useEffect,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { SortByType } from "@/types/models";
 
 /**
  * @interface SearchFilterContextType
@@ -29,6 +30,8 @@ interface SearchFilterContextType {
   searchInputValue: string;
   setSearchInputValue: (searchInputValue: string) => void;
   handleSubmitSearch: (event?: React.FormEvent<HTMLFormElement>) => void;
+  sortBy: SortByType;
+  setSortBy: (sortBy: SortByType) => void;
 }
 
 const SearchFilterContext = createContext<SearchFilterContextType | undefined>(
@@ -44,6 +47,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInputValue, setSearchInputValue] = useState("");
   const [selectedCommittees, setSelectedCommittees] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortByType>("relevance_desc");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,6 +81,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
     setSearchTerm("");
     setSearchInputValue("");
     setSelectedCommittees([]);
+    setSortBy("relevance_desc");
   }
 
   /**
@@ -88,6 +93,9 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
     // 透過`setSearchTerm`，來觸發首頁的 useQuery 來重新抓取資料
     setSearchTerm(searchInputValue);
+
+    // 搜尋時，預設為關聯性由高到低排序
+    setSortBy("relevance_desc");
 
     // 如果使用者不在首頁搜尋，則引導回首頁
     if (location.pathname !== "/") navigate("/");
@@ -104,6 +112,8 @@ export function SearchProvider({ children }: SearchProviderProps) {
         searchInputValue,
         setSearchInputValue,
         handleSubmitSearch,
+        sortBy,
+        setSortBy,
       }}
     >
       {children}

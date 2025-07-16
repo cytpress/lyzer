@@ -5,7 +5,7 @@ interface ErrorDisplayProps {
 
 export function ErrorDisplay({ errorMessage, onRetry }: ErrorDisplayProps) {
   return (
-    <div className="flex flex-col w-3/5 mx-auto items-center justify-center min-h-[calc(100vh-180px)]">
+    <div className="flex flex-col w-3/5 py-8 mx-auto items-center justify-center min-h-[calc(100vh-180px)] ">
       <div>
         <h3 className="text-neutral-900 text-2xl md:text-3xl font-semibold mb-2 md:mb-4 mt-10">
           這手有點問題......

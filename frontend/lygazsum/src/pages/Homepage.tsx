@@ -1,4 +1,4 @@
-import { FetchHomepageResult } from "@/types/models";
+import { FetchHomepageResult, SortByType } from "@/types/models";
 import { fetchHomepageGazette } from "@/services/gazetteService";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
@@ -22,8 +22,13 @@ export default function Homepage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // 從 context 中取得搜尋詞、選中委員會列表、切換委員會選中狀態
-  const { searchTerm, selectedCommittees, handleCommitteesToggle } =
-    useSearchFilter();
+  const {
+    searchTerm,
+    selectedCommittees,
+    handleCommitteesToggle,
+    sortBy,
+    setSortBy,
+  } = useSearchFilter();
 
   // 建立queryClient，供後續首次載入時，預先抓取常設委員會的篩選結果
   const queryClient = useQueryClient();
@@ -31,17 +36,26 @@ export default function Homepage() {
   // 取得螢幕寬度，用於分頁按鈕中渲染數量
   const currentWindowWidth = useWindowSize();
 
+  const effectiveSortBy = searchTerm ? sortBy : "date_desc";
+
   const { isPending, isError, data, error, refetch, isSuccess } = useQuery<
     FetchHomepageResult,
     Error
   >({
-    queryKey: ["homepageGazettes", selectedCommittees, currentPage, searchTerm],
+    queryKey: [
+      "homepageGazettes",
+      selectedCommittees,
+      currentPage,
+      searchTerm,
+      effectiveSortBy,
+    ],
     queryFn: () =>
       fetchHomepageGazette({
         limit: ITEM_PER_PAGE,
         page: currentPage,
         selectedCommittees,
         searchTerm,
+        sortBy: effectiveSortBy,
       }),
     staleTime: Infinity,
   });
@@ -52,16 +66,16 @@ export default function Homepage() {
   }, [selectedCommittees, searchTerm]);
 
   useEffect(() => {
-    //預載函式，預先載入所有單一委員篩選後的結果
+    //預載函式，預先載入所有單一委員篩選後的結果，搜尋後結果亦同
     function prefetchFilteredCommitteeData(committeeName: string) {
       queryClient.prefetchQuery({
-        queryKey: ["homepageGazettes", [committeeName], 1, ""],
+        queryKey: ["homepageGazettes", [committeeName], 1, searchTerm],
         queryFn: () =>
           fetchHomepageGazette({
             limit: ITEM_PER_PAGE,
             selectedCommittees: [committeeName],
             page: 1,
-            searchTerm: "",
+            searchTerm: searchTerm,
           }),
         staleTime: Infinity,
       });
@@ -72,7 +86,7 @@ export default function Homepage() {
         prefetchFilteredCommitteeData(committee);
       });
     }
-  }, [isSuccess, queryClient]);
+  }, [isSuccess, queryClient, searchTerm]);
 
   // 頁面載入中時，顯示 HomepageFilterButtonSkeleton 作為骨架
   if (isPending) {
@@ -125,6 +139,23 @@ export default function Homepage() {
           ))}
         </div>
       </div>
+
+      {searchTerm && (
+        <div className="w-11/12 md:w-4/5 mx-auto flex justify-end pb-2">
+          <select
+            className="text-base text-neutral-600 bg-neutral-50"
+            name="searchSortBy"
+            id="searchSortBy"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortByType)}
+          >
+            <option value="relevance_desc">出現次數：高 → 低</option>
+            <option value="relevance_asc">出現次數：低 → 高</option>
+            <option value="date_desc">開會日期：近 → 遠</option>
+            <option value="date_asc">開會日期：遠 → 近</option>
+          </select>
+        </div>
+      )}
 
       {/* 公報項目列表 */}
       <ul className="space-y-4">

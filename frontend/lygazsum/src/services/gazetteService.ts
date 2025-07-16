@@ -13,6 +13,7 @@ interface FetchHomepageGazetteParams {
   selectedCommittees?: string[];
   page?: number;
   searchTerm?: string;
+  sortBy?: "relevance_desc" | "relevance_asc" | "date_desc" | "date_asc";
 }
 
 // 將 Supabase view 的欄位定義為常數，方便重用。
@@ -36,9 +37,8 @@ export async function fetchHomepageGazette({
   selectedCommittees,
   page = 1,
   searchTerm,
+  sortBy,
 }: FetchHomepageGazetteParams = {}): Promise<FetchHomepageResult> {
-  console.log(`[gazetteService] Fetching latest ${limit} analyzed contents...`);
-
   let query;
   const itemsPerPage = limit;
   const startIndex = (page - 1) * itemsPerPage;
@@ -61,6 +61,7 @@ export async function fetchHomepageGazette({
         p_selected_committees: selectedCommittees,
         p_limit: itemsPerPage,
         p_offset: calculatedOffset,
+        p_sort_by: sortBy,
       },
       { count: "exact" }
     );
@@ -109,6 +110,7 @@ export async function fetchHomepageGazette({
             ...viewItem,
             // 將相關性分數加入到項目數據中
             score: rankedItem.relevance_score,
+            highlighted_summary: rankedItem.highlighted_summary,
           };
         }
         return null;
