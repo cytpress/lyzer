@@ -1,6 +1,7 @@
 import { TocEntry } from "@/types/models";
 import { AnalysisResultJson } from "@/types/analysisTypes";
 import { slugify } from "@/utils/slugify";
+import numberToChineseNumber from "./numberToChineseNumber";
 
 interface GenerateTocEntriesParams {
   analysisResult: AnalysisResultJson;
@@ -29,7 +30,7 @@ export default function generateTocEntries({
     if (item.item_title) {
       tocEntries.push({
         id: `${idPrefix}-item-title`,
-        text: "議題摘要",
+        text: `討論事項${numberToChineseNumber(itemIndex + 1)}`,
         type: "entry",
       });
     }

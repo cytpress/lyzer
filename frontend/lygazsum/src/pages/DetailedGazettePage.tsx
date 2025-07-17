@@ -11,6 +11,7 @@ import { useTocObserver } from "@/hooks/useTocObserver";
 import { ListBulletIcon } from "@heroicons/react/24/outline";
 import { DetailedPageSkeleton } from "@/components/feedback/DetailedPageSkeleton";
 import { ErrorDisplay } from "@/components/feedback/ErrorDisplay";
+import CommitteeTags from "@/components/HomepageCommitteeTags";
 
 /**
  * 詳細內容頁面
@@ -151,15 +152,28 @@ export default function DetailedGazettePage() {
   return (
     <div className="flex px-6 md:px-20">
       <article className="md:w-2/3 pt-10 md:mr-12">
-        {/* 標題與會議簡述 */}
+        {/* 標題、委員會標籤、開會日期、與會議簡述 */}
         <section>
-          <h1 className="text-2xl md:text-3xl font-semibold leading-snug mb-3 md:mb-6 text-neutral-900">
-            {summary_title}
-          </h1>
+          <div className="mb-3 md:mb-5">
+            <h1 className="text-2xl md:text-3xl font-semibold leading-snug pb-2 text-neutral-900">
+              {summary_title}
+            </h1>
+            <div className="flex flex-row items-center">
+              <CommitteeTags
+                committeeNames={data.committee_names}
+                isForceFullName={true}
+              />
+              <p className="text-xs md:text-sm text-neutral-600">
+                ．會議日期：{data.agenda_meeting_date}
+              </p>
+            </div>
+          </div>
+
           <p className="text-base leading-[180%] md:leading-relaxed text-neutral-800 mb-3 md:mb-6 ">
             {overall_summary_sentence}
           </p>
         </section>
+
         {/* 遍歷所有的議程項目，即一項場會議可能有多個討論事項 */}
         {agenda_items?.map((item, itemIndex) => (
           <React.Fragment key={`agenda-item-wrapper-${itemIndex}`}>
