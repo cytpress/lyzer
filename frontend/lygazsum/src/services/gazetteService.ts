@@ -1,10 +1,10 @@
 // services/gazetteService.ts
 
-import { supabase } from "./supabaseClient";
+import { supabase } from "@/services/supabaseClient";
 import {
-  FetchHomepageResult,
+  FetchGazettesListResult,
   DetailedGazetteItem,
-  HomePageGazetteItem,
+  GazetteItem,
   RankedSearchResultsItem,
 } from "../types/models";
 
@@ -30,7 +30,7 @@ const VW_DETAILED_GAZETTE_ITEMS_COLUMNS =
  * 2. 一般篩選和分頁：如果沒有 `searchTerm`，則直接從 `vw_homepage_gazette_items` view 中查詢數據。
  *
  * @param {FetchHomepageGazetteParams} params - 包含查詢參數的物件。
- * @returns {Promise<FetchHomepageResult>} - 包含項目列表和總數的 Promise。
+ * @returns {Promise<FetchGazettesListResult>} - 包含項目列表和總數的 Promise。
  */
 export async function fetchHomepageGazette({
   limit = 10,
@@ -38,7 +38,7 @@ export async function fetchHomepageGazette({
   page = 1,
   searchTerm,
   sortBy,
-}: FetchHomepageGazetteParams = {}): Promise<FetchHomepageResult> {
+}: FetchHomepageGazetteParams = {}): Promise<FetchGazettesListResult> {
   let query;
   const itemsPerPage = limit;
   const startIndex = (page - 1) * itemsPerPage;
@@ -103,7 +103,7 @@ export async function fetchHomepageGazette({
     const mergedRankedItemsList = safeRankedSearchResults
       .map((rankedItem: RankedSearchResultsItem) => {
         const viewItem = safeMatchItemsFromView.find(
-          (viewItem: HomePageGazetteItem) => viewItem.id === rankedItem.item_id
+          (viewItem: GazetteItem) => viewItem.id === rankedItem.item_id
         );
         if (viewItem) {
           return {
@@ -176,4 +176,29 @@ export async function fetchDetailedGazetteById(
   }
 
   return data as DetailedGazetteItem;
+}
+
+export async function fetchGazettesByIds(
+  ids: string[]
+): Promise<FetchGazettesListResult> {
+  if (!ids || ids.length === 0) {
+    return { itemsList: [], totalItemsCount: 0 };
+  }
+
+  const { data, error } = await supabase
+    .from("vw_homepage_gazette_items")
+    .select(VW_HOMEPAGE_GAZETTE_ITEMS_COLUMNS)
+    .in("id", ids);
+
+  if (error) {
+    throw error;
+  }
+
+  const fetchedItems = data || [];
+
+  const sortedItemList = ids
+    .map((id) => fetchedItems.find((item) => item.id === id))
+    .filter((item) => item !== undefined);
+
+  return { itemsList: sortedItemList, totalItemsCount: sortedItemList.length };
 }

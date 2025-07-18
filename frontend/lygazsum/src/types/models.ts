@@ -6,7 +6,7 @@ export type SortByType =
   | "date_desc"
   | "date_asc";
 
-export interface HomePageGazetteItem {
+export interface GazetteItem {
   id: string;
   committee_names: string[];
   summary_title: string;
@@ -17,8 +17,8 @@ export interface HomePageGazetteItem {
   highlighted_summary?: string;
 }
 
-export interface FetchHomepageResult {
-  itemsList: HomePageGazetteItem[];
+export interface FetchGazettesListResult {
+  itemsList: GazetteItem[];
   totalItemsCount: number;
 }
 
