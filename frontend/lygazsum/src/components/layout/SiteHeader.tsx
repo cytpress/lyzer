@@ -82,6 +82,14 @@ export function SiteHeader() {
               <ul className="flex items-center">
                 <li>
                   <Link
+                    to="/bookmarks"
+                    className="px-2 py-2 font-medium text-neutral-700 hover:text-neutral-900 flex items-center"
+                  >
+                    我的收藏
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     to="/about"
                     className="px-2 py-2 font-medium text-neutral-700 hover:text-neutral-900 flex items-center"
                   >

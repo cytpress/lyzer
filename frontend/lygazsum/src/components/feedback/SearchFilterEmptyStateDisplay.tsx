@@ -1,6 +1,6 @@
-import { useSearchFilter } from "../../context/SearchFilterContext";
+import { useSearchFilter } from "@/context/SearchFilterContext";
 
-export function EmptyStateDisplay() {
+export function SearchFilterEmptyStateDisplay() {
   const { searchTerm, selectedCommittees, clearFilterAndSearchTerm } =
     useSearchFilter();
 

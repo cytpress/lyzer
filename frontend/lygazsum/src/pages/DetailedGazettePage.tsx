@@ -6,12 +6,14 @@ import { fetchDetailedGazetteById } from "@/services/gazetteService";
 import AgendaItemAnalysisDisplay from "@/components/DetailedPageAgendaItemDisplay";
 import AgendaItemMetadata from "@/components/DetailedPageMetadata";
 import { DetailedPageTableOfContent } from "@/components/DetailedPageTableOfContent";
-import generateTocEntries from "@/utils/tocUtils";
-import { useTocObserver } from "@/hooks/useTocObserver";
-import { ListBulletIcon } from "@heroicons/react/24/outline";
 import { DetailedPageSkeleton } from "@/components/feedback/DetailedPageSkeleton";
 import { ErrorDisplay } from "@/components/feedback/ErrorDisplay";
 import CommitteeTags from "@/components/HomepageCommitteeTags";
+import { useBookmark } from "@/context/BookmarkContext";
+import { useTocObserver } from "@/hooks/useTocObserver";
+import generateTocEntries from "@/utils/tocUtils";
+import { ListBulletIcon } from "@heroicons/react/24/outline";
+import BookmarkButton from "@/components/BookmarkButton";
 
 /**
  * 詳細內容頁面
@@ -23,6 +25,10 @@ export default function DetailedGazettePage() {
   const gazetteIdFromParams = params.id;
 
   const location = useLocation();
+
+  const { isBookmarked, handleBookmarkToggle } = useBookmark();
+
+  const isCurrentlyBookmarked = isBookmarked(gazetteIdFromParams!);
 
   const { isPending, isError, data, error, refetch } = useQuery<
     DetailedGazetteItem | null,
@@ -164,8 +170,12 @@ export default function DetailedGazettePage() {
                 isForceFullName={true}
               />
               <p className="text-xs md:text-sm text-neutral-600">
-                ．會議日期：{data.agenda_meeting_date}
+                ．會議日期：{data.agenda_meeting_date}．
               </p>
+              <BookmarkButton
+                isBookmarked={isCurrentlyBookmarked}
+                onClick={() => handleBookmarkToggle(gazetteIdFromParams!)}
+              />
             </div>
           </div>
 

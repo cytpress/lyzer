@@ -1,19 +1,34 @@
-import { HomePageGazetteItem } from "@/types/models";
+import { GazetteItem } from "@/types/models";
 import CommitteeTags from "@/components/HomepageCommitteeTags";
 import { Link } from "react-router-dom";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { BREAKPOINT_MD } from "@/constants/breakpoints";
+import BookmarkButton from "@/components/BookmarkButton";
 
 interface GazetteListItemProps {
-  gazetteItem: HomePageGazetteItem;
+  gazetteItem: GazetteItem;
+  isBookmarked: boolean;
+  onToggleBookmark: (id: string) => void;
 }
 
-export default function GazetteListItem({ gazetteItem }: GazetteListItemProps) {
+export default function GazetteListItem({
+  gazetteItem,
+  isBookmarked,
+  onToggleBookmark,
+}: GazetteListItemProps) {
   const currentWindowWidth = useWindowSize();
 
+  // 使用 pgroonga 回傳具有高亮 keyword class 的 <span> 或使用原生 AI分析的摘要語句
   const summaryToShow = gazetteItem.highlighted_summary
     ? gazetteItem.highlighted_summary
     : gazetteItem.overall_summary_sentence;
+
+  // 傳遞 `handleBookmarkClick` 給 `BookmarkButton`
+  function handleBookmarkClick(event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    onToggleBookmark(gazetteItem.id);
+  }
 
   return (
     <li className="w-11/12 md:w-4/5 mx-auto">
@@ -30,9 +45,13 @@ export default function GazetteListItem({ gazetteItem }: GazetteListItemProps) {
             />
             <p className="text-xs md:text-sm text-neutral-600">
               {currentWindowWidth > BREAKPOINT_MD
-                ? `．會議日期：${gazetteItem.meeting_date}`
-                : `．${gazetteItem.meeting_date}`}
+                ? `．會議日期：${gazetteItem.meeting_date}．`
+                : `．${gazetteItem.meeting_date}．`}
             </p>
+            <BookmarkButton
+              isBookmarked={isBookmarked}
+              onClick={handleBookmarkClick}
+            />
           </div>
           <p
             className="text-neutral-600 text-sm leading-relaxed line-clamp-2 md:line-clamp-3"
