@@ -1,10 +1,11 @@
 //frontend/lygazsum/src/App.tsx
 
 import { Outlet, ScrollRestoration } from "react-router-dom";
-import { SiteHeader } from "./components/layout/SiteHeader";
-import { SiteFooter } from "./components/layout/SiteFooter";
-import { SearchProvider } from "./context/SearchFilterContext";
-import { useScrollbarVisibility } from "./hooks/useScrollbarVisibility";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { SiteFooter } from "@/components/layout/SiteFooter";
+import { SearchProvider } from "@/context/SearchFilterContext";
+import { BookmarkProvider } from "@/context/BookmarkContext";
+import { useScrollbarVisibility } from "@/hooks/useScrollbarVisibility";
 
 /**
  * App.tsx 主要職責：
@@ -21,12 +22,14 @@ function App() {
   return (
     <div className="flex flex-col min-h-dvh bg-neutral-50">
       <SearchProvider>
-        <SiteHeader />
-        <main className="container max-w-7xl mx-auto flex-grow">
-          <Outlet />
-        </main>
-        <SiteFooter />
-        <ScrollRestoration />
+        <BookmarkProvider>
+          <SiteHeader />
+          <main className="container max-w-7xl mx-auto flex-grow">
+            <Outlet />
+          </main>
+          <SiteFooter />
+          <ScrollRestoration />
+        </BookmarkProvider>
       </SearchProvider>
     </div>
   );
