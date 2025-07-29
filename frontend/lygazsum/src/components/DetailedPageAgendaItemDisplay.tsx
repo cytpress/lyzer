@@ -1,6 +1,7 @@
 import { AgendaItemAnalysis, SpeakerDetail } from "@/types/analysisTypes";
 import { slugify } from "@/utils/slugify";
 import { JSX } from "react";
+import numberToChineseNumber from "@/utils/numberToChineseNumber";
 
 interface AgendaItemAnalysisDisplayProps {
   item: AgendaItemAnalysis;
@@ -77,7 +78,9 @@ export default function AgendaItemAnalysisDisplay({
         id={`${idPrefix}-item-title`}
         className="scroll-mt-22 md:scroll-mt-24"
       >
-        <h2 className={subtitleClasses}>議題摘要</h2>
+        <h2 className={subtitleClasses}>
+          討論事項{numberToChineseNumber(itemIndex + 1)}
+        </h2>
         <p className="text-base text-neutral-800 leading-[180%] md:leading-relaxed mb-4">
           {item_title}
         </p>
