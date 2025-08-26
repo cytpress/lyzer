@@ -61,6 +61,7 @@ export interface GazetteAgendaRecord {
   start_page?: number | null;
   end_page?: number | null;
   parsed_content_url?: string | null; // URL to plain text content for AI analysis.
+  analyzed_content_id: string | null;
   official_page_url?: string | null;
   official_pdf_url?: string | null;
   fetched_at?: string; // DB default
