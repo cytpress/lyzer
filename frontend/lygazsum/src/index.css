@@ -1,3 +1,43 @@
+/* noto-sans-tc-regular - chinese-traditional_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 400;
+  src: url("./assets/fonts/noto-sans-tc-v37-chinese-traditional_latin-400.woff2")
+    format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* noto-sans-tc-500 - chinese-traditional_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 500;
+  src: url("./assets/fonts/noto-sans-tc-v37-chinese-traditional_latin-500.woff2")
+    format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* noto-sans-tc-600 - chinese-traditional_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 600;
+  src: url("./assets/fonts/noto-sans-tc-v37-chinese-traditional_latin-600.woff2")
+    format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+/* noto-sans-tc-700 - chinese-traditional_latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 700;
+  src: url("./assets/fonts/noto-sans-tc-v37-chinese-traditional_latin-700.woff2")
+    format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
 @import "tailwindcss";
 
 @layer components {
