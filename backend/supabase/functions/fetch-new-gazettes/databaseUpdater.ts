@@ -121,6 +121,27 @@ export async function upsertAgendaRecordToDB(
   );
   const txtUrl = txtUrlObj?.url || null;
 
+  let analyzedContentId: string | null = null;
+  if (txtUrl) {
+    // 先 upsert analyzed_contents 表確保紀錄存在，並取得其 id
+    const { data: content, error: contentUpsertError } = await supabase
+      .from("analyzed_contents")
+      .upsert(
+        { parsed_content_url: txtUrl },
+        { onConflict: "parsed_content_url" }
+      )
+      .select("id")
+      .single();
+
+    if (contentUpsertError) {
+      console.error(
+        `[${JOB_NAME_FETCHER}] 無法取得 analyzed_content_id for ${txtUrl}: ${contentUpsertError.message}`
+      );
+    } else {
+      analyzedContentId = content.id;
+    }
+  }
+
   // Validate meeting dates
   const validMeetingDates =
     agendaApiData.會議日期?.filter(isValidDateString) || null;
@@ -151,6 +172,7 @@ export async function upsertAgendaRecordToDB(
     start_page: agendaApiData.起始頁碼 ?? null,
     end_page: agendaApiData.結束頁碼 ?? null,
     parsed_content_url: txtUrl,
+    analyzed_content_id: analyzedContentId,
     official_page_url: agendaApiData.公報網網址 ?? null,
     official_pdf_url: agendaApiData.公報完整PDF網址 ?? null,
     // fetched_at, created_at, updated_at handled by DB
@@ -168,58 +190,4 @@ export async function upsertAgendaRecordToDB(
   }
   // console.log(`[${JOB_NAME_FETCHER}] Successfully upserted agenda record "${agendaRecord.agenda_id}".`); // Optional: can be verbose
   return { success: true, parsedContentUrl: txtUrl };
-}
-
-/**
- * Adds a set of unique content URLs to the `analyzed_contents` table.
- * Uses `ignoreDuplicates: true` to only insert new URLs.
- * @param supabase Supabase client instance.
- * @param urls A Set of unique `parsed_content_url` strings.
- * @returns An object with the count of newly inserted URLs and an optional error message.
- */
-export async function addUrlsToAnalysisQueueDB(
-  supabase: SupabaseClient,
-  urls: Set<string>
-): Promise<{ count: number; error?: string }> {
-  if (urls.size === 0) {
-    console.log(
-      `[${JOB_NAME_FETCHER}] No new unique content URLs found to add to analysis queue.`
-    );
-    return { count: 0 };
-  }
-  console.log(
-    `[${JOB_NAME_FETCHER}] Found ${urls.size} unique URL(s) to potentially add to analysis queue (duplicates will be ignored).`
-  );
-
-  // Prepare records for insertion. DB defaults should set status to 'pending'.
-  const recordsToUpsert: Pick<AnalyzedContentRecord, "parsed_content_url">[] =
-    Array.from(urls).map((url) => ({
-      parsed_content_url: url,
-    }));
-
-  // Upsert with ignoreDuplicates: true ensures only new URLs are inserted.
-  // Existing entries with the same parsed_content_url are not modified.
-  const { error, count } = await supabase
-    .from("analyzed_contents")
-    .upsert(recordsToUpsert, {
-      onConflict: "parsed_content_url", // The column with the unique constraint
-      ignoreDuplicates: true,
-    });
-
-  if (error) {
-    console.error(
-      `[${JOB_NAME_FETCHER}] Error adding new URLs to 'analyzed_contents' table: ${error.message}`
-    );
-    return { count: 0, error: error.message }; // Report 0 count on error
-  }
-
-  // 'count' from upsert with ignoreDuplicates should be the number of newly inserted rows.
-  console.log(
-    `[${JOB_NAME_FETCHER}] Attempted to add ${
-      urls.size
-    } URL(s) to analysis queue. ${
-      count ?? 0
-    } new URL(s) were inserted (duplicates ignored).`
-  );
-  return { count: count ?? 0 }; // Return the count of *newly* inserted URLs
 }

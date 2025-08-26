@@ -13,7 +13,6 @@ import {
 import {
   upsertGazetteRecordToDB,
   upsertAgendaRecordToDB,
-  addUrlsToAnalysisQueueDB,
 } from "./databaseUpdater.ts";
 
 // --- Configuration for this specific function ---
@@ -29,11 +28,9 @@ serve(async (_req) => {
   let processedNewGazetteCount = 0;
   let fetchedNewAgendaCount = 0;
   let latestSuccessfullyProcessedGazetteIdThisRun: string | null = null;
-  let newUrlsAddedToQueueCount = 0;
   let totalAgendasSavedThisRun = 0;
   let overallAgendaFetchErrors = 0;
   let overallAgendaSaveErrors = 0;
-  let overallAnalysisQueueErrors = 0;
   const errorsThisRun: string[] = []; // Collects specific error messages
 
   const supabase = getSupabaseClient();
@@ -133,8 +130,6 @@ serve(async (_req) => {
       );
     }
 
-    const uniqueUrlsToAdd = new Set<string>(); // Collect unique content URLs for the analysis queue
-
     // 4. Process each new gazette.
     for (const gazetteFromApi of newGazettesToProcess) {
       const currentGazetteIdFromApi = String(gazetteFromApi.公報編號).trim();
@@ -195,9 +190,6 @@ serve(async (_req) => {
             agendasSavedThisGazette++;
             totalAgendasSavedThisRun++;
           }
-          if (upsertAgendaRes.parsedContentUrl) {
-            uniqueUrlsToAdd.add(upsertAgendaRes.parsedContentUrl);
-          }
         }
       }
       console.log(
@@ -219,32 +211,7 @@ serve(async (_req) => {
       }
     } // End loop through newGazettesToProcess
 
-    // 5. Add collected unique content URLs to the analysis queue.
-    if (uniqueUrlsToAdd.size > 0) {
-      console.log(
-        `[${JOB_NAME_FETCHER}] Adding ${uniqueUrlsToAdd.size} unique content URL(s) to the analysis queue...`
-      );
-      const queueResult = await addUrlsToAnalysisQueueDB(
-        supabase,
-        uniqueUrlsToAdd
-      );
-      newUrlsAddedToQueueCount = queueResult.count; // Number of *newly* added URLs
-      if (queueResult.error) {
-        overallAnalysisQueueErrors++;
-        errorsThisRun.push(
-          `Error adding URLs to analysis queue: ${queueResult.error}`
-        );
-      }
-      console.log(
-        `[${JOB_NAME_FETCHER}] Finished adding URLs to queue. ${newUrlsAddedToQueueCount} new URL(s) inserted.`
-      );
-    } else {
-      console.log(
-        `[${JOB_NAME_FETCHER}] No new unique content URLs found to add to the analysis queue in this run.`
-      );
-    }
-
-    // 6. Update job state for this run.
+    // 5. Update job state for this run.
     // If `latestSuccessfullyProcessedGazetteIdThisRun` is set, use it. Otherwise, use `lastProcessedIdFromDB`.
     const finalLastProcessedIdToSave =
       latestSuccessfullyProcessedGazetteIdThisRun ?? lastProcessedIdFromDB;
@@ -252,12 +219,8 @@ serve(async (_req) => {
       errorsThisRun.length > 0
         ? `Run completed with ${errorsThisRun.length} error(s).`
         : "Run completed successfully.";
-    if (
-      overallAgendaFetchErrors > 0 ||
-      overallAgendaSaveErrors > 0 ||
-      overallAnalysisQueueErrors > 0
-    ) {
-      finalJobNotes += ` Data processing issues: FetchAgendaErrs=${overallAgendaFetchErrors}, SaveAgendaErrs=${overallAgendaSaveErrors}, QueueAddErrs=${overallAnalysisQueueErrors}.`;
+    if (overallAgendaFetchErrors > 0 || overallAgendaSaveErrors > 0) {
+      finalJobNotes += ` Data processing issues: FetchAgendaErrs=${overallAgendaFetchErrors}, SaveAgendaErrs=${overallAgendaSaveErrors}`;
     }
     if (processedNewGazetteCount === 0 && errorsThisRun.length === 0) {
       // Specific note if no new work was done
@@ -304,15 +267,11 @@ serve(async (_req) => {
 
   // --- Generate final summary for this run ---
   const duration = (Date.now() - startTime) / 1000;
-  let summaryMessage = `Run finished. Processed ${processedNewGazetteCount} new gazette(s). Fetched ${fetchedNewAgendaCount} agenda(s). Saved ${totalAgendasSavedThisRun} agenda record(s). Added/Ensured ${newUrlsAddedToQueueCount} URL(s) in analysis queue.`;
+  let summaryMessage = `Run finished. Processed ${processedNewGazetteCount} new gazette(s). Fetched ${fetchedNewAgendaCount} agenda(s). Saved ${totalAgendasSavedThisRun} agenda record(s). Added/Ensured `;
   if (errorsThisRun.length > 0) {
     summaryMessage += ` Encountered ${errorsThisRun.length} system error(s).`;
-  } else if (
-    overallAgendaFetchErrors > 0 ||
-    overallAgendaSaveErrors > 0 ||
-    overallAnalysisQueueErrors > 0
-  ) {
-    summaryMessage += ` Encountered data processing issues (Fetch: ${overallAgendaFetchErrors}, Save: ${overallAgendaSaveErrors}, Queue: ${overallAnalysisQueueErrors}).`;
+  } else if (overallAgendaFetchErrors > 0 || overallAgendaSaveErrors > 0) {
+    summaryMessage += ` Encountered data processing issues (Fetch: ${overallAgendaFetchErrors}, Save: ${overallAgendaSaveErrors}`;
   } else if (processedNewGazetteCount === 0) {
     summaryMessage = "Run finished. No new gazettes found to process.";
   } else {
@@ -335,10 +294,8 @@ serve(async (_req) => {
         processedGazettes: processedNewGazetteCount,
         fetchedAgendas: fetchedNewAgendaCount,
         savedAgendas: totalAgendasSavedThisRun,
-        urlsAddedToQueue: newUrlsAddedToQueueCount, // Changed key for clarity
         errorsInAgendaFetching: overallAgendaFetchErrors, // Changed key for clarity
         errorsInAgendaSaving: overallAgendaSaveErrors, // Changed key for clarity
-        errorsInQueueAdding: overallAnalysisQueueErrors, // Changed key for clarity
         lastSuccessfullyProcessedIdThisRun:
           latestSuccessfullyProcessedGazetteIdThisRun, // Changed key for clarity
       },
