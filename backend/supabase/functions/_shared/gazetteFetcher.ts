@@ -2,18 +2,17 @@ import {
   fetchWithRetry,
   FETCH_DELAY_MS,
   JOB_NAME_FETCHER,
-} from "../_shared/utils.ts";
+  LY_GAZETTE_API_URL_BASE,
+  GAZETTES_PER_PAGE,
+  AGENDAS_PER_PAGE,
+} from "./utils.ts";
+
 import type {
   Gazette,
   GazetteApiResponse,
   GazetteAgenda,
   AgendaApiResponse,
-} from "../_shared/types/api.ts"; // Using updated type imports
-import {
-  LY_GAZETTE_API_URL_BASE,
-  GAZETTES_PER_PAGE,
-  AGENDAS_PER_PAGE,
-} from "./index.ts"; // Import function-specific constants
+} from "./types/api.ts"; // Using updated type imports
 
 /**
  * Fetches the most recent gazettes from the LY Gov API.
@@ -86,7 +85,8 @@ export async function fetchRecentGazettesFromAPI(): Promise<Gazette[]> {
  *          and a boolean `errorOccurred` indicating if any part of the fetch failed.
  */
 export async function fetchAllAgendasForGazetteFromAPI(
-  gazetteId: string
+  gazetteId: string,
+  jobName: string = JOB_NAME_FETCHER
 ): Promise<{ agendas: GazetteAgenda[]; errorOccurred: boolean }> {
   let currentPage = 1;
   let totalPages = 1; // Assume at least one page, will be updated by the first API response
@@ -96,20 +96,20 @@ export async function fetchAllAgendasForGazetteFromAPI(
   // Validate input gazetteId
   if (!gazetteId || typeof gazetteId !== "string" || gazetteId.trim() === "") {
     console.error(
-      `[${JOB_NAME_FETCHER}] fetchAllAgendasForGazetteFromAPI called with invalid gazetteId: "${gazetteId}"`
+      `[${jobName}] fetchAllAgendasForGazetteFromAPI called with invalid gazetteId: "${gazetteId}"`
     );
     return { agendas: [], errorOccurred: true };
   }
 
   console.log(
-    `[${JOB_NAME_FETCHER}] Starting to fetch all agendas for gazette ID: "${gazetteId}"...`
+    `[${jobName}] Starting to fetch all agendas for gazette ID: "${gazetteId}"...`
   );
 
   // Loop through pages as long as there are more pages and no critical error has occurred
   do {
     const agendaApiUrl = `${LY_GAZETTE_API_URL_BASE}/${gazetteId}/agendas?page=${currentPage}&per_page=${AGENDAS_PER_PAGE}`;
     console.log(
-      `[${JOB_NAME_FETCHER}] Fetching agendas page ${currentPage}/${
+      `[${jobName}] Fetching agendas page ${currentPage}/${
         totalPages === 1 && currentPage === 1 ? "(detecting total)" : totalPages // Indicate if total pages is still unknown
       } from: ${agendaApiUrl}`
     );
@@ -120,7 +120,7 @@ export async function fetchAllAgendasForGazetteFromAPI(
         agendaApiUrl,
         undefined,
         3, // Retry count for this page fetch
-        JOB_NAME_FETCHER
+        jobName
       );
       const agendaData: AgendaApiResponse = await agendaResponse.json();
 
@@ -130,7 +130,7 @@ export async function fetchAllAgendasForGazetteFromAPI(
       } else if (currentPage === 1) {
         // If the first page returns no agendas, log it.
         console.log(
-          `[${JOB_NAME_FETCHER}] No agendas listed in API response for gazette "${gazetteId}" (page 1).`
+          `[${jobName}] No agendas listed in API response for gazette "${gazetteId}" (page 1).`
         );
       }
 
@@ -138,7 +138,7 @@ export async function fetchAllAgendasForGazetteFromAPI(
       if (currentPage === 1) {
         totalPages = agendaData.total_page || 1; // Default to 1 if API doesn't provide total_page
         console.log(
-          `[${JOB_NAME_FETCHER}] API reported total of ${totalPages} page(s) of agendas for gazette "${gazetteId}".`
+          `[${jobName}] API reported total of ${totalPages} page(s) of agendas for gazette "${gazetteId}".`
         );
       }
       currentPage++; // Prepare for the next page
@@ -146,7 +146,7 @@ export async function fetchAllAgendasForGazetteFromAPI(
       const errorMsg =
         fetchError instanceof Error ? fetchError.message : String(fetchError);
       console.error(
-        `[${JOB_NAME_FETCHER}] CRITICAL: Failed to fetch agendas page ${currentPage} for gazette "${gazetteId}": ${errorMsg}. Stopping agenda fetch for this gazette.`
+        `[${jobName}] CRITICAL: Failed to fetch agendas page ${currentPage} for gazette "${gazetteId}": ${errorMsg}. Stopping agenda fetch for this gazette.`
       );
       fetchErrorOccurred = true; // Set flag to indicate an error in fetching
       break; // Exit the loop, do not attempt further pages for this gazette
@@ -155,11 +155,11 @@ export async function fetchAllAgendasForGazetteFromAPI(
 
   if (fetchErrorOccurred) {
     console.warn(
-      `[${JOB_NAME_FETCHER}] Agenda fetching may be incomplete for gazette "${gazetteId}". Processed ${allAgendasForThisGazette.length} agenda(s) before error.`
+      `[${jobName}] Agenda fetching may be incomplete for gazette "${gazetteId}". Processed ${allAgendasForThisGazette.length} agenda(s) before error.`
     );
   } else {
     console.log(
-      `[${JOB_NAME_FETCHER}] Successfully fetched all ${
+      `[${jobName}] Successfully fetched all ${
         allAgendasForThisGazette.length
       } listed agenda(s) across ${
         totalPages > 0 ? totalPages : 1

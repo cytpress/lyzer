@@ -9,16 +9,13 @@ import type { Gazette } from "../_shared/types/api.ts";
 import {
   fetchRecentGazettesFromAPI,
   fetchAllAgendasForGazetteFromAPI,
-} from "./gazetteFetcher.ts";
+} from "../_shared/gazetteFetcher.ts";
 import {
   upsertGazetteRecordToDB,
   upsertAgendaRecordToDB,
-} from "./databaseUpdater.ts";
+} from "../_shared/databaseUpdater.ts";
 
-// --- Configuration for this specific function ---
-export const LY_GAZETTE_API_URL_BASE = "https://ly.govapi.tw/v2/gazettes";
-export const GAZETTES_PER_PAGE = 100; // Number of gazettes to fetch per API call
-export const AGENDAS_PER_PAGE = 100; // Number of agendas per gazette to fetch per API call
+
 
 // --- Main Function Handler ---
 // This Supabase Edge Function is responsible for fetching new gazette data.
