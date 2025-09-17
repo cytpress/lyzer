@@ -18,6 +18,11 @@ export const LY_API_USER_AGENT =
 export const MAX_REGULAR_ATTEMPTS = 3; // Max attempts for standard analysis prompt.
 export const STUCK_PROCESSING_THRESHOLD_MINUTES = 15; // Time before a 'processing' job is considered stuck.
 
+// --- API Constants ---
+export const LY_GAZETTE_API_URL_BASE = "https://ly.govapi.tw/v2/gazettes";
+export const GAZETTES_PER_PAGE = 100; // Number of gazettes to fetch per API call
+export const AGENDAS_PER_PAGE = 100; // Number of agendas per gazette to fetch per API call
+
 // --- Shared fetch Function with Retry and Logging ---
 /**
  * Fetches a URL with retry logic for transient errors.

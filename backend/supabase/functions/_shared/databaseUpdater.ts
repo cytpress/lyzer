@@ -1,15 +1,11 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { isValidDateString, JOB_NAME_FETCHER } from "../_shared/utils.ts";
-import type {
-  Gazette,
-  GazetteAgenda,
-  ProcessedUrl,
-} from "../_shared/types/api.ts";
+import { isValidDateString, JOB_NAME_FETCHER } from "./utils.ts";
+import type { Gazette, GazetteAgenda, ProcessedUrl } from "./types/api.ts";
 import type {
   GazetteRecord,
   GazetteAgendaRecord,
   AnalyzedContentRecord,
-} from "../_shared/types/database.ts";
+} from "./types/database.ts";
 // Note: updateJobStateInDB was moved to _shared/utils.ts
 
 /**
@@ -21,7 +17,8 @@ import type {
  */
 export async function upsertGazetteRecordToDB(
   supabase: SupabaseClient,
-  gazetteApiData: Gazette // Expecting API type
+  gazetteApiData: Gazette, // Expecting API type
+  jobName: string = JOB_NAME_FETCHER
 ): Promise<{ success: boolean; error?: string; gazetteId?: string }> {
   const gazetteIdToUpsert = String(gazetteApiData.公報編號 || "").trim();
 
@@ -29,7 +26,7 @@ export async function upsertGazetteRecordToDB(
     const errMsg = `upsertGazetteRecordToDB received invalid '公報編號' (gazette ID) from API data. API Object: ${JSON.stringify(
       gazetteApiData
     )}`;
-    console.error(`[${JOB_NAME_FETCHER}] ${errMsg}`);
+    console.error(`[${jobName}] ${errMsg}`);
     return { success: false, error: errMsg };
   }
 
@@ -46,7 +43,7 @@ export async function upsertGazetteRecordToDB(
   };
 
   console.log(
-    `[${JOB_NAME_FETCHER}] Attempting to upsert gazette_id: "${gazetteRecord.gazette_id}"` // Avoid logging full data unless debugging
+    `[${jobName}] Attempting to upsert gazette_id: "${gazetteRecord.gazette_id}"` // Avoid logging full data unless debugging
   );
   const { error } = await supabase
     .from("gazettes")
@@ -54,7 +51,7 @@ export async function upsertGazetteRecordToDB(
 
   if (error) {
     console.error(
-      `[${JOB_NAME_FETCHER}] Error upserting gazette record "${gazetteRecord.gazette_id}": ${error.message}.`
+      `[${jobName}] Error upserting gazette record "${gazetteRecord.gazette_id}": ${error.message}.`
     );
     return {
       success: false,
@@ -63,7 +60,7 @@ export async function upsertGazetteRecordToDB(
     };
   }
   console.log(
-    `[${JOB_NAME_FETCHER}] Successfully upserted gazette record for ID "${gazetteRecord.gazette_id}".`
+    `[${jobName}] Successfully upserted gazette record for ID "${gazetteRecord.gazette_id}".`
   );
   return { success: true, gazetteId: gazetteRecord.gazette_id };
 }
@@ -79,7 +76,8 @@ export async function upsertGazetteRecordToDB(
 export async function upsertAgendaRecordToDB(
   supabase: SupabaseClient,
   agendaApiData: GazetteAgenda, // Expecting API type
-  gazetteId: string // Confirmed parent ID from DB
+  gazetteId: string, // Confirmed parent ID from DB,
+  jobName: string = JOB_NAME_FETCHER
 ): Promise<{
   success: boolean;
   error?: string;
@@ -90,7 +88,7 @@ export async function upsertAgendaRecordToDB(
     const errMsg = `Invalid or missing '公報議程編號' (agenda ID) in API data for upsertAgendaRecordToDB. Gazette ID: ${gazetteId}, API Object: ${JSON.stringify(
       agendaApiData
     )}`;
-    console.error(`[${JOB_NAME_FETCHER}] ${errMsg}`);
+    console.error(`[${jobName}] ${errMsg}`);
     // Attempt to return URL even if upsert fails due to missing ID
     const txtUrlObjOnError = agendaApiData.處理後公報網址?.find(
       (u: ProcessedUrl) => u.type === "txt"
@@ -104,7 +102,7 @@ export async function upsertAgendaRecordToDB(
 
   if (!gazetteId || typeof gazetteId !== "string" || gazetteId.trim() === "") {
     const errMsg = `upsertAgendaRecordToDB called with invalid parent gazetteId: "${gazetteId}" for agenda "${agendaIdToUpsert}"`;
-    console.error(`[${JOB_NAME_FETCHER}] ${errMsg}`);
+    console.error(`[${jobName}] ${errMsg}`);
     const txtUrlObjOnError = agendaApiData.處理後公報網址?.find(
       (u: ProcessedUrl) => u.type === "txt"
     );
@@ -135,7 +133,7 @@ export async function upsertAgendaRecordToDB(
 
     if (contentUpsertError) {
       console.error(
-        `[${JOB_NAME_FETCHER}] 無法取得 analyzed_content_id for ${txtUrl}: ${contentUpsertError.message}`
+        `[${jobName}] 無法取得 analyzed_content_id for ${txtUrl}: ${contentUpsertError.message}`
       );
     } else {
       analyzedContentId = content.id;
@@ -151,7 +149,7 @@ export async function upsertAgendaRecordToDB(
       validMeetingDates.length !== agendaApiData.會議日期.length)
   ) {
     console.warn(
-      `[${JOB_NAME_FETCHER}] Agenda ${agendaIdToUpsert}: Filtered potentially invalid meeting dates. Original: ${JSON.stringify(
+      `[${jobName}] Agenda ${agendaIdToUpsert}: Filtered potentially invalid meeting dates. Original: ${JSON.stringify(
         agendaApiData.會議日期
       )}, Validated: ${JSON.stringify(validMeetingDates)}`
     );
@@ -184,7 +182,7 @@ export async function upsertAgendaRecordToDB(
 
   if (error) {
     console.error(
-      `[${JOB_NAME_FETCHER}] Error upserting agenda metadata "${agendaRecord.agenda_id}" for gazette "${gazetteId}": ${error.message}`
+      `[${jobName}] Error upserting agenda metadata "${agendaRecord.agenda_id}" for gazette "${gazetteId}": ${error.message}`
     );
     return { success: false, error: error.message, parsedContentUrl: txtUrl }; // Return URL even on DB error
   }
