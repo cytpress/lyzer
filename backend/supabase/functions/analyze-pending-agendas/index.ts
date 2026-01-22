@@ -15,20 +15,29 @@ import {
 import type { AnalyzedContentRecord } from "../_shared/types/database.ts";
 import { processSingleAnalyzedContent } from "./contentProcessor.ts";
 
-export const GEMINI_MODEL_NAME = "gemini-2.5-flash-preview-05-20";
+// --- 核心配置更新至 Gemini 3 (2026/01/19 版本) ---
+export const GEMINI_MODEL_NAME = "gemini-3-flash-preview";
 export const MAX_CONTENT_LENGTH_CHARS = 750000;
 export const CONTENT_FETCH_TIMEOUT_MS = 60000;
 
-export const baseGenerationConfig: Partial<GenerationConfig> & {
-  thinkingConfig?: { thinkingBudget?: number };
-} = {
-  temperature: 0.6,
-  maxOutputTokens: 60000,
+/**
+ * Gemini 3 生成配置
+ * 根據最新文件：
+ * 1. 建議 temperature 設為 1.0
+ * 2. thinkingBudget 改為 thinkingLevel
+ * 3. maxOutputTokens 支援到 64,000
+ */
+export const baseGenerationConfig: any = {
+  temperature: 1.0,
+  maxOutputTokens: 64000,
   thinkingConfig: {
-    thinkingBudget: 2000,
+    // 選項有: "minimal", "low", "medium", "high"
+    // 對於公報摘要這種需要邏輯推理的任務，"high" 是最佳選擇
+    thinkingLevel: "high",
   },
 };
 
+// 安全設定保持原本嚴格程度
 export const safetySettings: SafetySetting[] = [
   {
     category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -48,7 +57,8 @@ export const safetySettings: SafetySetting[] = [
   },
 ];
 
-const GEMINI_ANALYSIS_LIMIT_PER_RUN = 1;
+// 每次 Cron Job 執行的配額控制
+const GEMINI_ANALYSIS_LIMIT_PER_RUN = 1; // 測試穩定後可調高
 const DB_FETCH_LIMIT = 10;
 
 serve(async (_req) => {
@@ -64,161 +74,113 @@ serve(async (_req) => {
   const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
 
   if (!geminiApiKey) {
-    console.error(
-      `[${JOB_NAME_ANALYZER}] FATAL: GEMINI_API_KEY environment variable is missing!`
-    );
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: "Missing GEMINI_API_KEY environment variable!",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    const errorMsg = "FATAL: GEMINI_API_KEY environment variable is missing!";
+    console.error(`[${JOB_NAME_ANALYZER}] ${errorMsg}`);
+    return new Response(JSON.stringify({ success: false, message: errorMsg }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   console.log(
-    `[${JOB_NAME_ANALYZER}] Function started. Model: ${GEMINI_MODEL_NAME}. AI analysis limit/run: ${GEMINI_ANALYSIS_LIMIT_PER_RUN}. DB fetch limit/run: ${DB_FETCH_LIMIT}. Max Regular Attempts: ${MAX_REGULAR_ATTEMPTS}. Thinking Budget: ${
-      baseGenerationConfig.thinkingConfig?.thinkingBudget ?? "Default/Off"
-    }. Will only process category_code 3.`
+    `[${JOB_NAME_ANALYZER}] Function started. Model: ${GEMINI_MODEL_NAME}. ` +
+      `Thinking Level: ${baseGenerationConfig.thinkingConfig.thinkingLevel}. ` +
+      `Max Regular Attempts: ${MAX_REGULAR_ATTEMPTS}.`,
   );
 
   try {
-    const limitForFetch = Math.min(
-      DB_FETCH_LIMIT,
-      GEMINI_ANALYSIS_LIMIT_PER_RUN - geminiAnalysesScheduledThisRun > 0
-        ? DB_FETCH_LIMIT
-        : 0
-    );
+    // 從資料庫抓取待處理或曾經失敗但未達上限的任務
+    console.log(`[${JOB_NAME_ANALYZER}] Querying DB for pending items...`);
+    const { data: itemsToProcess, error: fetchError } = await supabase
+      .from("analyzed_contents")
+      .select<"*", AnalyzedContentRecord>("*")
+      .in("analysis_status", ["pending", "failed"])
+      .lt("analysis_attempts", MAX_REGULAR_ATTEMPTS)
+      .order("created_at", { ascending: true })
+      .limit(DB_FETCH_LIMIT);
 
-    let itemsToProcess: AnalyzedContentRecord[] = [];
+    if (fetchError) {
+      const errorMsg = `DB Error fetching candidate contents: ${fetchError.message}`;
+      console.error(`[${JOB_NAME_ANALYZER}] ${errorMsg}`);
+      errorsThisRun.push(errorMsg);
+      throw new Error(errorMsg);
+    }
 
-    if (
-      limitForFetch > 0 ||
-      geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN
-    ) {
-      console.log(
-        `[${JOB_NAME_ANALYZER}] Fetching up to ${DB_FETCH_LIMIT} 'pending' or retryable 'failed' items to find processable ones...`
-      );
-      const { data: candidateContents, error: fetchError } = await supabase
-        .from("analyzed_contents")
-        .select<"*", AnalyzedContentRecord>("*")
-        .in("analysis_status", ["pending", "failed"])
-        .lt("analysis_attempts", MAX_REGULAR_ATTEMPTS)
-        .order("created_at", { ascending: true })
-        .limit(DB_FETCH_LIMIT);
-
-      if (fetchError) {
-        console.error(
-          `[${JOB_NAME_ANALYZER}] DB Error fetching candidate contents: ${fetchError.message}`
-        );
-        errorsThisRun.push(
-          `DB Error fetching candidates: ${fetchError.message}`
-        );
-      }
-      if (candidateContents && candidateContents.length > 0) {
-        itemsToProcess = candidateContents;
-        console.log(
-          `[${JOB_NAME_ANALYZER}] Found ${itemsToProcess.length} candidate item(s). Will iterate to find category 3 items.`
-        );
-      } else if (!fetchError) {
-        console.log(
-          `[${JOB_NAME_ANALYZER}] No 'pending' or retryable 'failed' items found.`
-        );
-      }
+    if (!itemsToProcess || itemsToProcess.length === 0) {
+      console.log(`[${JOB_NAME_ANALYZER}] No tasks found matching criteria.`);
     } else {
       console.log(
-        `[${JOB_NAME_ANALYZER}] AI analysis limit reached or no fetch capacity.`
+        `[${JOB_NAME_ANALYZER}] Found ${itemsToProcess.length} items to evaluate.`,
       );
-    }
 
-    for (const contentRecord of itemsToProcess) {
-      contentsCheckedCount++;
+      for (const contentRecord of itemsToProcess) {
+        contentsCheckedCount++;
 
-      if (geminiAnalysesScheduledThisRun >= GEMINI_ANALYSIS_LIMIT_PER_RUN) {
-        console.log(
-          `[${JOB_NAME_ANALYZER}] AI analysis limit (${GEMINI_ANALYSIS_LIMIT_PER_RUN}) reached. Skipping further processing for ID: ${contentRecord.id}.`
+        // 檢查是否已達到本次執行的 AI 呼叫上限
+        if (geminiAnalysesScheduledThisRun >= GEMINI_ANALYSIS_LIMIT_PER_RUN) {
+          console.log(
+            `[${JOB_NAME_ANALYZER}] AI limit reached (${GEMINI_ANALYSIS_LIMIT_PER_RUN}). Stopping.`,
+          );
+          break;
+        }
+
+        // 執行單筆分析
+        const result = await processSingleAnalyzedContent(
+          contentRecord,
+          supabase,
+          geminiApiKey,
+          baseGenerationConfig,
+          safetySettings,
         );
-        break;
+
+        if (result.analysisPerformed) geminiAnalysesScheduledThisRun++;
+
+        if (result.skippedByCategory) {
+          skippedByCategoryCount++;
+        } else if (result.finalStatusSet === "completed") {
+          successfulAnalysesCount++;
+        } else if (result.finalStatusSet !== "skipped") {
+          failedOrRetryingCount++;
+        }
+
+        // 如果還有額額且不是最後一筆，稍微延遲避免觸發 Rate Limit
+        if (
+          geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN &&
+          contentsCheckedCount < itemsToProcess.length
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
+        }
       }
-
-      const result = await processSingleAnalyzedContent(
-        contentRecord,
-        supabase,
-        geminiApiKey,
-        baseGenerationConfig,
-        safetySettings
-      );
-
-      if (result.analysisPerformed) geminiAnalysesScheduledThisRun++;
-
-      if (result.skippedByCategory) {
-        skippedByCategoryCount++;
-      } else if (result.finalStatusSet === "completed") {
-        successfulAnalysesCount++;
-      } else if (result.finalStatusSet !== "skipped") {
-        failedOrRetryingCount++;
-      }
-
-      if (
-        geminiAnalysesScheduledThisRun < GEMINI_ANALYSIS_LIMIT_PER_RUN &&
-        contentsCheckedCount < itemsToProcess.length
-      ) {
-        await new Promise((resolve) => setTimeout(resolve, FETCH_DELAY_MS));
-      }
-    }
-
-    if (
-      contentsCheckedCount === 0 &&
-      errorsThisRun.length === 0 &&
-      itemsToProcess.length === 0
-    ) {
-      console.log(
-        `[${JOB_NAME_ANALYZER}] No content items found matching processing criteria in this run.`
-      );
     }
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[${JOB_NAME_ANALYZER}] CRITICAL: Unhandled error in main processing loop:`,
-      error
-    );
-    errorsThisRun.push(`Critical error: ${errorMsg}`);
+    console.error(`[${JOB_NAME_ANALYZER}] CRITICAL Loop Error:`, error);
+    errorsThisRun.push(`Critical: ${errorMsg}`);
     return new Response(
       JSON.stringify({
         success: false,
         message: `Critical error: ${errorMsg}`,
         errors: errorsThisRun,
-        stack: error instanceof Error ? error.stack : undefined,
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 
   const duration = (Date.now() - startTime) / 1000;
-  let summary =
-    `Checked ${contentsCheckedCount} DB record(s). ` +
-    `Attempted ${geminiAnalysesScheduledThisRun} AI analysis(es) (for category 3). ` +
-    `Results: ${successfulAnalysesCount} completed, ${failedOrRetryingCount} failed/retrying, ${skippedByCategoryCount} skipped (non-category 3 or other skip reasons).`;
-  if (errorsThisRun.length > 0) {
-    summary += ` Encountered ${errorsThisRun.length} system error(s).`;
-  }
-  summary += ` Duration: ${duration.toFixed(2)}s.`;
-
-  console.log(`[${JOB_NAME_ANALYZER}] Run finished. ${summary}`);
+  const summaryMessage = `Run finished. Checked: ${contentsCheckedCount}, Completed: ${successfulAnalysesCount}, Failed/Retrying: ${failedOrRetryingCount}, Skipped: ${skippedByCategoryCount}. Duration: ${duration.toFixed(2)}s.`;
+  console.log(`[${JOB_NAME_ANALYZER}] ${summaryMessage}`);
 
   return new Response(
     JSON.stringify({
       success: errorsThisRun.length === 0,
-      message: summary,
+      message: summaryMessage,
       details: {
         checked: contentsCheckedCount,
         aiAttempts: geminiAnalysesScheduledThisRun,
         completed: successfulAnalysesCount,
-        failedOrRetrying: failedOrRetryingCount,
-        skipped: skippedByCategoryCount,
       },
       errors: errorsThisRun,
     }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
+    { status: 200, headers: { "Content-Type": "application/json" } },
   );
 });
