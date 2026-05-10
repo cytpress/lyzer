@@ -9,8 +9,60 @@ import { fetchNewGazettes } from "./jobs/fetch.js";
 import { runDailyJob } from "./jobs/daily.js";
 import { migrate } from "./schema.js";
 import { getAgendaDetail, getAgendaIds, getCommittees, getHomepageAgendas } from "./ssg.js";
+import { swaggerUI } from "@hono/swagger-ui";
 
 const app = new Hono();
+
+const openApiSpec = {
+  openapi: "3.0.0",
+  info: { title: "Lyzer API Control Panel", version: "0.1.0" },
+  paths: {
+    "/admin/jobs/fetch": {
+      post: {
+        tags: ["Jobs"],
+        summary: "抓取最新公報 (Fetch New Gazettes)",
+        requestBody: {
+          content: { "application/json": { schema: { type: "object", properties: { pages: { type: "number", description: "要抓取的頁數 (可選)" } } } } }
+        },
+        responses: { 200: { description: "OK" } }
+      }
+    },
+    "/admin/jobs/analyze": {
+      post: {
+        tags: ["Jobs"],
+        summary: "分析待處理議程 (Analyze Pending Agendas)",
+        requestBody: {
+          content: { "application/json": { schema: { type: "object", properties: { limit: { type: "number", description: "分析數量上限 (可選)" } } } } }
+        },
+        responses: { 200: { description: "OK" } }
+      }
+    },
+    "/admin/jobs/build": {
+      post: {
+        tags: ["Jobs"],
+        summary: "構建靜態網站 (Build Static Site)",
+        responses: { 200: { description: "OK" } }
+      }
+    },
+    "/admin/jobs/deploy": {
+      post: {
+        tags: ["Jobs"],
+        summary: "部署至 Cloudflare Pages (Deploy to Cloudflare)",
+        responses: { 200: { description: "OK" } }
+      }
+    },
+    "/admin/jobs/daily": {
+      post: {
+        tags: ["Jobs"],
+        summary: "執行每日例行任務 (Run Daily Job)",
+        responses: { 200: { description: "OK" } }
+      }
+    }
+  }
+};
+
+app.get("/doc", (c) => c.json(openApiSpec));
+app.get("/ui", swaggerUI({ url: "/doc" }));
 
 app.get("/health", (c) => c.json({ ok: true }));
 
@@ -46,9 +98,10 @@ async function main(): Promise<void> {
     {
       fetch: app.fetch,
       port: config.port,
+      hostname: "0.0.0.0",
     },
     (info) => {
-      console.log(`lyzer API listening on http://127.0.0.1:${info.port}`);
+      console.log(`lyzer API listening on http://0.0.0.0:${info.port}`);
     },
   );
 }
