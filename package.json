@@ -1,0 +1,19 @@
+{
+  "name": "lyzer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev:api": "pnpm --filter @lyzer/api dev",
+    "dev:web": "pnpm --filter @lyzer/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @lyzer/api db:migrate",
+    "job:fetch": "pnpm --filter @lyzer/api job:fetch",
+    "job:analyze": "pnpm --filter @lyzer/api job:analyze",
+    "job:build": "pnpm --filter @lyzer/api job:build",
+    "job:deploy": "pnpm --filter @lyzer/api job:deploy",
+    "job:daily": "pnpm --filter @lyzer/api job:daily"
+  }
+}

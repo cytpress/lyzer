@@ -1,0 +1,31 @@
+---
+interface Props {
+  agendaId: string;
+}
+
+const { agendaId } = Astro.props;
+---
+
+<button
+  class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition hover:border-neutral-500 hover:text-neutral-900 data-[active=true]:border-amber-300 data-[active=true]:bg-amber-50 data-[active=true]:text-amber-600"
+  type="button"
+  data-bookmark-button
+  data-agenda-id={agendaId}
+  data-active="false"
+  aria-label="加入收藏"
+  title="加入收藏"
+>
+  <svg
+    aria-hidden="true"
+    class="h-5 w-5"
+    data-bookmark-icon
+    fill="none"
+    stroke="currentColor"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="2"
+    viewBox="0 0 24 24"
+  >
+    <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+  </svg>
+</button>

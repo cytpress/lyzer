@@ -1,0 +1,8 @@
+node_modules
+packages/*/node_modules
+packages/*/dist
+packages/web/.astro
+.git
+.env
+ly-gazette.7z
+*.rar
