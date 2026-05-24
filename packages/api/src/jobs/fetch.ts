@@ -79,7 +79,8 @@ async function upsertAgenda(client: PoolClient, agenda: NormalizedAgenda): Promi
 }
 
 async function ensurePendingAnalysis(client: PoolClient, agenda: NormalizedAgenda): Promise<boolean> {
-  if (agenda.categoryCode !== 3) return false;
+  // 3 為委員會發言紀錄，8 為黨團協商紀錄
+  if (agenda.categoryCode !== 3 && agenda.categoryCode !== 8) return false;
 
   const result = await client.query(
     `

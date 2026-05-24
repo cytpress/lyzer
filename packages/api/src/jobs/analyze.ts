@@ -48,8 +48,9 @@ async function pickCandidates(limit: number, agendaId?: string): Promise<AgendaC
         a.raw
       from agendas a
       left join analysis_results ar on ar.agenda_id = a.agenda_id
-      where a.category_code = 3
-        and (ar.status is null or ar.status = 'pending' or ar.status = 'failed')
+      where a.category_code in (3, 8)
+        and (a.parsed_url is not null or a.txt_url is not null)
+        and (ar.status is null or ar.status = 'pending')
       order by coalesce(a.meeting_dates[1], date '1900-01-01') desc, a.agenda_id desc
       limit $1
     `,
