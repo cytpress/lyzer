@@ -27,7 +27,11 @@ function createUrl(pathname: string, params: Record<string, string | number | un
 }
 
 async function fetchJson(url: URL): Promise<JsonObject> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer; contact: ganymede5035@gmail.com)",
+    },
+  });
   if (!response.ok) {
     throw new Error(`LYAPI request failed ${response.status}: ${url.toString()}`);
   }
