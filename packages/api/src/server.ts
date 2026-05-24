@@ -90,8 +90,13 @@ app.get("/lyzer-console", (c) => {
         </style>
       </head>
       <body>
-        <script id="api-reference" data-url="/doc"></script>
-        <script src="https://cdn.scalar.com/api-reference@latest/standalone.min.js"></script>
+        <div id="scalar-app"></div>
+        <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+        <script>
+          Scalar.createApiReference('#scalar-app', {
+            url: '/doc'
+          });
+        </script>
       </body>
     </html>
   `);
