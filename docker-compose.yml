@@ -33,7 +33,7 @@ services:
       GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
       CLOUDFLARE_DEPLOY_HOOK_URL: ${CLOUDFLARE_DEPLOY_HOOK_URL}
     ports:
-      - "127.0.0.1:3020:3000"
+      - "3020:3000"
     depends_on:
       postgres:
         condition: service_healthy
