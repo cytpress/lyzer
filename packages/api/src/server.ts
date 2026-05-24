@@ -6,81 +6,117 @@ import { analyzePendingAgendas } from "./jobs/analyze.js";
 import { buildStaticSite } from "./jobs/build.js";
 import { deployStaticSite } from "./jobs/deploy.js";
 import { fetchNewGazettes } from "./jobs/fetch.js";
-import { runDailyJob } from "./jobs/daily.js";
 import { migrate } from "./schema.js";
-import { getAgendaDetail, getAgendaIds, getCommittees, getHomepageAgendas } from "./ssg.js";
-import { swaggerUI } from "@hono/swagger-ui";
-
+import { getAgendaDetail, getAgendaIds, getCommittees, getHomepageAgendas, getLegislatorStats } from "./ssg.js";
 const app = new Hono();
 
 const openApiSpec = {
   openapi: "3.0.0",
-  info: { title: "Lyzer API Control Panel", version: "0.1.0" },
+  info: { title: "Lyzer API Control Panel (Scalar)", version: "0.2.0" },
   paths: {
-    "/admin/jobs/fetch": {
+    "/jobs/fetch": {
       post: {
         tags: ["Jobs"],
-        summary: "抓取最新公報 (Fetch New Gazettes)",
+        summary: "抓取最新/歷史公報 (Fetch/Backfill Gazettes)",
         requestBody: {
-          content: { "application/json": { schema: { type: "object", properties: { pages: { type: "number", description: "要抓取的頁數 (可選)" } } } } }
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  pages: { type: "number", description: "要抓取的頁數 (可選，預設為 1 頁)" },
+                  startPage: { type: "number", description: "起始頁碼，可用於歷史資料 Backfill (可選，預設為第 1 頁)" },
+                },
+              },
+            },
+          },
         },
-        responses: { 200: { description: "OK" } }
-      }
+        responses: { 200: { description: "OK" } },
+      },
     },
-    "/admin/jobs/analyze": {
+    "/jobs/analyze": {
       post: {
         tags: ["Jobs"],
-        summary: "分析待處理議程 (Analyze Pending Agendas)",
+        summary: "分析公報發言 (Analyze Agenda Speeches)",
         requestBody: {
-          content: { "application/json": { schema: { type: "object", properties: { limit: { type: "number", description: "分析數量上限 (可選)" } } } } }
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  limit: { type: "number", description: "分析數量上限 (可選)" },
+                  agendaId: {
+                    type: "string",
+                    description: "指定分析特定 agendaId 的公報 (可選，常用於單獨補跑失敗的公報)",
+                  },
+                },
+              },
+            },
+          },
         },
-        responses: { 200: { description: "OK" } }
-      }
+        responses: { 200: { description: "OK" } },
+      },
     },
-    "/admin/jobs/build": {
+    "/jobs/build": {
       post: {
         tags: ["Jobs"],
         summary: "構建靜態網站 (Build Static Site)",
-        responses: { 200: { description: "OK" } }
-      }
+        responses: { 200: { description: "OK" } },
+      },
     },
-    "/admin/jobs/deploy": {
+    "/jobs/deploy": {
       post: {
         tags: ["Jobs"],
         summary: "部署至 Cloudflare Pages (Deploy to Cloudflare)",
-        responses: { 200: { description: "OK" } }
-      }
+        responses: { 200: { description: "OK" } },
+      },
     },
-    "/admin/jobs/daily": {
-      post: {
-        tags: ["Jobs"],
-        summary: "執行每日例行任務 (Run Daily Job)",
-        responses: { 200: { description: "OK" } }
-      }
-    }
-  }
+  },
 };
 
 app.get("/doc", (c) => c.json(openApiSpec));
-app.get("/ui", swaggerUI({ url: "/doc" }));
+
+// 具有防衝突 Namespace 的高顏值 Scalar API 互動控制台
+app.get("/lyzer-console", (c) => {
+  return c.html(`
+    <!doctype html>
+    <html>
+      <head>
+        <title>Lyzer API Console (Scalar)</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+          body { margin: 0; }
+        </style>
+      </head>
+      <body>
+        <script id="api-reference" data-url="/doc"></script>
+        <script src="https://cdn.scalar.com/api-reference@latest/standalone.min.js"></script>
+      </body>
+    </html>
+  `);
+});
 
 app.get("/health", (c) => c.json({ ok: true }));
 
-app.post("/admin/jobs/fetch", async (c) => {
-  const body = await c.req.json<{ pages?: number }>().catch(() => ({ pages: undefined }));
-  const result = await fetchNewGazettes({ pages: body.pages });
+app.post("/jobs/fetch", async (c) => {
+  const body = await c.req
+    .json<{ pages?: number; startPage?: number }>()
+    .catch(() => ({ pages: undefined, startPage: undefined }));
+  const result = await fetchNewGazettes({ pages: body.pages, startPage: body.startPage });
   return c.json(result);
 });
 
-app.post("/admin/jobs/analyze", async (c) => {
-  const body = await c.req.json<{ limit?: number }>().catch(() => ({ limit: undefined }));
-  const result = await analyzePendingAgendas({ limit: body.limit });
+app.post("/jobs/analyze", async (c) => {
+  const body = await c.req
+    .json<{ limit?: number; agendaId?: string }>()
+    .catch(() => ({ limit: undefined, agendaId: undefined }));
+  const result = await analyzePendingAgendas({ limit: body.limit, agendaId: body.agendaId });
   return c.json(result);
 });
 
-app.post("/admin/jobs/build", async (c) => c.json(await buildStaticSite()));
-app.post("/admin/jobs/deploy", async (c) => c.json(await deployStaticSite()));
-app.post("/admin/jobs/daily", async (c) => c.json(await runDailyJob()));
+app.post("/jobs/build", async (c) => c.json(await buildStaticSite()));
+app.post("/jobs/deploy", async (c) => c.json(await deployStaticSite()));
 
 app.get("/api/ssg/homepage", async (c) => c.json(await getHomepageAgendas()));
 app.get("/api/ssg/agenda-ids", async (c) => c.json(await getAgendaIds()));
@@ -90,6 +126,7 @@ app.get("/api/ssg/agendas/:agenda_id", async (c) => {
   return c.json(detail);
 });
 app.get("/api/ssg/committees", async (c) => c.json(await getCommittees()));
+app.get("/api/ssg/legislators", async (c) => c.json(await getLegislatorStats()));
 
 async function main(): Promise<void> {
   await migrate();
@@ -102,7 +139,7 @@ async function main(): Promise<void> {
     },
     (info) => {
       console.log(`lyzer API listening on http://0.0.0.0:${info.port}`);
-    },
+    }
   );
 }
 

@@ -86,7 +86,7 @@ function renderAgendaCard(agenda: HomepageAgenda): string {
           <span class="truncate">${escapeHtml(agenda.gazetteId)}</span>
         </div>
         <p class="line-clamp-2 text-sm leading-relaxed text-neutral-600 md:line-clamp-3">${escapeHtml(
-          agenda.overallSummary || agenda.subject || "此議程尚無摘要。",
+          agenda.overallSummary || agenda.subject || "此議程尚無摘要。"
         )}</p>
       </article>
     </li>
@@ -233,8 +233,9 @@ function initSearchPage(): void {
       >${label}</button>
     `;
 
-    const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
-      .filter((page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1);
+    const pages = Array.from({ length: totalPages }, (_, index) => index + 1).filter(
+      (page) => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1
+    );
 
     let previous = 0;
     const html = [
@@ -258,7 +259,9 @@ function initSearchPage(): void {
     const visible = results.slice(start, start + PAGE_SIZE);
 
     count.textContent = `${results.length} 筆摘要`;
-    if (status) status.textContent = currentQuery && !miniSearch ? "搜尋索引載入中" : currentQuery ? `搜尋「${currentQuery}」` : "";
+    if (status)
+      status.textContent =
+        currentQuery && !miniSearch ? "搜尋索引載入中" : currentQuery ? `搜尋「${currentQuery}」` : "";
     list.innerHTML = visible.map(renderAgendaCard).join("");
     empty.hidden = visible.length > 0;
     renderPagination(totalPages);

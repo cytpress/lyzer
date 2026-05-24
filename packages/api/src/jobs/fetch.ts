@@ -31,7 +31,7 @@ async function upsertGazette(client: PoolClient, gazette: NormalizedGazette): Pr
       gazette.booklet,
       gazette.publishDate,
       JSON.stringify(gazette.raw),
-    ],
+    ]
   );
 }
 
@@ -74,7 +74,7 @@ async function upsertAgenda(client: PoolClient, agenda: NormalizedAgenda): Promi
       agenda.officialPageUrl,
       agenda.officialPdfUrl,
       JSON.stringify(agenda.raw),
-    ],
+    ]
   );
 }
 
@@ -87,21 +87,23 @@ async function ensurePendingAnalysis(client: PoolClient, agenda: NormalizedAgend
       values ($1, 'pending', now())
       on conflict (agenda_id) do nothing
     `,
-    [agenda.agendaId],
+    [agenda.agendaId]
   );
 
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function fetchNewGazettes(options: { pages?: number } = {}): Promise<FetchJobResult> {
+export async function fetchNewGazettes(options: { pages?: number; startPage?: number } = {}): Promise<FetchJobResult> {
   const pages = options.pages ?? 1;
+  const startPage = options.startPage ?? 1;
   const result: FetchJobResult = {
     gazettes: 0,
     agendas: 0,
     pendingAnalyses: 0,
   };
 
-  for (let page = 1; page <= pages; page += 1) {
+  const endPage = startPage + pages - 1;
+  for (let page = startPage; page <= endPage; page += 1) {
     const gazettes = await listGazettes(page, config.lyapiGazetteLimit);
 
     for (const gazette of gazettes) {

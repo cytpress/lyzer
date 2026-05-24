@@ -1,4 +1,3 @@
-import { config } from "./config.js";
 import { extractProcessedUrls } from "./lyapiClient.js";
 import type { JsonObject } from "./types.js";
 
@@ -25,7 +24,10 @@ function parsedBlocksToText(payload: unknown): string {
   return blocks
     .map((block, index) => {
       const lines = Array.isArray(block)
-        ? block.filter((line): line is string => typeof line === "string").map(cleanLine).filter(Boolean)
+        ? block
+            .filter((line): line is string => typeof line === "string")
+            .map(cleanLine)
+            .filter(Boolean)
         : [];
       if (lines.length === 0) return "";
 
@@ -58,11 +60,6 @@ function uniqueUrls(urls: string[]): string[] {
   return Array.from(new Set(urls.filter(Boolean)));
 }
 
-function truncate(text: string): string {
-  if (text.length <= config.maxAnalysisChars) return text;
-  return `${text.slice(0, config.maxAnalysisChars)}\n\n[TRUNCATED at ${config.maxAnalysisChars} characters]`;
-}
-
 export async function loadAgendaText(agenda: AgendaForContent): Promise<string> {
   const parsedUrls = uniqueUrls([
     ...extractProcessedUrls(agenda.raw, "parsed").map((item) => item.url),
@@ -80,10 +77,13 @@ export async function loadAgendaText(agenda: AgendaForContent): Promise<string> 
   }
 
   if (parsedTexts.length > 0) {
-    return truncate(parsedTexts.join("\n\n"));
+    return parsedTexts.join("\n\n");
   }
 
-  const txtUrls = uniqueUrls([...extractProcessedUrls(agenda.raw, "txt").map((item) => item.url), agenda.txt_url ?? ""]);
+  const txtUrls = uniqueUrls([
+    ...extractProcessedUrls(agenda.raw, "txt").map((item) => item.url),
+    agenda.txt_url ?? "",
+  ]);
   const txtTexts: string[] = [];
   for (const [index, url] of txtUrls.entries()) {
     const text = await fetchText(url);
@@ -94,5 +94,5 @@ export async function loadAgendaText(agenda: AgendaForContent): Promise<string> 
     throw new Error(`agenda ${agenda.agenda_id} has no parsed_url or txt_url`);
   }
 
-  return truncate(txtTexts.join("\n\n"));
+  return txtTexts.join("\n\n");
 }

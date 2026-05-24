@@ -12,10 +12,12 @@ const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未�
 ---
 
 <li class="mx-auto w-11/12 md:w-4/5" data-agenda-card data-agenda-id={agenda.agendaId}>
-  <article class="flex flex-col justify-center rounded-3xl border-2 border-neutral-200 bg-white px-4 py-4 transition-all duration-200 ease-in-out hover:border-neutral-500 md:px-8 md:py-8">
+  <article
+    class="flex flex-col justify-center rounded-3xl border-2 border-neutral-200 bg-white px-4 py-4 transition-all duration-200 ease-in-out hover:border-neutral-500 md:px-8 md:py-8"
+  >
     <div class="mb-2 flex items-start justify-between gap-4">
       <a class="min-w-0" href={`/gazettes/${agenda.agendaId}`}>
-        <h2 class="mb-2 text-lg font-medium leading-snug text-neutral-900 md:text-xl">
+        <h2 class="mb-2 text-lg leading-snug font-medium text-neutral-900 md:text-xl">
           {agenda.summaryTitle}
         </h2>
       </a>

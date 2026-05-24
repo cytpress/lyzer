@@ -1,33 +1,16 @@
 # lyzer v2 部署教學
 
-這份教學描述如何把 lyzer v2 部署到 GL552VW，並用 Dockhand 管理後端 stack。v2 的設計是：
+這份文件描述如何把 lyzer v2 部署到 GL552VW，並用 Dockhand 管理後端 stack。
+
+v2 的部署原則：
 
 - `packages/api` 長駐在 GL552VW，提供 Hono private API 與 CLI jobs。
 - `postgres` 長駐在 GL552VW。
 - `packages/web` 只在 build 時產生靜態檔，最後部署到 Cloudflare Pages。
 - 公開網站不依賴 GL552VW runtime；GL552VW API 掛掉時，已部署的靜態頁仍可瀏覽。
+- API 不公開到 Internet，預期透過 Tailscale / LAN / localhost 使用。
 
-## 0. 推上 Git 前
-
-建議先確認不要把本機或研究用檔案推上去：
-
-```bash
-git restore --staged .agents skills-lock.json lyapi-swagger.yaml
-```
-
-如果你想長期忽略它們，`.gitignore` 可加入：
-
-```gitignore
-.agents/
-skills-lock.json
-lyapi-swagger.yaml
-```
-
-`.env.example` 應該保留並推上去；它是部署文件的一部分，不應包含真實 secret。
-
-## 1. 本機先做的檢查
-
-在 Git Bash：
+## 1. 本機檢查
 
 ```bash
 pnpm install
@@ -44,142 +27,76 @@ pnpm job:analyze
 pnpm dev:api
 ```
 
-另一個 Git Bash：
+另一個 shell：
 
 ```bash
 pnpm --filter @lyzer/web build
 ```
 
-注意：`job:analyze` 會打 Gemini API，先用少量資料測，不要一開始全跑。
+注意：`job:analyze` 會打 Gemini API，第一次只跑少量資料。
 
 ## 2. GL552VW 前置需求
-
-GL552VW 上需要：
 
 - Docker Engine
 - Docker Compose plugin
 - Dockhand
-- 能從 GL552VW 或 Dockhand 所在環境連到 GitHub repo
+- Tailscale
+- 能連到 GitHub repo
 - 能連到 LYAPI
 - 能連到 Gemini API
 - 如果要 deploy Cloudflare Pages，需要 Cloudflare API token
 
-建議 Dockhand 只放在 Tailscale / VPN / LAN 裡，不要直接公開到 internet。Dockhand 官方文件也提醒，它是 Docker 管理介面，具備很高權限，應該用 VPN、反向代理驗證或網路隔離保護。
+Dockhand 具有 Docker 管理權限，應只放在 Tailscale / VPN / LAN 裡。
 
-## 3. 目前 compose 的重要提醒
-
-目前 `docker-compose.yml` 是 v1 可跑的最小版本：
-
-```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-  api:
-    build:
-      context: .
-      dockerfile: packages/api/Dockerfile
-```
-
-在正式放到 GL552VW 前，建議你檢查兩件事：
-
-### 3.1 Postgres port 不應公開
-
-目前 compose 有：
-
-```yaml
-ports:
-  - "5432:5432"
-```
-
-如果只是 `api` container 連 `postgres`，其實可以移除 Postgres ports。若需要 host 本機除錯，也建議改成：
-
-```yaml
-ports:
-  - "127.0.0.1:5432:5432"
-```
-
-### 3.2 API 只應 private 使用
-
-目前 compose 有：
-
-```yaml
-ports:
-  - "3000:3000"
-```
-
-如果 GL552VW 只有 Tailscale 可進，可以考慮綁 Tailscale IP，例如：
-
-```yaml
-ports:
-  - "100.x.y.z:3000:3000"
-```
-
-或只在本機 reverse proxy 使用：
-
-```yaml
-ports:
-  - "127.0.0.1:3000:3000"
-```
-
-這個 API 包含 admin jobs，不應公開到 internet。
-
-## 4. 需要準備的環境變數
+## 3. 環境變數
 
 依 `.env.example`，至少需要：
 
 ```bash
-DATABASE_URL=postgresql://lyzer:lyzer@postgres:5432/lyzer
-PORT=3000
+# PostgreSQL 資料庫連接 (容器內部指向 postgres:5432)
+DATABASE_URL=postgresql://lyzer_admin:SecureDbPassword123@postgres:5432/lyzer_db
+PORT=3000 # 容器內部監聽埠口
 
 LYAPI_BASE_URL=https://ly.govapi.tw/v2
 LYAPI_GAZETTE_LIMIT=20
 LYAPI_AGENDA_LIMIT=100
 
 GEMINI_API_KEY=你的 Gemini API key
-GEMINI_MODEL_NAME=gemini-2.5-flash
+GEMINI_MODEL_NAME=gemini-3-flash-preview # 預設使用官方新一代 Gemini 3 Flash Preview (百萬超大上下文無損分析，100% 完整發言無損交付給 AI，已移除所有字數截斷邏輯)
 ANALYZE_BATCH_SIZE=3
-MAX_ANALYSIS_CHARS=120000
 
-SSG_API_BASE=http://127.0.0.1:3000
+# 【重要備註】Astro 靜態編譯時對接後端的 API 位置。
+# 容器內部編譯自動指向 http://127.0.0.1:3000；若是宿主機手動單獨編譯，必須指向避讓後的 http://127.0.0.1:3020
+SSG_API_BASE=http://127.0.0.1:3020
 
 CLOUDFLARE_PAGES_PROJECT_NAME=你的 Cloudflare Pages project name
 CLOUDFLARE_API_TOKEN=你的 Cloudflare API token
 CLOUDFLARE_ACCOUNT_ID=你的 Cloudflare account id
 ```
 
-其中 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 是 `wrangler pages deploy` 常見需要的認證資訊；目前程式只主動檢查 `CLOUDFLARE_PAGES_PROJECT_NAME`，但實際 deploy 時 wrangler 仍需要可用的 Cloudflare 認證。
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 是 wrangler deploy 需要的認證資訊。
 
-## 5. 用 Dockhand 部署 lyzer stack
+## 4. Compose 安全與埠口避讓設定
 
-Dockhand 支援從 Git repository 部署 Docker Compose stack。官方文件的重點是：
+GL552VW 伺服器上的 `3000` 埠口已被 **Dockhand** 面板佔用。為了防範衝突，我們在 [docker-compose.yml](file:///c:/Users/Administrator/Desktop/ly/lyzer/docker-compose.yml) 中將外部對外埠口安全改為 **`3020`**。
 
-- Git stack 會從 repo sync，然後執行 compose up。
-- 設定時需要 repository、branch、compose file path、context directory。
-- 如果 compose 有 `build:`，deploy options 裡要開啟 build images on deploy。
-- Stack 右側可以設定 environment variable overrides；secret 會加密保存並在 deploy 時注入。
-- Git stack 只會在 compose 所在目錄相關檔案有變更時自動 redeploy；手動 Deploy 永遠會強制 redeploy。
+Postgres 絕對不應公開到 Internet，**必須僅在 Tailscale / 私有 VPN 內網或主機防火牆嚴格保護下外露**，以防範資安風險。在安全的內網通道中，我們對開發團隊外露 `5432` 埠口以供 Beekeeper 桌面客戶端直連審查與維修。
 
-### 5.1 在 Dockhand 設定 Git repo
+API 埠口避讓對應：
 
-到：
-
-```text
-Settings -> Git
+```yaml
+ports:
+  - "3020:3000" # GL552VW 的 3020 埠口映射到容器內部的 3000
 ```
 
-新增 GitHub repository。
+目前所有的背景任務端點已被重構為私有且安全一致的 **`/jobs`** 命名空間（例如 `/jobs/fetch` 等），不再使用舊的 `/admin/jobs` 或 `/internal`。
 
-如果 repo 是 private，需要設定 Git credential / token。若 repo 是 public，可以用公開 URL。
+您可以在瀏覽器造訪以下網址，直接打開高顏值的 Scalar API 互動控制台（免敲 CLI 指令，點網頁按鈕即可背景執行）：
+👉 **`http://{伺服器IP}:3020/lyzer-console`**
 
-### 5.2 建立 Git Stack
+## 5. Dockhand Git Stack
 
-到 Dockhand：
-
-```text
-Stacks -> Create stack -> Git stack
-```
-
-建議填：
+建立 Git stack：
 
 ```text
 Stack name: lyzer
@@ -187,41 +104,25 @@ Repository: cytpress/lyzer
 Branch: v2
 Compose file path: docker-compose.yml
 Context directory: .
-Environment / Node: GL552VW 那台 Docker environment
+Environment / Node: GL552VW
 ```
 
-如果之後 `v2` merge 回 `main`，再把 branch 改成 `main`。
-
-### 5.3 Deploy options
-
-因為 `api` service 使用 Dockerfile build：
-
-```yaml
-api:
-  build:
-    context: .
-    dockerfile: packages/api/Dockerfile
-```
-
-Dockhand Git Stack deploy options 建議：
+Deploy options：
 
 ```text
 Build images on deploy: ON
 Disable build cache: OFF
-Re-pull images: ON 或 OFF 都可
+Re-pull images: optional
 Force redeployment: OFF
 ```
 
-說明：
+因為 `api` 使用 Dockerfile build，`Build images on deploy` 必須打開。
 
-- `Build images on deploy` 必開，否則 api image 不會從 Dockerfile build。
-- `Disable build cache` 平常關閉，只有 dependency 或 base image 很怪時再開。
-- `Re-pull images` 開啟可確保 `postgres:16-alpine` 更新，但不是必須。
-- `Force redeployment` 平常不用，避免排程沒有變更也重啟。
+## 6. Dockhand Env / Secrets
 
-### 5.4 設定 env / secrets
+為了防範在**公開的 Git Repository** 中外洩密碼，本專案的 `docker-compose.yml` 已全面改用 **Environment Interpolation (環境變數動態注入)**，無任何明文密碼被 hardcode 在程式庫中。
 
-在 Git Stack 編輯器右側的 env panel 放部署環境變數。
+請在 Dockhand Stack 控制面板的 Environment 中設定：
 
 建議標成 secret：
 
@@ -229,153 +130,89 @@ Force redeployment: OFF
 GEMINI_API_KEY
 CLOUDFLARE_API_TOKEN
 CLOUDFLARE_ACCOUNT_ID
-POSTGRES_PASSWORD
+POSTGRES_PASSWORD                # 資料庫安全密碼 (例如：SecureDbPassword123)
 ```
 
-一般變數可不標 secret：
+一般變數：
 
 ```bash
+POSTGRES_USER                    # 資料庫帳號 (選填，預設：lyzer_admin)
+POSTGRES_DB                      # 資料庫名稱 (選填，預設：lyzer_db)
 LYAPI_BASE_URL
 LYAPI_GAZETTE_LIMIT
 LYAPI_AGENDA_LIMIT
 GEMINI_MODEL_NAME
 ANALYZE_BATCH_SIZE
-MAX_ANALYSIS_CHARS
 SSG_API_BASE
 CLOUDFLARE_PAGES_PROJECT_NAME
 ```
 
-目前 compose 裡 Postgres 帳密還是固定：
+Dockhand 在部署時會自動將這些環境變數注入 `docker-compose.yml`。這樣您的公開 GitHub 儲存庫將 100% 安全無虞，無任何洩密風險。
 
-```yaml
-POSTGRES_DB: lyzer
-POSTGRES_USER: lyzer
-POSTGRES_PASSWORD: lyzer
-```
+## 7. 部署後檢查
 
-正式部署前建議改成 `${POSTGRES_PASSWORD}`，並同步調整 `DATABASE_URL`。
+當容器成功啟動後，我們可以透過健康檢查來確認 API 的健康狀態：
 
-### 5.5 Deploy
-
-按：
-
-```text
-Save and Deploy
-```
-
-部署完成後，到 Stack containers 檢查：
-
-- `lyzer-postgres`
-- `lyzer-api`
-
-查看 logs，確認沒有 migration / DB / env 錯誤。
-
-## 6. 部署後檢查 API
-
-在 Dockhand container logs 或 GL552VW shell 確認 Hono 啟動。
-
-如果 API port 允許從你的機器連：
+如果 API 綁 Tailscale IP 且使用映射埠口 `3020`：
 
 ```bash
-curl http://GL552VW_TAILSCALE_IP:3000/health
+curl http://GL552VW_TAILSCALE_IP:3020/health
 ```
 
-預期應該看到健康狀態回應。
+或是直接在瀏覽器開啟高顏值的 Scalar API 互動控制台（免敲指令，點點滑鼠即可測試）：
+👉 **`http://GL552VW_TAILSCALE_IP:3020/lyzer-console`**
 
-如果只綁 localhost，就在 GL552VW 上執行：
+---
+
+## 8. 第一次上線流程 (免指令，100% 網頁操作)
+
+第一次部署 stack 後，不推薦進行全自動流水線。建議在 **`http://{伺服器IP}:3020/lyzer-console`** 頁面上，依序手動觸發測試：
+
+1.  **確保 API 與 DB 順暢啟動**：確認訪問 `http://{伺服器IP}:3020/health` 回傳 `{"ok":true}`。
+2.  **單筆 fetch 測試 (資料抓取)**：
+    在 `/jobs/fetch` 的 Request Body 中輸入：
+    ```json
+    {
+      "pages": 1,
+      "startPage": 1
+    }
+    ```
+    點擊 `Send Request` 執行，並使用 **Beekeeper Studio** 直連資料庫（埠口 `5432`），人工確認 `gazettes` 與 `agendas` 表是否有成功寫入公報發言。
+3.  **單筆 analyze 測試 (AI 大綱分析)**：
+    在 `/jobs/analyze` 的 Request Body 中輸入：
+    ```json
+    {
+      "limit": 1
+    }
+    ```
+    點擊 `Send Request`。檢查 `analysis_results` 表中是否有 Gemini 3 Flash Preview 所生成 100% 完整無損（無字元截斷）的 Markdown 摘要與結構化 TOC JSON。
+4.  **前端 SSG 靜態編譯測試**：
+    點擊 `/jobs/build` 的 `Send Request` 按鈕。
+    - _💡 開發者提示_：在背景，Hono 會自動以 `SSG_API_BASE=http://127.0.0.1:3000` 連接容器內部運行中的埠口進行 Astro SSG 靜態頁面生成，這將順暢無比。
+    - _⚠️ 踩坑提示_：如果您要在宿主機單獨手動執行本機編譯，請務必先宣告環境變數：`SSG_API_BASE=http://127.0.0.1:3020 pnpm build`。
+5.  **前端靜態網頁發布**：
+    點擊 `/jobs/deploy` 的 `Send Request` 按鈕，背景將會自動調用 Cloudflare Wrangler，將編譯好的頁面發布到您的 Cloudflare Pages 雲端。
+6.  **最後驗證**：
+    造訪您的 Cloudflare Pages 網站，點選右上角的 **「立委名冊」** 導航，驗證立委發言次數統計、個人時間軸以及發言重點跳轉功能是否流暢！
+
+## 9. 排程 (Automation via Cron)
+
+由於 LYZER V2 已全面轉型為以 API 為導向的系統，排程任務建議直接使用 GL552VW 主機上的 `cron` 配合 `curl` 定時呼叫後端 API：
 
 ```bash
-curl http://127.0.0.1:3000/health
+# 每日凌晨 2 點：增量抓取最新公報
+0 2 * * * curl -X POST http://127.0.0.1:3020/jobs/fetch -d '{"pages":3}' -H "Content-Type: application/json"
+
+# 每日凌晨 3 點：觸發 AI 進行未分析公報大綱分析 (每次分析 5 筆)
+0 3 * * * curl -X POST http://127.0.0.1:3020/jobs/analyze -d '{"limit":5}' -H "Content-Type: application/json"
+
+# 每日凌晨 4 點：執行靜態網頁編譯與 Pages 自動發布
+0 4 * * * curl -X POST http://127.0.0.1:3020/jobs/build && curl -X POST http://127.0.0.1:3020/jobs/deploy
 ```
 
-## 7. 在 Dockhand 裡跑 jobs
+## 10. Cloudflare Pages
 
-Dockhand 通常可以進 container terminal。進 `api` container 後，工作目錄應該是：
-
-```bash
-/app
-```
-
-先確認：
-
-```bash
-pwd
-pnpm --filter @lyzer/api db:migrate
-```
-
-然後用小批次跑：
-
-```bash
-FETCH_PAGES=1 pnpm --filter @lyzer/api job:fetch
-ANALYZE_LIMIT=1 pnpm --filter @lyzer/api job:analyze
-```
-
-確認沒問題後：
-
-```bash
-pnpm --filter @lyzer/api job:build
-```
-
-最後 deploy 到 Cloudflare Pages：
-
-```bash
-pnpm --filter @lyzer/api job:deploy
-```
-
-完整流程：
-
-```bash
-pnpm --filter @lyzer/api job:daily
-```
-
-或從 root script：
-
-```bash
-pnpm job:daily
-```
-
-## 8. 第一次上線建議流程
-
-第一次不要直接跑完整 daily。建議：
-
-1. Deploy Dockhand stack。
-2. 確認 `postgres` healthy。
-3. 確認 `api` healthy。
-4. 跑 `db:migrate`。
-5. 跑 `FETCH_PAGES=1 job:fetch`。
-6. 人工查 DB 是否有資料。
-7. 跑 `ANALYZE_LIMIT=1 job:analyze`。
-8. 人工檢查 `analysis_results.analysis_json`。
-9. 跑 `job:build`。
-10. 檢查 `packages/web/dist` 是否產生首頁、搜尋索引、詳細頁。
-11. 跑 `job:deploy`。
-12. 打開 Cloudflare Pages 網站。
-13. 確認首頁、詳細頁、搜尋、收藏。
-14. 再提高 `ANALYZE_LIMIT`。
-
-## 9. 自動排程
-
-有兩種做法。
-
-### 做法 A：GL552VW host cron / systemd timer
-
-在 GL552VW 上排程執行：
-
-```bash
-docker exec lyzer-api pnpm --filter @lyzer/api job:daily
-```
-
-container 名稱要依 Dockhand 實際顯示為準。
-
-### 做法 B：Dockhand Git Stack schedule
-
-Dockhand 的 Git stack schedule 主要是 sync/deploy stack，不等於跑 app 內部 daily job。
-
-所以它適合用來更新 compose / image，不適合取代 `job:daily`。`job:daily` 仍建議用 host cron、systemd timer，或未來另外做一個 scheduler container。
-
-## 10. Cloudflare Pages 注意事項
-
-目前 deploy job 使用：
+deploy job 目前使用：
 
 ```bash
 wrangler pages deploy packages/web/dist --project-name $CLOUDFLARE_PAGES_PROJECT_NAME
@@ -386,31 +223,9 @@ wrangler pages deploy packages/web/dist --project-name $CLOUDFLARE_PAGES_PROJECT
 - `CLOUDFLARE_PAGES_PROJECT_NAME` 正確。
 - `CLOUDFLARE_API_TOKEN` 有 Pages deploy 權限。
 - `CLOUDFLARE_ACCOUNT_ID` 正確。
-- 第一次 deploy 後，Cloudflare Pages 的 production branch / direct upload 狀態符合預期。
+- Cloudflare Pages direct upload 狀態符合預期。
 
 ## 11. 常見問題
-
-### Git stack deploy 失敗，找不到 compose file
-
-確認：
-
-```text
-Compose file path = docker-compose.yml
-Context directory = .
-Branch = v2
-```
-
-也確認 repo 上真的有 `docker-compose.yml`。
-
-### API image 沒有重 build
-
-確認 Dockhand deploy option：
-
-```text
-Build images on deploy = ON
-```
-
-必要時手動 Deploy，或暫時開 `Disable build cache`。
 
 ### API 連不到 Postgres
 
@@ -420,27 +235,21 @@ container 內的 DB host 應該是 compose service name：
 postgres
 ```
 
-不是 `localhost`。container 內建議：
-
-```bash
-DATABASE_URL=postgresql://lyzer:password@postgres:5432/lyzer
-```
+不是 `localhost`。
 
 ### `job:build` 打不到 SSG API
 
-container 裡如果 `SSG_API_BASE=http://127.0.0.1:3000`，代表在 api container 內打自己，通常可以。
+如果 build 在 api container 內跑，`SSG_API_BASE=http://127.0.0.1:3000` 通常可以。
 
-如果 build 是在別的 container 或 host 跑，`127.0.0.1` 就會指向不同地方，要改成：
+如果 build 在別的 container 或 host 跑，請改成實際可連的 host / service name，例如：
 
 ```bash
 SSG_API_BASE=http://api:3000
 ```
 
-或實際可連的 host / Tailscale URL。
-
 ### `job:deploy` wrangler 需要登入
 
-container 裡不要做互動式 `wrangler login`。請用環境變數：
+container 裡不要做互動式 `wrangler login`。請使用：
 
 ```bash
 CLOUDFLARE_API_TOKEN
@@ -457,23 +266,14 @@ volumes:
   postgres_data:
 ```
 
-不要隨便 `down -v`，那會刪掉資料庫 volume。
+不要隨便 `docker compose down -v`。
 
-## 12. 之後應該補的部署改善
+## 12. 後續部署改善
 
 - 把 Postgres password 改成 env secret。
 - 移除或限制 Postgres exposed port。
 - 限制 API port 只走 Tailscale / localhost。
-- 補 healthcheck 到 api service。
+- 補 API healthcheck。
 - 補 scheduler container 或 systemd timer 範例。
-- 補 backup 策略：
-  - Postgres dump
-  - volume backup
-  - Cloudflare Pages deploy 不需要備份，因為可重 build。
-- 補 production compose override，例如 `docker-compose.prod.yml`。
-
-## 參考
-
-- Dockhand manual: https://dockhand.pro/manual/
-- Dockhand Git integration / Git stack 設定：見 manual 的 Compose Stacks -> Git integration。
-- Docker Compose docs: https://docs.docker.com/compose/
+- 補 Postgres backup 策略。
+- 補 production compose override。

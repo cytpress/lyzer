@@ -12,3 +12,9 @@ packages/web/.astro/
 .agents/
 skills-lock.json
 lyapi-swagger.yaml
+
+# Local Debug & Scratch Files
+scratch/
+
+# Editor Configuration Folders
+.vscode/

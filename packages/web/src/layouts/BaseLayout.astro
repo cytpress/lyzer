@@ -6,10 +6,8 @@ interface Props {
   description?: string;
 }
 
-const {
-  title = "lyzer",
-  description = "lyzer 將立法院委員會紀錄整理成可搜尋、可收藏、可快速理解的摘要。",
-} = Astro.props;
+const { title = "lyzer", description = "lyzer 將立法院委員會紀錄整理成可搜尋、可收藏、可快速理解的摘要。" } =
+  Astro.props;
 ---
 
 <!doctype html>
@@ -32,7 +30,7 @@ const {
           <label class="relative w-full max-w-md">
             <span class="sr-only">搜尋</span>
             <svg
-              class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+              class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400"
               fill="none"
               stroke="currentColor"
               stroke-linecap="round"
@@ -44,7 +42,7 @@ const {
               <path d="m21 21-4.3-4.3"></path>
             </svg>
             <input
-              class="h-10 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-500 focus:bg-white"
+              class="h-10 w-full rounded-full border border-neutral-200 bg-neutral-50 pr-4 pl-9 text-sm transition outline-none focus:border-neutral-500 focus:bg-white"
               name="q"
               type="search"
               data-header-search-input
@@ -55,8 +53,16 @@ const {
 
         <nav class="flex shrink-0 items-center gap-2 text-sm text-neutral-600" aria-label="主選單">
           <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/">首頁</a>
-          <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/bookmarks">收藏</a>
-          <a class="hidden rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900 md:inline-flex" href="/about">關於</a>
+          <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/legislators"
+            >立委名冊</a
+          >
+          <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/bookmarks"
+            >收藏</a
+          >
+          <a
+            class="hidden rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900 md:inline-flex"
+            href="/about">關於</a
+          >
         </nav>
       </div>
     </header>

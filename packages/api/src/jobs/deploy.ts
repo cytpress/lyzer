@@ -19,7 +19,7 @@ export async function deployStaticSite(): Promise<{ ok: true }> {
       "--project-name",
       config.cloudflarePagesProjectName,
     ],
-    { cwd: repoRoot() },
+    { cwd: repoRoot() }
   );
 
   return { ok: true };

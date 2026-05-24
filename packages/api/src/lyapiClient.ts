@@ -99,11 +99,11 @@ export async function listGazettes(page = 1, limit = config.lyapiGazetteLimit): 
 
 export async function listGazetteAgendas(
   gazetteId: string,
-  limit = config.lyapiAgendaLimit,
+  limit = config.lyapiAgendaLimit
 ): Promise<NormalizedAgenda[]> {
   const agendas: NormalizedAgenda[] = [];
   let page = 1;
-  let totalPage = 1;
+  let totalPage: number;
 
   do {
     const url = createUrl(`/gazettes/${encodeURIComponent(gazetteId)}/agendas`, { page, limit });

@@ -19,7 +19,24 @@ export interface AnalyzeJobResult {
   failed: number;
 }
 
-async function pickCandidates(limit: number): Promise<AgendaCandidate[]> {
+async function pickCandidates(limit: number, agendaId?: string): Promise<AgendaCandidate[]> {
+  if (agendaId) {
+    return query<AgendaCandidate>(
+      `
+        select
+          a.agenda_id,
+          a.meeting_dates,
+          a.subject,
+          a.parsed_url,
+          a.txt_url,
+          a.raw
+        from agendas a
+        where a.agenda_id = $1
+      `,
+      [agendaId]
+    );
+  }
+
   return query<AgendaCandidate>(
     `
       select
@@ -32,11 +49,11 @@ async function pickCandidates(limit: number): Promise<AgendaCandidate[]> {
       from agendas a
       left join analysis_results ar on ar.agenda_id = a.agenda_id
       where a.category_code = 3
-        and (ar.status is null or ar.status = 'pending')
+        and (ar.status is null or ar.status = 'pending' or ar.status = 'failed')
       order by coalesce(a.meeting_dates[1], date '1900-01-01') desc, a.agenda_id desc
       limit $1
     `,
-    [limit],
+    [limit]
   );
 }
 
@@ -50,7 +67,7 @@ async function markProcessing(agendaId: string): Promise<void> {
         error_message = null,
         updated_at = now()
     `,
-    [agendaId],
+    [agendaId]
   );
 }
 
@@ -65,7 +82,7 @@ async function markCompleted(agendaId: string, analysis: JsonObject): Promise<vo
           updated_at = now()
       where agenda_id = $1
     `,
-    [agendaId, JSON.stringify(analysis)],
+    [agendaId, JSON.stringify(analysis)]
   );
 }
 
@@ -79,12 +96,14 @@ async function markFailed(agendaId: string, error: unknown): Promise<void> {
           updated_at = now()
       where agenda_id = $1
     `,
-    [agendaId, message.slice(0, 2000)],
+    [agendaId, message.slice(0, 2000)]
   );
 }
 
-export async function analyzePendingAgendas(options: { limit?: number } = {}): Promise<AnalyzeJobResult> {
-  const candidates = await pickCandidates(options.limit ?? config.analyzeBatchSize);
+export async function analyzePendingAgendas(
+  options: { limit?: number; agendaId?: string } = {}
+): Promise<AnalyzeJobResult> {
+  const candidates = await pickCandidates(options.limit ?? config.analyzeBatchSize, options.agendaId);
   const result: AnalyzeJobResult = {
     picked: candidates.length,
     completed: 0,

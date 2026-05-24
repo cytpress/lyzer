@@ -13,9 +13,7 @@ const firstPage = agendas.slice(0, 10);
     <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
       <div>
         <p class="mb-2 text-sm text-neutral-500">立法院委員會紀錄摘要</p>
-        <h1 class="text-3xl font-semibold leading-tight tracking-normal text-neutral-950 md:text-5xl">
-          看懂議事脈絡
-        </h1>
+        <h1 class="text-3xl leading-tight font-semibold tracking-normal text-neutral-950 md:text-5xl">看懂議事脈絡</h1>
       </div>
       <p class="max-w-xl text-sm leading-7 text-neutral-600 md:text-base">
         將委員會紀錄整理成中立摘要，保留討論焦點、爭議、發言者觀點與後續處理，方便快速回到原始公報。
@@ -24,14 +22,14 @@ const firstPage = agendas.slice(0, 10);
   </section>
 
   <section data-search-page>
-    <script is:inline id="lyzer-agendas-data" type="application/json" set:html={serializedAgendas}></script>
+    <script is:inline id="lyzer-agendas-data" type="application/json" set:html={serializedAgendas} />
 
     <div class="mx-auto mb-6 flex w-11/12 flex-col gap-4 md:w-4/5">
       <div class="md:hidden">
         <label class="relative block">
           <span class="sr-only">搜尋</span>
           <input
-            class="h-11 w-full rounded-full border border-neutral-200 bg-neutral-50 px-4 text-sm outline-none transition focus:border-neutral-500 focus:bg-white"
+            class="h-11 w-full rounded-full border border-neutral-200 bg-neutral-50 px-4 text-sm transition outline-none focus:border-neutral-500 focus:bg-white"
             type="search"
             data-search-input
             placeholder="搜尋議題、法案、委員或官員"
@@ -87,10 +85,14 @@ const firstPage = agendas.slice(0, 10);
       {firstPage.map((agenda) => <AgendaCard agenda={agenda} />)}
     </ul>
 
-    <div class="mx-auto mt-10 hidden w-11/12 rounded-3xl border border-dashed border-neutral-300 p-10 text-center text-neutral-500 md:w-4/5" data-empty-state>
+    <div
+      class="mx-auto mt-10 hidden w-11/12 rounded-3xl border border-dashed border-neutral-300 p-10 text-center text-neutral-500 md:w-4/5"
+      data-empty-state
+    >
       沒有符合條件的議事摘要。
     </div>
 
-    <nav class="mx-auto mt-8 flex w-11/12 items-center justify-center gap-2 md:w-4/5" data-pagination aria-label="分頁"></nav>
+    <nav class="mx-auto mt-8 flex w-11/12 items-center justify-center gap-2 md:w-4/5" data-pagination aria-label="分頁">
+    </nav>
   </section>
 </BaseLayout>

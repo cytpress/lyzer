@@ -1,4 +1,4 @@
-import type { AgendaDetail, HomepageAgenda } from "../types";
+import type { AgendaDetail, HomepageAgenda, LegislatorSpeechStat } from "../types";
 
 const ssgApiBase = import.meta.env.SSG_API_BASE ?? "http://127.0.0.1:3000";
 
@@ -24,4 +24,8 @@ export function getAgendaDetail(agendaId: string): Promise<AgendaDetail> {
 
 export function getCommittees(): Promise<string[]> {
   return getJson<string[]>("/api/ssg/committees");
+}
+
+export function getLegislatorStats(): Promise<LegislatorSpeechStat[]> {
+  return getJson<LegislatorSpeechStat[]>("/api/ssg/legislators");
 }

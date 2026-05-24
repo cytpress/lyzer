@@ -10,10 +10,19 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "db:migrate": "pnpm --filter @lyzer/api db:migrate",
-    "job:fetch": "pnpm --filter @lyzer/api job:fetch",
-    "job:analyze": "pnpm --filter @lyzer/api job:analyze",
-    "job:build": "pnpm --filter @lyzer/api job:build",
-    "job:deploy": "pnpm --filter @lyzer/api job:deploy",
-    "job:daily": "pnpm --filter @lyzer/api job:daily"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-astro": "^1.7.0",
+    "prettier": "^3.8.3",
+    "prettier-plugin-astro": "^0.14.1",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "typescript-eslint": "^8.59.4"
   }
 }

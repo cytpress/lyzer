@@ -61,3 +61,21 @@ export interface AgendaDetail {
   analysis: AnalysisJson;
   analyzedAt: string | null;
 }
+
+export interface LegislatorTimelineEvent {
+  agendaId: string;
+  title: string;
+  meetingDate: string;
+  committee: string;
+  viewpoints: string[];
+}
+
+export interface LegislatorSpeechStat {
+  name: string;
+  fullName: string;
+  speechCount: number;
+  lastSpeechDate: string;
+  lastAgendaId: string;
+  lastAgendaTitle: string;
+  timeline: LegislatorTimelineEvent[];
+}
