@@ -3,8 +3,6 @@ import { Hono } from "hono";
 import { config } from "./config.js";
 import { closeDb } from "./db.js";
 import { analyzePendingAgendas } from "./jobs/analyze.js";
-import { buildStaticSite } from "./jobs/build.js";
-import { deployStaticSite } from "./jobs/deploy.js";
 import { fetchNewGazettes } from "./jobs/fetch.js";
 import { migrate } from "./schema.js";
 import { getAgendaDetail, getAgendaIds, getCommittees, getHomepageAgendas, getLegislatorStats } from "./ssg.js";
@@ -57,20 +55,6 @@ const openApiSpec = {
         responses: { 200: { description: "OK" } },
       },
     },
-    "/jobs/build": {
-      post: {
-        tags: ["Jobs"],
-        summary: "構建靜態網站 (Build Static Site)",
-        responses: { 200: { description: "OK" } },
-      },
-    },
-    "/jobs/deploy": {
-      post: {
-        tags: ["Jobs"],
-        summary: "部署至 Cloudflare Pages (Deploy to Cloudflare)",
-        responses: { 200: { description: "OK" } },
-      },
-    },
   },
 };
 
@@ -120,8 +104,7 @@ app.post("/jobs/analyze", async (c) => {
   return c.json(result);
 });
 
-app.post("/jobs/build", async (c) => c.json(await buildStaticSite()));
-app.post("/jobs/deploy", async (c) => c.json(await deployStaticSite()));
+
 
 app.get("/api/ssg/homepage", async (c) => c.json(await getHomepageAgendas()));
 app.get("/api/ssg/agenda-ids", async (c) => c.json(await getAgendaIds()));
