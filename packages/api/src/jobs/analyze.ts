@@ -4,6 +4,32 @@ import { query } from "../db.js";
 import { analyzeWithGemini } from "../gemini.js";
 import type { JsonObject } from "../types.js";
 
+function cleanSpeakerName(name: string | null | undefined): string {
+  if (!name) return "";
+
+  // 1. 去除 "立法委員"、"委員"、"立法" 及多餘空白
+  let cleaned = name
+    .replace(/\s*(立法委員|委員|立法)\s*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // 2. 處理官員常見的「姓 + 職稱 + 名」格式，例如「莊部長翠雲」、「曾署長國基」、「彭署長英偉」
+  const titleRegex = /^([\u4e00-\u9fa5])(部長|署長|局長|次長|主任委員|主任|主委|處長|組長|司長|科長|秘書長|常務次長|政務次長|代理部長|代理署長|代理局長|總經理|董事長|行長|理事長)([\u4e00-\u9fa5]+)$/;
+
+  const parts = cleaned.split(" ");
+  const namePart = parts[0] ?? "";
+  const titlePart = parts.slice(1).join(" ");
+
+  const match = namePart.match(titleRegex);
+  if (match) {
+    const lastName = match[1];
+    const firstName = match[3];
+    cleaned = `${lastName}${firstName}` + (titlePart ? ` ${titlePart}` : "");
+  }
+
+  return cleaned;
+}
+
 interface AgendaCandidate {
   agenda_id: string;
   meeting_dates: string[] | null;
@@ -121,6 +147,32 @@ export async function analyzePendingAgendas(
         meetingDates: agenda.meeting_dates ?? [],
         sourceText,
       });
+
+      // 雙重保證：在寫入資料庫前，將分析結果中的所有發言者姓名清洗乾淨
+      if (Array.isArray(analysis.agenda_items)) {
+        for (const item of analysis.agenda_items) {
+          if (item && typeof item === "object") {
+            const itemObj = item as JsonObject;
+            if (Array.isArray(itemObj.legislator_speakers)) {
+              for (const s of itemObj.legislator_speakers) {
+                if (s && typeof s === "object") {
+                  const sObj = s as JsonObject;
+                  sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string);
+                }
+              }
+            }
+            if (Array.isArray(itemObj.respondent_speakers)) {
+              for (const s of itemObj.respondent_speakers) {
+                if (s && typeof s === "object") {
+                  const sObj = s as JsonObject;
+                  sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string);
+                }
+              }
+            }
+          }
+        }
+      }
+
       await markCompleted(agenda.agenda_id, analysis);
       result.completed += 1;
     } catch (error) {
