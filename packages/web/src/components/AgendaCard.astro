@@ -1,0 +1,38 @@
+---
+import BookmarkButton from "./BookmarkButton.astro";
+import type { HomepageAgenda } from "../types";
+
+interface Props {
+  agenda: HomepageAgenda;
+}
+
+const { agenda } = Astro.props;
+const committee = agenda.committee ?? "委員會";
+const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
+---
+
+<li class="mx-auto w-11/12 md:w-4/5" data-agenda-card data-agenda-id={agenda.agendaId}>
+  <article
+    class="flex flex-col justify-center rounded-3xl border-2 border-neutral-200 bg-white px-4 py-4 transition-all duration-200 ease-in-out hover:border-neutral-500 md:px-8 md:py-8"
+  >
+    <div class="mb-2 flex items-start justify-between gap-4">
+      <a class="min-w-0" href={`/gazettes/${agenda.agendaId}`}>
+        <h2 class="mb-2 text-lg leading-snug font-medium text-neutral-900 md:text-xl">
+          {agenda.summaryTitle}
+        </h2>
+      </a>
+      <BookmarkButton agendaId={agenda.agendaId} />
+    </div>
+
+    <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500 md:text-sm">
+      <span class="rounded-full bg-neutral-100 px-3 py-1 text-neutral-700">{committee}</span>
+      <span>{meetingDate}</span>
+      <span class="hidden md:inline">/</span>
+      <span class="truncate">{agenda.gazetteId}</span>
+    </div>
+
+    <p class="line-clamp-2 text-sm leading-relaxed text-neutral-600 md:line-clamp-3">
+      {agenda.overallSummary || agenda.subject || "此議程尚無摘要。"}
+    </p>
+  </article>
+</li>

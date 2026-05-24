@@ -1,0 +1,254 @@
+---
+import BookmarkButton from "../../components/BookmarkButton.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getAgendaDetail, getAgendaIds } from "../../lib/api";
+import type { AgendaDetail, AnalysisAgendaItem, SpeakerDetail } from "../../types";
+
+export async function getStaticPaths() {
+  const ids = await getAgendaIds();
+  const details = await Promise.all(ids.map((id) => getAgendaDetail(id)));
+  return details.map((detail) => ({
+    params: { agenda_id: detail.agendaId },
+    props: { detail },
+  }));
+}
+
+const { detail } = Astro.props as { detail: AgendaDetail };
+const analysis = detail.analysis;
+const title = analysis.summary_title ?? detail.subject ?? detail.agendaId;
+const agendaItems = analysis.agenda_items ?? [];
+
+function asArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
+}
+
+function committeeNames(value: unknown): string[] {
+  if (typeof value === "string" && value.length > 0) return [value];
+  return asArray(value);
+}
+
+function itemTitle(item: AnalysisAgendaItem): string {
+  return item.item_title ?? item.title ?? "未命名議程";
+}
+
+function speakerName(speaker: SpeakerDetail): string {
+  return speaker.speaker_name ?? "未標示發言者";
+}
+
+function allSpeakers(key: "legislator_speakers" | "respondent_speakers"): SpeakerDetail[] {
+  return agendaItems.flatMap((item) => item[key] ?? []);
+}
+
+const committees = committeeNames(analysis.committee_name);
+const meetingDates = detail.meetingDates.length > 0 ? detail.meetingDates : [];
+const legislatorSpeakers = allSpeakers("legislator_speakers");
+const respondentSpeakers = allSpeakers("respondent_speakers");
+---
+
+<BaseLayout title={`${title} | lyzer`}>
+  <section class="mx-auto mb-8 w-11/12 md:mb-10 md:w-4/5">
+    <div class="mb-5 flex items-start justify-between gap-4">
+      <div class="min-w-0">
+        <a class="mb-4 inline-flex text-sm text-neutral-500 transition hover:text-neutral-900" href="/">← 回首頁</a>
+        <h1 class="mb-4 text-3xl leading-tight font-semibold tracking-normal text-neutral-950 md:text-5xl">{title}</h1>
+        <p class="max-w-4xl text-base leading-8 text-neutral-600 md:text-lg">
+          {analysis.overall_summary_sentence ?? detail.subject}
+        </p>
+      </div>
+      <BookmarkButton agendaId={detail.agendaId} />
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+      {committees.map((name) => <span class="rounded-full bg-neutral-100 px-3 py-1 text-neutral-700">{name}</span>)}
+      {meetingDates.map((date) => <span>{date}</span>)}
+      <span class="hidden md:inline">/</span>
+      <span>{detail.gazetteId}</span>
+    </div>
+  </section>
+
+  <div class="mx-auto grid w-11/12 gap-8 md:w-4/5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+    <div class="space-y-5">
+      {
+        agendaItems.length > 0 ? (
+          agendaItems.map((item, index) => (
+            <article class="rounded-3xl border-2 border-neutral-200 bg-white p-5 md:p-8">
+              <p class="mb-2 text-sm text-neutral-500">議程 {index + 1}</p>
+              <h2 class="mb-5 text-2xl leading-snug font-semibold text-neutral-950">{itemTitle(item)}</h2>
+
+              {asArray(item.core_issue).length > 0 ? (
+                <section class="mb-6">
+                  <h3 class="mb-2 text-sm font-medium text-neutral-500">核心問題</h3>
+                  <ul class="space-y-2 leading-8 text-neutral-700">
+                    {asArray(item.core_issue).map((point) => (
+                      <li>{point}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {asArray(item.controversy).length > 0 ? (
+                <section class="mb-6">
+                  <h3 class="mb-2 text-sm font-medium text-neutral-500">爭議與分歧</h3>
+                  <ul class="list-disc space-y-2 pl-5 leading-8 text-neutral-700">
+                    {asArray(item.controversy).map((point) => (
+                      <li>{point}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {item.legislator_speakers && item.legislator_speakers.length > 0 ? (
+                <section class="mb-6">
+                  <h3 class="mb-3 text-sm font-medium text-neutral-500">立法委員發言</h3>
+                  <div class="space-y-4">
+                    {item.legislator_speakers.map((speaker) => (
+                      <div class="rounded-2xl bg-neutral-50 p-4">
+                        <p class="mb-2 font-medium text-neutral-900">{speakerName(speaker)}</p>
+                        {asArray(speaker.speaker_viewpoint).length > 0 ? (
+                          <ul class="list-disc space-y-1 pl-5 leading-7 text-neutral-700">
+                            {asArray(speaker.speaker_viewpoint).map((point) => (
+                              <li>{point}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {item.respondent_speakers && item.respondent_speakers.length > 0 ? (
+                <section class="mb-6">
+                  <h3 class="mb-3 text-sm font-medium text-neutral-500">答詢與回應</h3>
+                  <div class="space-y-4">
+                    {item.respondent_speakers.map((speaker) => (
+                      <div class="rounded-2xl bg-neutral-50 p-4">
+                        <p class="mb-2 font-medium text-neutral-900">{speakerName(speaker)}</p>
+                        {asArray(speaker.speaker_viewpoint).length > 0 ? (
+                          <ul class="list-disc space-y-1 pl-5 leading-7 text-neutral-700">
+                            {asArray(speaker.speaker_viewpoint).map((point) => (
+                              <li>{point}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {asArray(item.result_status_next).length > 0 ? (
+                <section>
+                  <h3 class="mb-2 text-sm font-medium text-neutral-500">結果與後續</h3>
+                  <ul class="list-disc space-y-2 pl-5 leading-8 text-neutral-700">
+                    {asArray(item.result_status_next).map((point) => (
+                      <li>{point}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <section class="rounded-3xl border-2 border-neutral-200 p-8 text-neutral-600">
+            此議程沒有可呈現的實質摘要。
+          </section>
+        )
+      }
+    </div>
+
+    <aside class="space-y-5 lg:sticky lg:top-24 lg:self-start">
+      <section class="rounded-3xl border-2 border-neutral-200 p-5">
+        <h2 class="mb-4 text-lg font-medium text-neutral-950">會議資訊</h2>
+        <dl class="space-y-3 text-sm">
+          <div>
+            <dt class="text-neutral-500">公報</dt>
+            <dd class="text-neutral-900">{detail.gazetteId}</dd>
+          </div>
+          <div>
+            <dt class="text-neutral-500">卷期冊</dt>
+            <dd class="text-neutral-900">
+              {detail.volume ?? "-"} / {detail.issue ?? "-"} / {detail.booklet ?? "-"}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-neutral-500">發布日期</dt>
+            <dd class="text-neutral-900">{detail.publishDate ?? "-"}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="rounded-3xl border-2 border-neutral-200 p-5">
+        <h2 class="mb-4 text-lg font-medium text-neutral-950">發言者</h2>
+        <h3 class="mb-2 text-sm font-medium text-neutral-500">立法委員</h3>
+        {
+          legislatorSpeakers.length > 0 ? (
+            <ul class="mb-4 space-y-1 text-sm text-neutral-700">
+              {legislatorSpeakers.map((speaker) => (
+                <li>{speakerName(speaker)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p class="mb-4 text-sm text-neutral-500">無資料</p>
+          )
+        }
+        <h3 class="mb-2 text-sm font-medium text-neutral-500">答詢或列席代表</h3>
+        {
+          respondentSpeakers.length > 0 ? (
+            <ul class="space-y-1 text-sm text-neutral-700">
+              {respondentSpeakers.map((speaker) => (
+                <li>{speakerName(speaker)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p class="text-sm text-neutral-500">無資料</p>
+          )
+        }
+      </section>
+
+      <section class="rounded-3xl border-2 border-neutral-200 p-5">
+        <h2 class="mb-4 text-lg font-medium text-neutral-950">原始資料</h2>
+        <div class="space-y-2 text-sm text-neutral-700">
+          {
+            detail.officialPageUrl ? (
+              <p>
+                <a class="underline underline-offset-4" href={detail.officialPageUrl}>
+                  立法院頁面
+                </a>
+              </p>
+            ) : null
+          }
+          {
+            detail.officialPdfUrl ? (
+              <p>
+                <a class="underline underline-offset-4" href={detail.officialPdfUrl}>
+                  官方 PDF
+                </a>
+              </p>
+            ) : null
+          }
+          {
+            detail.txtUrl ? (
+              <p>
+                <a class="underline underline-offset-4" href={detail.txtUrl}>
+                  文字檔
+                </a>
+              </p>
+            ) : null
+          }
+          {
+            detail.parsedUrl ? (
+              <p>
+                <a class="underline underline-offset-4" href={detail.parsedUrl}>
+                  Parsed JSON
+                </a>
+              </p>
+            ) : null
+          }
+        </div>
+      </section>
+    </aside>
+  </div>
+</BaseLayout>

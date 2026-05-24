@@ -1,0 +1,49 @@
+name: lyzer
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lyzer_db}
+      POSTGRES_USER: ${POSTGRES_USER:-lyzer_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-lyzer_admin} -d $${POSTGRES_DB:-lyzer_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lyzer_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lyzer_db}
+      SSG_API_BASE: http://127.0.0.1:3000
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "127.0.0.1:3020:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

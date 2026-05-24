@@ -1,0 +1,98 @@
+---
+import AgendaCard from "../components/AgendaCard.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCommittees, getHomepageAgendas } from "../lib/api";
+
+const [agendas, committees] = await Promise.all([getHomepageAgendas(), getCommittees()]);
+const serializedAgendas = JSON.stringify(agendas).replaceAll("<", "\\u003c");
+const firstPage = agendas.slice(0, 10);
+---
+
+<BaseLayout title="lyzer">
+  <section class="mx-auto mb-8 w-11/12 md:mb-10 md:w-4/5">
+    <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p class="mb-2 text-sm text-neutral-500">立法院委員會紀錄摘要</p>
+        <h1 class="text-3xl leading-tight font-semibold tracking-normal text-neutral-950 md:text-5xl">看懂議事脈絡</h1>
+      </div>
+      <p class="max-w-xl text-sm leading-7 text-neutral-600 md:text-base">
+        將委員會紀錄整理成中立摘要，保留討論焦點、爭議、發言者觀點與後續處理，方便快速回到原始公報。
+      </p>
+    </div>
+  </section>
+
+  <section data-search-page>
+    <script is:inline id="lyzer-agendas-data" type="application/json" set:html={serializedAgendas} />
+
+    <div class="mx-auto mb-6 flex w-11/12 flex-col gap-4 md:w-4/5">
+      <div class="md:hidden">
+        <label class="relative block">
+          <span class="sr-only">搜尋</span>
+          <input
+            class="h-11 w-full rounded-full border border-neutral-200 bg-neutral-50 px-4 text-sm transition outline-none focus:border-neutral-500 focus:bg-white"
+            type="search"
+            data-search-input
+            placeholder="搜尋議題、法案、委員或官員"
+          />
+        </label>
+      </div>
+
+      <div class="flex flex-wrap gap-2" data-committee-filters>
+        <button
+          class="rounded-full border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white transition"
+          type="button"
+          data-committee-button
+          data-committee=""
+          data-active="true"
+        >
+          全部
+        </button>
+        {
+          committees.map((name) => (
+            <button
+              class="rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-600 transition hover:border-neutral-500 hover:text-neutral-900"
+              type="button"
+              data-committee-button
+              data-committee={name}
+              data-active="false"
+            >
+              {name}
+            </button>
+          ))
+        }
+      </div>
+
+      <div class="flex items-center justify-between gap-3 text-sm text-neutral-500">
+        <span data-result-count>{agendas.length} 筆摘要</span>
+        <div class="flex items-center gap-2">
+          <span data-search-status></span>
+          <label class="hidden items-center gap-2 md:flex">
+            <span>排序</span>
+            <select
+              class="rounded-full border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-500"
+              data-sort-select
+            >
+              <option value="date-desc">日期新到舊</option>
+              <option value="date-asc">日期舊到新</option>
+              <option value="relevance">相關性</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <ul class="space-y-4" data-agenda-list>
+      {firstPage.map((agenda) => <AgendaCard agenda={agenda} />)}
+    </ul>
+
+    <div
+      class="mx-auto mt-10 hidden w-11/12 rounded-3xl border border-dashed border-neutral-300 p-10 text-center text-neutral-500 md:w-4/5"
+      data-empty-state
+    >
+      沒有符合條件的議事摘要。
+    </div>
+
+    <nav class="mx-auto mt-8 flex w-11/12 items-center justify-center gap-2 md:w-4/5" data-pagination aria-label="分頁">
+    </nav>
+  </section>
+</BaseLayout>

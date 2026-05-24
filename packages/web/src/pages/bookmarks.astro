@@ -1,0 +1,25 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getHomepageAgendas } from "../lib/api";
+
+const agendas = await getHomepageAgendas();
+const serializedAgendas = JSON.stringify(agendas).replaceAll("<", "\\u003c");
+---
+
+<BaseLayout title="收藏 | lyzer">
+  <section class="mx-auto mb-8 w-11/12 md:w-4/5">
+    <p class="mb-2 text-sm text-neutral-500">localStorage 收藏</p>
+    <h1 class="text-3xl font-semibold tracking-normal text-neutral-950 md:text-5xl">收藏</h1>
+  </section>
+
+  <section data-bookmarks-page>
+    <script is:inline id="lyzer-agendas-data" type="application/json" set:html={serializedAgendas} />
+    <ul class="space-y-4" data-bookmarks-list></ul>
+    <div
+      class="mx-auto w-11/12 rounded-3xl border border-dashed border-neutral-300 p-10 text-center text-neutral-500 md:w-4/5"
+      data-empty-state
+    >
+      目前沒有收藏的議事摘要。
+    </div>
+  </section>
+</BaseLayout>

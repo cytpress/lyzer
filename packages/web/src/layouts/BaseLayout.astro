@@ -1,0 +1,85 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title = "lyzer", description = "lyzer 將立法院委員會紀錄整理成可搜尋、可收藏、可快速理解的摘要。" } =
+  Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-white text-neutral-900 antialiased">
+    <header class="sticky top-0 z-30 border-b border-neutral-200 bg-white/95 backdrop-blur">
+      <div class="mx-auto flex h-16 w-11/12 items-center justify-between gap-4 md:w-4/5">
+        <a class="flex items-baseline gap-3" href="/" aria-label="lyzer 首頁">
+          <span class="text-2xl font-semibold tracking-normal">lyzer</span>
+          <span class="hidden text-sm text-neutral-500 md:inline">立院公報摘要</span>
+        </a>
+
+        <form class="hidden min-w-0 flex-1 justify-center md:flex" data-header-search-form>
+          <label class="relative w-full max-w-md">
+            <span class="sr-only">搜尋</span>
+            <svg
+              class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-neutral-400"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.3-4.3"></path>
+            </svg>
+            <input
+              class="h-10 w-full rounded-full border border-neutral-200 bg-neutral-50 pr-4 pl-9 text-sm transition outline-none focus:border-neutral-500 focus:bg-white"
+              name="q"
+              type="search"
+              data-header-search-input
+              placeholder="搜尋議題、法案、委員或官員"
+            />
+          </label>
+        </form>
+
+        <nav class="flex shrink-0 items-center gap-2 text-sm text-neutral-600" aria-label="主選單">
+          <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/">首頁</a>
+          <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/legislators"
+            >立委名冊</a
+          >
+          <a class="rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900" href="/bookmarks"
+            >收藏</a
+          >
+          <a
+            class="hidden rounded-full px-3 py-2 transition hover:bg-neutral-100 hover:text-neutral-900 md:inline-flex"
+            href="/about">關於</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main class="min-h-[calc(100vh-8rem)] py-8 md:py-12">
+      <slot />
+    </main>
+
+    <footer class="border-t border-neutral-200 py-8 text-sm text-neutral-500">
+      <div class="mx-auto flex w-11/12 flex-col gap-2 md:w-4/5 md:flex-row md:items-center md:justify-between">
+        <p>lyzer / 立院公報摘要</p>
+        <p>Static pages generated from LYAPI and local analysis results.</p>
+      </div>
+    </footer>
+
+    <script>
+      import "../scripts/site.ts";
+    </script>
+  </body>
+</html>

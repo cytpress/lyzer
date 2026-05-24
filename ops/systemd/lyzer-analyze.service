@@ -1,0 +1,12 @@
+[Unit]
+Description=Lyzer analyze pending agendas
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_DIR__/.env.scheduler
+ExecStart=__APP_DIR__/scripts/lyzer-analyze.sh
+TimeoutStartSec=30m

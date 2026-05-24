@@ -1,0 +1,24 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="關於 | lyzer">
+  <section class="mx-auto grid w-11/12 gap-8 md:w-4/5 md:grid-cols-[1fr_0.75fr]">
+    <div>
+      <p class="mb-2 text-sm text-neutral-500">about lyzer</p>
+      <h1 class="mb-6 text-3xl leading-tight font-semibold tracking-normal text-neutral-950 md:text-5xl">關於</h1>
+      <p class="text-base leading-8 text-neutral-600">
+        lyzer
+        將立法院委員會紀錄整理成較容易閱讀的摘要，協助使用者理解一場會議討論了什麼、各方如何回應，以及後續處理狀態。
+      </p>
+    </div>
+
+    <div class="rounded-3xl border-2 border-neutral-200 p-6">
+      <h2 class="mb-3 text-lg font-medium text-neutral-950">資料流程</h2>
+      <p class="leading-8 text-neutral-600">
+        lyzer 會定期從 LYAPI 抓取公報與議程資料，分析完成後由 Astro 產生靜態頁面並部署到 Cloudflare Pages。
+        公開網站不依賴家中主機 runtime。
+      </p>
+    </div>
+  </section>
+</BaseLayout>
