@@ -141,6 +141,33 @@ async function markFailed(agendaId: string, error: unknown): Promise<void> {
   );
 }
 
+function isTransientApiError(error: unknown): boolean {
+  if (!error) return false;
+  const msg = error instanceof Error ? error.message : String(error);
+  const lowerMsg = msg.toLowerCase();
+  return (
+    lowerMsg.includes("429") ||
+    lowerMsg.includes("503") ||
+    lowerMsg.includes("resource_exhausted") ||
+    lowerMsg.includes("unavailable") ||
+    lowerMsg.includes("quota exceeded") ||
+    lowerMsg.includes("high demand")
+  );
+}
+
+async function markPending(agendaId: string): Promise<void> {
+  await query(
+    `
+      update analysis_results
+      set status = 'pending',
+          error_message = null,
+          updated_at = now()
+      where agenda_id = $1
+    `,
+    [agendaId]
+  );
+}
+
 export async function analyzePendingAgendas(
   options: { limit?: number; agendaId?: string } = {}
 ): Promise<AnalyzeJobResult> {
@@ -195,14 +222,19 @@ export async function analyzePendingAgendas(
       result.completed += 1;
     } catch (error) {
       console.error(error);
-      await markFailed(agenda.agenda_id, error);
-      result.failed += 1;
+      if (isTransientApiError(error)) {
+        console.warn(`[Analyze Job] Gemini API transient error (429/503) detected for agenda ${agenda.agenda_id}. Resetting status to pending and aborting.`);
+        await markPending(agenda.agenda_id);
+      } else {
+        await markFailed(agenda.agenda_id, error);
+        result.failed += 1;
+      }
     }
     return result;
   }
 
   // 2. 一般佇列分析：防卡死且自動補位機制
-  // 為了防範外部網路全斷等極端狀況造成無限迴圈，我們設定最大嘗試次數為 limit * 3
+  // 為了防範外部網路全斷等極端狀況造成無限迴圈，設定最大嘗試次數為 limit * 3
   const maxAttempts = limit * 3;
   let attempts = 0;
 
@@ -258,6 +290,13 @@ export async function analyzePendingAgendas(
         }
       } catch (error) {
         console.error(error);
+        if (isTransientApiError(error)) {
+          console.warn(`[Analyze Job] Gemini API transient error (429/503) detected. Resetting agenda ${agenda.agenda_id} to pending and aborting queue immediately.`);
+          await markPending(agenda.agenda_id);
+          // 融斷保護：將 attempts 設為最大上限以立即跳出 while 迴圈
+          attempts = maxAttempts;
+          break;
+        }
         await markFailed(agenda.agenda_id, error);
         result.failed += 1;
 
