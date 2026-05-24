@@ -4,30 +4,36 @@ import { query } from "../db.js";
 import { analyzeWithGemini } from "../gemini.js";
 import type { JsonObject } from "../types.js";
 
-function cleanSpeakerName(name: string | null | undefined): string {
+function cleanSpeakerName(name: string | null | undefined, isLegislator = false): string {
   if (!name) return "";
 
-  // 1. 去除 "立法委員"、"委員"、"立法" 及多餘空白
-  let cleaned = name
-    .replace(/\s*(立法委員|委員|立法)\s*/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  // 2. 處理官員常見的「姓 + 職稱 + 名」格式，例如「莊部長翠雲」、「曾署長國基」、「彭署長英偉」
-  const titleRegex = /^([\u4e00-\u9fa5])(部長|署長|局長|次長|主任委員|主任|主委|處長|組長|司長|科長|秘書長|常務次長|政務次長|代理部長|代理署長|代理局長|總經理|董事長|行長|理事長)([\u4e00-\u9fa5]+)$/;
-
-  const parts = cleaned.split(" ");
-  const namePart = parts[0] ?? "";
+  // 1. 先把空格切開，提取出「名字部分」和「職稱部分」
+  const parts = name.trim().replace(/\s+/g, " ").split(" ");
+  let namePart = parts[0] ?? "";
   const titlePart = parts.slice(1).join(" ");
 
+  // 2. 去除名字部分的 "立法委員"、"委員"、"立法"
+  namePart = namePart
+    .replace(/\s*(立法委員|委員|立法)\s*/g, "")
+    .trim();
+
+  // 3. 處理官員常見的「姓 + 職稱 + 名」格式，例如「莊部長翠雲」->「莊翠雲」
+  const titleRegex = /^([\u4e00-\u9fa5])(部長|署長|局長|次長|主任委員|主任|主委|處長|組長|司長|科長|秘書長|常務次長|政務次長|代理部長|代理署長|代理局長|總經理|董事長|行長|理事長)([\u4e00-\u9fa5]+)$/;
   const match = namePart.match(titleRegex);
   if (match) {
     const lastName = match[1];
     const firstName = match[3];
-    cleaned = `${lastName}${firstName}` + (titlePart ? ` ${titlePart}` : "");
+    namePart = `${lastName}${firstName}`;
   }
 
-  return cleaned;
+  // 4. 重組回傳
+  if (isLegislator) {
+    // 立法委員統一後綴「立法委員」
+    return `${namePart} 立法委員`;
+  } else {
+    // 官員/答詢代表保留原始完整職稱
+    return titlePart ? `${namePart} ${titlePart}` : namePart;
+  }
 }
 
 interface AgendaCandidate {
@@ -157,7 +163,7 @@ export async function analyzePendingAgendas(
               for (const s of itemObj.legislator_speakers) {
                 if (s && typeof s === "object") {
                   const sObj = s as JsonObject;
-                  sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string);
+                  sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string, true);
                 }
               }
             }
