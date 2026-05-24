@@ -29,6 +29,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lyzer_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lyzer_db}
       SSG_API_BASE: http://127.0.0.1:3000
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
     ports:
       - "3020:3000"
     depends_on:
