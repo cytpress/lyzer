@@ -1,6 +1,11 @@
 .env
 .env.*
 !.env.example
+!.env.scheduler.example
+
+docs/
+
+
 
 node_modules/
 dist/
@@ -15,6 +20,10 @@ lyapi-swagger.yaml
 
 # Local Debug & Scratch Files
 scratch/
+
+# Private operations notes
+docs/private/
+docs/private-runbook.md
 
 # Editor Configuration Folders
 .vscode/

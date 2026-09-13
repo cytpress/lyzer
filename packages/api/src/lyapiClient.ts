@@ -29,7 +29,7 @@ function createUrl(pathname: string, params: Record<string, string | number | un
 async function fetchJson(url: URL): Promise<JsonObject> {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer; contact: ganymede5035@gmail.com)",
+      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer)",
     },
   });
   if (!response.ok) {

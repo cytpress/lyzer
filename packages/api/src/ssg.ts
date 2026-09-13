@@ -28,6 +28,11 @@ interface DetailRow extends HomepageRow {
   official_pdf_url: string | null;
 }
 
+export interface AgendaDetailsPage {
+  items: AgendaDetail[];
+  nextCursor: string | null;
+}
+
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -128,6 +133,26 @@ function toHomepageAgenda(row: HomepageRow): HomepageAgenda {
   };
 }
 
+function toAgendaDetail(row: DetailRow): AgendaDetail {
+  return {
+    agendaId: row.agenda_id,
+    gazetteId: row.gazette_id,
+    volume: row.volume,
+    issue: row.issue,
+    booklet: row.booklet,
+    publishDate: normalizeDate(row.publish_date),
+    meetingDates: normalizeDates(row.meeting_dates),
+    subject: row.subject,
+    categoryCode: row.category_code,
+    parsedUrl: row.parsed_url,
+    txtUrl: row.txt_url,
+    officialPageUrl: row.official_page_url,
+    officialPdfUrl: row.official_pdf_url,
+    analysis: row.analysis_json ?? {},
+    analyzedAt: row.analyzed_at,
+  };
+}
+
 export async function getHomepageAgendas(): Promise<HomepageAgenda[]> {
   const rows = await query<HomepageRow>(`
     select
@@ -156,6 +181,47 @@ export async function getAgendaIds(): Promise<string[]> {
   `);
 
   return rows.map((row) => row.agenda_id);
+}
+
+export async function getAgendaDetailsPage(options: {
+  cursor?: string;
+  limit?: number;
+} = {}): Promise<AgendaDetailsPage> {
+  const cursor = options.cursor?.trim() || null;
+  const limit = Math.min(Math.max(Math.trunc(options.limit ?? 200), 1), 250);
+  const rows = await query<DetailRow>(
+    `
+      select
+        a.agenda_id,
+        a.gazette_id,
+        a.meeting_dates,
+        a.subject,
+        a.category_code,
+        a.parsed_url,
+        a.txt_url,
+        a.official_page_url,
+        a.official_pdf_url,
+        g.volume,
+        g.issue,
+        g.booklet,
+        g.publish_date,
+        ar.analysis_json,
+        ar.analyzed_at
+      from agendas a
+      join gazettes g on g.gazette_id = a.gazette_id
+      join analysis_results ar on ar.agenda_id = a.agenda_id
+      where ar.status = 'completed'
+        and ($1::text is null or a.agenda_id < $1)
+      order by a.agenda_id desc
+      limit $2
+    `,
+    [cursor, limit]
+  );
+
+  return {
+    items: rows.map(toAgendaDetail),
+    nextCursor: rows.length === limit ? rows[rows.length - 1]?.agenda_id ?? null : null,
+  };
 }
 
 export async function getCommittees(): Promise<string[]> {
@@ -195,25 +261,7 @@ export async function getAgendaDetail(agendaId: string): Promise<AgendaDetail | 
   );
 
   const row = rows[0];
-  if (!row) return null;
-
-  return {
-    agendaId: row.agenda_id,
-    gazetteId: row.gazette_id,
-    volume: row.volume,
-    issue: row.issue,
-    booklet: row.booklet,
-    publishDate: normalizeDate(row.publish_date),
-    meetingDates: normalizeDates(row.meeting_dates),
-    subject: row.subject,
-    categoryCode: row.category_code,
-    parsedUrl: row.parsed_url,
-    txtUrl: row.txt_url,
-    officialPageUrl: row.official_page_url,
-    officialPdfUrl: row.official_pdf_url,
-    analysis: row.analysis_json ?? {},
-    analyzedAt: row.analyzed_at,
-  };
+  return row ? toAgendaDetail(row) : null;
 }
 
 export async function getLegislatorStats(): Promise<LegislatorSpeechStat[]> {

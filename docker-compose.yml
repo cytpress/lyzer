@@ -30,6 +30,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lyzer_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lyzer_db}
       SSG_API_BASE: http://127.0.0.1:3000
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
+      CLOUDFLARE_DEPLOY_HOOK_URL: ${CLOUDFLARE_DEPLOY_HOOK_URL}
     ports:
       - "3020:3000"
     depends_on:

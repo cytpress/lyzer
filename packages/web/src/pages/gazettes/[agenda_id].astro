@@ -1,12 +1,11 @@
 ---
 import BookmarkButton from "../../components/BookmarkButton.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getAgendaDetail, getAgendaIds } from "../../lib/api";
+import { getAgendaDetailsForBuild } from "../../lib/api";
 import type { AgendaDetail, AnalysisAgendaItem, SpeakerDetail } from "../../types";
 
 export async function getStaticPaths() {
-  const ids = await getAgendaIds();
-  const details = await Promise.all(ids.map((id) => getAgendaDetail(id)));
+  const details = await getAgendaDetailsForBuild();
   return details.map((detail) => ({
     params: { agenda_id: detail.agendaId },
     props: { detail },

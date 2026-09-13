@@ -42,7 +42,7 @@ function parsedBlocksToText(payload: unknown): string {
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer; contact: ganymede5035@gmail.com)",
+      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer)",
     },
   });
   if (!response.ok) {
@@ -54,7 +54,7 @@ async function fetchText(url: string): Promise<string> {
 async function fetchParsed(url: string): Promise<string> {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer; contact: ganymede5035@gmail.com)",
+      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer)",
     },
   });
   if (!response.ok) {

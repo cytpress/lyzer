@@ -4,8 +4,9 @@ import { config } from "./config.js";
 import { closeDb } from "./db.js";
 import { analyzePendingAgendas } from "./jobs/analyze.js";
 import { fetchNewGazettes } from "./jobs/fetch.js";
+import { deployCheck } from "./jobs/deployCheck.js";
 import { migrate } from "./schema.js";
-import { getAgendaDetail, getAgendaIds, getCommittees, getHomepageAgendas, getLegislatorStats } from "./ssg.js";
+import { getAgendaDetail, getAgendaDetailsPage, getAgendaIds, getCommittees, getHomepageAgendas, getLegislatorStats } from "./ssg.js";
 const app = new Hono();
 
 const openApiSpec = {
@@ -47,6 +48,25 @@ const openApiSpec = {
                     type: "string",
                     description: "指定分析特定 agendaId 的公報 (可選，常用於單獨補跑失敗的公報)",
                   },
+                },
+              },
+            },
+          },
+        },
+        responses: { 200: { description: "OK" } },
+      },
+    },
+    "/jobs/deploy-check": {
+      post: {
+        tags: ["Jobs"],
+        summary: "檢查並觸發部署至 Cloudflare Pages (Deploy Check & Trigger)",
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  dryRun: { type: "boolean", description: "是否僅進行檢查而不觸發外部 Webhook (可選，預設為 false)" },
                 },
               },
             },
@@ -104,10 +124,22 @@ app.post("/jobs/analyze", async (c) => {
   return c.json(result);
 });
 
-
+app.post("/jobs/deploy-check", async (c) => {
+  const body = await c.req
+    .json<{ dryRun?: boolean }>()
+    .catch(() => ({ dryRun: undefined }));
+  const result = await deployCheck({ dryRun: body.dryRun });
+  return c.json(result);
+});
 
 app.get("/api/ssg/homepage", async (c) => c.json(await getHomepageAgendas()));
 app.get("/api/ssg/agenda-ids", async (c) => c.json(await getAgendaIds()));
+app.get("/api/ssg/agenda-details", async (c) => {
+  const rawLimit = Number(c.req.query("limit") ?? "200");
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.trunc(rawLimit), 1), 250) : 200;
+  const cursor = c.req.query("cursor")?.trim() || undefined;
+  return c.json(await getAgendaDetailsPage({ cursor, limit }));
+});
 app.get("/api/ssg/agendas/:agenda_id", async (c) => {
   const detail = await getAgendaDetail(c.req.param("agenda_id"));
   if (!detail) return c.json({ error: "not found" }, 404);

@@ -40,5 +40,11 @@ export async function migrate(): Promise<void> {
     create index if not exists idx_agendas_meeting_dates on agendas using gin(meeting_dates);
     create index if not exists idx_analysis_results_status on analysis_results(status);
     create index if not exists idx_gazettes_publish_date on gazettes(publish_date desc);
+
+    create table if not exists job_state (
+      key text primary key,
+      value jsonb not null,
+      updated_at timestamptz not null default now()
+    );
   `);
 }

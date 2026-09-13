@@ -25,4 +25,5 @@ export const config = {
   geminiModelName: process.env.GEMINI_MODEL_NAME ?? "gemini-3-flash-preview",
   analyzeBatchSize: readInt("ANALYZE_BATCH_SIZE", 3),
   ssgApiBase: process.env.SSG_API_BASE ?? "http://127.0.0.1:3000",
+  cloudflareDeployHookUrl: process.env.CLOUDFLARE_DEPLOY_HOOK_URL ?? "",
 };

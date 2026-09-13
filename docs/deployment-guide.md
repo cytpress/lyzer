@@ -69,30 +69,29 @@ ANALYZE_BATCH_SIZE=3
 # 容器內部編譯自動指向 http://127.0.0.1:3000；若是宿主機手動單獨編譯，必須指向避讓後的 http://127.0.0.1:3020
 SSG_API_BASE=http://127.0.0.1:3020
 
-CLOUDFLARE_PAGES_PROJECT_NAME=你的 Cloudflare Pages project name
-CLOUDFLARE_API_TOKEN=你的 Cloudflare API token
-CLOUDFLARE_ACCOUNT_ID=你的 Cloudflare account id
+# 部署至 Cloudflare Pages 的秘密 Webhook 網址，用於自動觸發雲端編譯
+CLOUDFLARE_DEPLOY_HOOK_URL=你的 Cloudflare Pages deploy hook url
 ```
 
 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` 是 wrangler deploy 需要的認證資訊。
 
 ## 4. Compose 安全與埠口避讓設定
 
-GL552VW 伺服器上的 `3000` 埠口已被 **Dockhand** 面板佔用。為了防範衝突，我們在 [docker-compose.yml](file:///c:/Users/Administrator/Desktop/ly/lyzer/docker-compose.yml) 中將外部對外埠口安全改為 **`3020`**。
+GL552VW 伺服器上的 `3000` 埠口已被 **Dockhand** 面板佔用。為了防範衝突與外部未授權存取，我們在 [docker-compose.yml](file:///c:/Users/Administrator/Desktop/ly/lyzer/docker-compose.yml) 中將 API 對外埠口安全鎖定於本地迴路 `127.0.0.1:3020`，完全不暴露給外部網路。
 
-Postgres 絕對不應公開到 Internet，**必須僅在 Tailscale / 私有 VPN 內網或主機防火牆嚴格保護下外露**，以防範資安風險。在安全的內網通道中，我們對開發團隊外露 `5432` 埠口以供 Beekeeper 桌面客戶端直連審查與維修。
+Postgres 絕對不應公開到 Internet，**必須僅在 Tailscale / 私有 VPN 內網或主機防火牆嚴格保護下外露**，以防範資安風險。
 
 API 埠口避讓對應：
 
 ```yaml
 ports:
-  - "3020:3000" # GL552VW 的 3020 埠口映射到容器內部的 3000
+  - "127.0.0.1:3020:3000" # 將 3020 埠口安全鎖定在本地 127.0.0.1 迴路，僅限本地 Timer 與 Tunnel 存取
 ```
 
-目前所有的背景任務端點已被重構為私有且安全一致的 **`/jobs`** 命名空間（例如 `/jobs/fetch` 等），不再使用舊的 `/admin/jobs` 或 `/internal`。
+目前所有的背景任務端點已被重構為私有且安全一致的 **`/jobs`** 命名空間（例如 `/jobs/fetch` 等），不開放外網直接存取。
 
-您可以在瀏覽器造訪以下網址，直接打開高顏值的 Scalar API 互動控制台（免敲 CLI 指令，點網頁按鈕即可背景執行）：
-👉 **`http://{伺服器IP}:3020/lyzer-console`**
+當您透過 **Cloudflare Zero Trust Access** 驗證登入後，可以在瀏覽器造訪以下網址，直接打開高顏值的 Scalar API 互動控制台：
+👉 **`https://api.lyzer.tw/lyzer-console`**
 
 ## 5. Dockhand Git Stack
 
@@ -100,75 +99,22 @@ ports:
 
 ```text
 Stack name: lyzer
-Repository: cytpress/lyzer
-Branch: v2
-Compose file path: docker-compose.yml
-Context directory: .
-Environment / Node: GL552VW
-```
-
-Deploy options：
-
-```text
-Build images on deploy: ON
-Disable build cache: OFF
-Re-pull images: optional
-Force redeployment: OFF
-```
-
-因為 `api` 使用 Dockerfile build，`Build images on deploy` 必須打開。
-
-## 6. Dockhand Env / Secrets
-
-為了防範在**公開的 Git Repository** 中外洩密碼，本專案的 `docker-compose.yml` 已全面改用 **Environment Interpolation (環境變數動態注入)**，無任何明文密碼被 hardcode 在程式庫中。
-
-請在 Dockhand Stack 控制面板的 Environment 中設定：
-
-建議標成 secret：
+Repository: cyt如果 API 使用本地迴路 `3020`（可在主機上直接測試）：
 
 ```bash
-GEMINI_API_KEY
-CLOUDFLARE_API_TOKEN
-CLOUDFLARE_ACCOUNT_ID
-POSTGRES_PASSWORD                # 資料庫安全密碼 (例如：SecureDbPassword123)
+curl -X GET http://127.0.0.1:3020/health
 ```
 
-一般變數：
-
-```bash
-POSTGRES_USER                    # 資料庫帳號 (選填，預設：lyzer_admin)
-POSTGRES_DB                      # 資料庫名稱 (選填，預設：lyzer_db)
-LYAPI_BASE_URL
-LYAPI_GAZETTE_LIMIT
-LYAPI_AGENDA_LIMIT
-GEMINI_MODEL_NAME
-ANALYZE_BATCH_SIZE
-SSG_API_BASE
-CLOUDFLARE_PAGES_PROJECT_NAME
-```
-
-Dockhand 在部署時會自動將這些環境變數注入 `docker-compose.yml`。這樣您的公開 GitHub 儲存庫將 100% 安全無虞，無任何洩密風險。
-
-## 7. 部署後檢查
-
-當容器成功啟動後，我們可以透過健康檢查來確認 API 的健康狀態：
-
-如果 API 綁 Tailscale IP 且使用映射埠口 `3020`：
-
-```bash
-curl http://GL552VW_TAILSCALE_IP:3020/health
-```
-
-或是直接在瀏覽器開啟高顏值的 Scalar API 互動控制台（免敲指令，點點滑鼠即可測試）：
-👉 **`http://GL552VW_TAILSCALE_IP:3020/lyzer-console`**
+當您透過 **Cloudflare Zero Trust Access** 驗證登入後，可以直接在瀏覽器開啟高顏值的 Scalar API 互動控制台（點選網頁按鈕即可執行測試）：
+👉 **`https://api.lyzer.tw/lyzer-console`**
 
 ---
 
 ## 8. 第一次上線流程 (免指令，100% 網頁操作)
 
-第一次部署 stack 後，不推薦進行全自動流水線。建議在 **`http://{伺服器IP}:3020/lyzer-console`** 頁面上，依序手動觸發測試：
+第一次部署 stack 後，建議在 **`https://api.lyzer.tw/lyzer-console`** 頁面上，依序手動觸發測試：
 
-1.  **確保 API 與 DB 順暢啟動**：確認訪問 `http://{伺服器IP}:3020/health` 回傳 `{"ok":true}`。
+1.  **確保 API 與 DB 順暢啟動**：確認訪問 `/health` 回傳 `{"ok":true}`。
 2.  **單筆 fetch 測試 (資料抓取)**：
     在 `/jobs/fetch` 的 Request Body 中輸入：
     ```json
@@ -177,7 +123,95 @@ curl http://GL552VW_TAILSCALE_IP:3020/health
       "startPage": 1
     }
     ```
-    點擊 `Send Request` 執行，並使用 **Beekeeper Studio** 直連資料庫（埠口 `5432`），人工確認 `gazettes` 與 `agendas` 表是否有成功寫入公報發言。
+    點擊 `Send Request` 執行，確認 `gazettes` 與 `agendas` 表是否有成功寫入公報發言。
+3.  **單筆 analyze 測試 (AI 大綱分析)**：
+    在 `/jobs/analyze` 的 Request Body 中輸入：
+    ```json
+    {
+      "limit": 1
+    }
+    ```
+    點擊 `Send Request`。檢查是否成功調用 Gemini 生成摘要 JSON。
+4.  **增量部署檢查測試**：
+    在 `/jobs/deploy-check` 的 Request Body 中輸入：
+    ```json
+    {
+      "dryRun": true
+    }
+    ```
+    點擊 `Send Request`，確認回傳格式正確，顯示 `shouldDeploy: true`、`newCompletedAnalyses: 1` 且無任何報錯！
+
+---
+
+## 9. 系統自動化排程 (Systemd Timer & Service)
+
+LYZER V2 採用高可用、無重疊且兼顧效能與資安的 **Systemd Timer** 來進行生產環境的自動化任務調度。
+
+我們在 `ops/systemd/` 底下註冊了 3 對 Timer 與 Service 排程：
+
+### A. 自動化排程列表與觸發時間
+1.  **每日凌晨 02:00：`lyzer-fetch.timer`**
+    * 呼叫 `POST /jobs/fetch` 增量抓取最新 3 頁公報。
+2.  **每隔 5 分鐘：`lyzer-analyze.timer`**
+    * 呼叫 `POST /jobs/analyze` 分析 1 筆掛起資料。
+    * **🔒 Concurrency Protection**：腳本內置了 `flock` 檔案排他鎖（File Lock），當前一次分析尚未結束時，新一輪的定時器將會自動跳過（Safe Exit），絕對不會造成 API 額度超用或分析重疊！
+3.  **每日凌晨 05:00：`lyzer-deploy-check.timer`**
+    * 呼叫 `POST /jobs/deploy-check` 執行增量部署檢查。
+    * **💡 智慧節流**：只有在「有新的 completed analysis」時，才會主動對 Cloudflare 發送 Deploy Hook 觸發雲端重建，否則自動跳過，不產生任何無意義的編譯負擔。
+
+### B. 一鍵安裝與自動更新排程 (Production Installer & Updater)
+我們在 `ops/` 底下維護了一支一鍵式排程管理器 **[install-systemd.sh](file:///c:/Users/Administrator/Desktop/ly/lyzer/ops/install-systemd.sh)**，它會自動為您處理所有權限設定、目錄建立、腳本複製與 systemd 重載，完美省去每次改動排程都要手動執行多條 `cp` 指令的困擾。
+
+#### 1. 初次安裝或更新排程
+每當您修改了 scripts 腳本、新增 timer、或是 Dockhand 更新了 git-repos 代碼後，請至本機 repo 目錄直接執行此一鍵管理腳本：
+```bash
+cd /var/lib/docker/volumes/dockhand_dockhand_data/_data/git-repos/local/lyzer
+sudo ./ops/install-systemd.sh
+```
+
+這支指令會自動：
+* 建立 `/home/cytpress/lyzer/scripts` 目錄並安全複製腳本。
+* 設定所有 scripts 的執行權限 (`chmod 755`)。
+* 將 systemd timer / service 配置安裝至 `/etc/systemd/system/`。
+* **🔒 密鑰安全防護**：只有在 `/home/cytpress/lyzer/.env.scheduler` **不存在**時，才會從 `.env.scheduler.example` 複製範本；若該設定檔已存在，則只會確保其 `600` 安全唯讀權限，**絕對不會覆蓋您已在生產環境設定好的敏感金鑰**。
+* 重載 systemd daemon 並立即啟用三個計時器 (`enable --now`)。
+
+#### 2. 配置環境變數
+如果是第一次安裝，請使用文字編輯器編輯排程環境變數，配置您的本地 API 位址與連線設定：
+```bash
+sudo nano /home/cytpress/lyzer/.env.scheduler
+```
+請確保填入正確的 `API_BASE`，預設為本機迴路：
+```env
+API_BASE=http://127.0.0.1:3020
+FETCH_PAGES=3
+ANALYZE_LIMIT=1
+```
+
+#### 3. 查看狀態與觀測日誌
+* **文字終端機**：
+  * 檢視所有排程：`systemctl list-timers 'lyzer-*'`
+  * 觀測即時日誌：`journalctl -u lyzer-analyze.service -f --no-pager`
+* **Cockpit 網頁控制台 (極力推薦！)**：
+  * 登入您的 **Cockpit 控制台**。
+  * 點選 **「Services (服務)」** ➔ 選擇 **「Timers (計時器)」** 標籤。
+  * 在搜尋框輸入 `lyzer`，即可一目了然看見三個 Timer 的剩餘執行時間、上次執行時間、手動點擊執行（Run Now），以及查看完美的實時日誌！
+
+---
+
+## 10. Cloudflare Pages 雲端編譯 (SSG)
+
+前端網頁完全託管在 **Cloudflare Pages** 平台，透過 **Git Integration** 直接與 GitHub 連動。
+
+### 部署勾點 (Deploy Hook)
+當後端 `/jobs/deploy-check` 判定需要更新網頁時，會直接在後端發送 POST 請求至您在 Cloudflare Pages 後台所建立的 **Deploy Hook 網址**。
+這會自動讓 Cloudflare Pages 在雲端以最乾淨的環境拉取最新 v2 分支進行 SSG 編譯，不佔用您本機伺服器的任何 CPU/RAM 資源！
+
+---
+
+## 11. 常見問題
+
+### API 連不到 Postgres� `Send Request` 執行，並使用 **Beekeeper Studio** 直連資料庫（埠口 `5432`），人工確認 `gazettes` 與 `agendas` 表是否有成功寫入公報發言。
 3.  **單筆 analyze 測試 (AI 大綱分析)**：
     在 `/jobs/analyze` 的 Request Body 中輸入：
     ```json
