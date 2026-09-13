@@ -124,12 +124,20 @@ function initBookmarks(): void {
   syncBookmarkButtons();
 }
 
-async function loadMiniSearch(): Promise<MiniSearch | null> {
+async function loadMiniSearch(): Promise<MiniSearch[] | null> {
   try {
     const response = await fetch("/search-index.json");
     if (!response.ok) throw new Error(`search-index ${response.status}`);
-    const payload = (await response.json()) as { index: string };
-    return MiniSearch.loadJSON(payload.index, miniSearchOptions);
+    const payload = (await response.json()) as { chunks: string[] };
+    return Promise.all(
+      payload.chunks.map(async (chunk) => {
+        const chunkResponse = await fetch(chunk);
+        if (!chunkResponse.ok)
+          throw new Error(`search-index chunk ${chunkResponse.status}`);
+        const chunkPayload = (await chunkResponse.json()) as { index: string };
+        return MiniSearch.loadJSON(chunkPayload.index, miniSearchOptions);
+      })
+    );
   } catch (error) {
     console.warn(error);
     return null;
@@ -178,7 +186,7 @@ function initSearchPage(): void {
 
   if (!list || !count || !empty || !pagination) return;
 
-  let miniSearch: MiniSearch | null = null;
+  let miniSearch: MiniSearch[] | null = null;
   let currentPage = 1;
   let selectedCommittee = "";
   let currentQuery = new URL(window.location.href).searchParams.get("q") ?? "";
@@ -197,7 +205,8 @@ function initSearchPage(): void {
     const base =
       query && miniSearch
         ? miniSearch
-            .search(expandQuery(query))
+            .flatMap((index) => index.search(expandQuery(query)))
+            .sort((left, right) => right.score - left.score)
             .map((result) => itemById.get(String(result.id)))
             .filter((agenda): agenda is HomepageAgenda => Boolean(agenda))
         : [...agendas];

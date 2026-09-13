@@ -1,4 +1,5 @@
 import type { Options } from "minisearch";
+import type { HomepageAgenda } from "../types";
 
 export interface SearchDocument {
   id: string;
@@ -14,6 +15,8 @@ export interface SearchDocument {
   respondents: string;
   resultAndNextSteps: string;
 }
+
+export const SEARCH_INDEX_CHUNK_SIZE = 1000;
 
 const cjkPattern = /[\u3400-\u9fff]/;
 const chunksPattern = /[\u3400-\u9fff]+|[a-z0-9]+/gi;
@@ -55,6 +58,23 @@ export function expandQuery(query: string): string {
     }
   }
   return expanded;
+}
+
+export function toSearchDocument(agenda: HomepageAgenda): SearchDocument {
+  return {
+    id: agenda.agendaId,
+    agendaId: agenda.agendaId,
+    gazetteId: agenda.gazetteId,
+    meetingDate: agenda.meetingDate,
+    committee: agenda.committee,
+    summaryTitle: agenda.summaryTitle,
+    overallSummary: agenda.overallSummary,
+    subject: agenda.subject,
+    agendaItems: agenda.agendaItems.join(" "),
+    legislators: agenda.legislators.join(" "),
+    respondents: agenda.respondents.join(" "),
+    resultAndNextSteps: agenda.resultAndNextSteps.join(" "),
+  };
 }
 
 export const miniSearchOptions: Options<SearchDocument> = {
