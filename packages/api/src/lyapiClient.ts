@@ -26,16 +26,75 @@ function createUrl(pathname: string, params: Record<string, string | number | un
   return url;
 }
 
-async function fetchJson(url: URL): Promise<JsonObject> {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer)",
-    },
+const LYAPI_REQUEST_INTERVAL_MS = 1_000;
+const LYAPI_429_MAX_RETRIES = 3;
+const LYAPI_429_FALLBACK_DELAYS_MS = [30_000, 60_000, 120_000] as const;
+
+let nextLyapiRequestAt = 0;
+let lyapiRequestQueue: Promise<void> = Promise.resolve();
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function scheduleLyapiRequest<T>(request: () => Promise<T>): Promise<T> {
+  const scheduledRequest = lyapiRequestQueue.then(async () => {
+    const waitMilliseconds = Math.max(0, nextLyapiRequestAt - Date.now());
+    if (waitMilliseconds > 0) await sleep(waitMilliseconds);
+
+    try {
+      return await request();
+    } finally {
+      nextLyapiRequestAt = Date.now() + LYAPI_REQUEST_INTERVAL_MS;
+    }
   });
-  if (!response.ok) {
-    throw new Error(`LYAPI request failed ${response.status}: ${url.toString()}`);
+
+  lyapiRequestQueue = scheduledRequest.then(
+    () => undefined,
+    () => undefined
+  );
+
+  return scheduledRequest;
+}
+
+function get429RetryDelay(response: Response, retryCount: number): number {
+  const retryAfter = response.headers.get("Retry-After")?.trim();
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+
+    const retryAt = Date.parse(retryAfter);
+    if (Number.isFinite(retryAt)) return Math.max(0, retryAt - Date.now());
   }
-  return asObject(await response.json());
+
+  return LYAPI_429_FALLBACK_DELAYS_MS[Math.min(retryCount, LYAPI_429_FALLBACK_DELAYS_MS.length - 1)];
+}
+
+async function fetchJson(url: URL): Promise<JsonObject> {
+  for (let retryCount = 0; ; retryCount += 1) {
+    const response = await scheduleLyapiRequest(() =>
+      fetch(url, {
+        headers: {
+          "User-Agent": "LyzerBot (+https://github.com/cytpress/lyzer)",
+        },
+      })
+    );
+
+    if (response.status === 429) {
+      if (retryCount >= LYAPI_429_MAX_RETRIES) {
+        throw new Error(`LYAPI request failed 429 after ${retryCount} retries: ${url.toString()}`);
+      }
+
+      await sleep(get429RetryDelay(response, retryCount));
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`LYAPI request failed ${response.status}: ${url.toString()}`);
+    }
+
+    return asObject(await response.json());
+  }
 }
 
 export function extractProcessedUrls(raw: JsonObject, type?: "parsed" | "txt"): ProcessedUrl[] {
