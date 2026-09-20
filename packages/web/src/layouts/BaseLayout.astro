@@ -4,10 +4,14 @@ import "../styles/global.css";
 interface Props {
   title?: string;
   description?: string;
+  noindex?: boolean;
 }
 
-const { title = "lyzer", description = "lyzer 將立法院委員會紀錄整理成可搜尋、可收藏、可快速理解的摘要。" } =
-  Astro.props;
+const {
+  title = "lyzer",
+  description = "lyzer 將立法院委員會紀錄整理成可搜尋、可收藏、可快速理解的摘要。",
+  noindex = false,
+} = Astro.props;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
 ---
 
@@ -16,6 +20,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
   <head>
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href={canonicalUrl} />
@@ -56,10 +61,6 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
         </form>
 
         <nav class="flex shrink-0 items-center text-sm font-medium text-neutral-700" aria-label="主選單">
-          <a
-            class="hidden rounded-lg px-3 py-2 hover:bg-neutral-100 hover:text-neutral-950 lg:inline-flex"
-            href="/legislators">立委名冊</a
-          >
           <a class="rounded-lg px-3 py-2 hover:bg-neutral-100 hover:text-neutral-950" href="/bookmarks">我的收藏</a>
           <a class="rounded-lg px-3 py-2 hover:bg-neutral-100 hover:text-neutral-950" href="/about">關於本站</a>
         </nav>
