@@ -1,6 +1,6 @@
-FROM node:26-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /app
-RUN npm i -g pnpm@11.0.9
+RUN corepack enable && corepack install --global pnpm@12.5.1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/api/package.json packages/api/package.json

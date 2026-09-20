@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "packageManager": "pnpm@11.0.9",
+  "packageManager": "pnpm@12.5.1",
   "scripts": {
     "dev:api": "pnpm --filter @lyzer/api dev",
     "dev:web": "pnpm --filter @lyzer/web dev",
