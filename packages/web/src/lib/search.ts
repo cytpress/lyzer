@@ -81,6 +81,7 @@ export const miniSearchOptions: Options<SearchDocument> = {
   fields: [
     "summaryTitle",
     "overallSummary",
+    "meetingDate",
     "committee",
     "subject",
     "agendaItems",
