@@ -57,14 +57,59 @@ ANALYZE_LIMIT
 
 手動執行時，應從 Dockhand 開啟 scheduler container shell，再執行 `/app/scripts/lyzer-fetch.sh`、`/app/scripts/lyzer-analyze.sh` 或 `/app/scripts/lyzer-deploy-check.sh`。這些腳本會沿用 container 內的 API URL 與 token。
 
-## 更新與驗證
+## 日常開發
 
-一般更新流程：
+正式開發分支是 `v2`。一般變更建議建立短期 feature branch，完成後用 Pull Request 合併到 `v2`；小型維運修正也可直接 commit 到 `v2`。commit 使用 Conventional Commits，例如 `feat: 新增搜尋功能`、`fix: 修正部署設定`，並在 body 用項目符號補充細節。
 
-1. 將變更 push 到 GitHub `v2`。
-2. 等 GitHub Actions 通過。
-3. 在 Dockhand 對 Lyzer Git Stack 執行 update/redeploy；完成 webhook 後可由 CI 自動觸發同一動作。
-4. 確認四個 container 都是 healthy/running，並檢查 scheduler 與 API logs。
+首次安裝或切換工具鏈：
+
+```bash
+cd /home/cytpress/projects/lyzer
+fnm use
+corepack enable
+pnpm install --frozen-lockfile
+```
+
+提交前至少執行：
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm --filter @lyzer/api build
+```
+
+只開發網站時，可以直接讀正式的公開 SSG API：
+
+```bash
+SSG_API_BASE=https://api.lyzer.tw pnpm dev:web
+```
+
+開發 API、migration 或 job 時，必須準備獨立的開發 PostgreSQL，並用 `DATABASE_URL` 明確指向它，再執行 `pnpm dev:api`。不要把測試 migration、fetch 或 analyze 指向正式的 `lyzer_postgres_data`。
+
+## 程式更新與部署
+
+網站與 Ubuntu 服務是兩條部署路徑：
+
+1. 將變更 push 或合併到 GitHub `v2`。
+2. GitHub Actions 執行 lint、型別檢查、API build 與 Compose 驗證。
+3. Cloudflare Pages 的 Git 整合會自動建置 `v2`，更新 `lyzer.pages.dev` 與 `lyzer.tw` 的網站內容。
+4. GitHub Actions 通過後，若變更涉及 API、scheduler、Dockerfile 或 Compose，進入 Dockhand 的 `lyzer` Git Stack 按 update/deploy。
+5. 只修改網站時，不需要重新部署 Ubuntu stack。
+6. 確認四個 container 都是 healthy/running，並檢查 scheduler 與 API logs。
+
+目前 Dockhand 採人工一鍵部署，沒有開啟公開 webhook。這可避免 CI 尚未完成時自動更新 Ubuntu。若日後要全自動化，應讓 CI 成功後再呼叫受保護的 Dockhand webhook。
+
+## 資料更新與網站重建
+
+資料更新不需要 commit 或部署程式：
+
+1. scheduler 定期抓取 LYAPI 資料並分析待處理議程。
+2. 每天的 deploy-check 發現新的完成資料後，呼叫 Cloudflare Pages deploy hook。
+3. Pages 從 `api.lyzer.tw` 讀取最新資料，重新產生 Astro 靜態頁面。
+
+需要立刻更新網站資料時，可在 Dockhand 的 scheduler container 手動執行 `/app/scripts/lyzer-deploy-check.sh`。
+
+## 部署驗證
 
 部署後的基本檢查：
 
