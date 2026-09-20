@@ -4,6 +4,7 @@ set -euo pipefail
 API_BASE="${API_BASE:-http://127.0.0.1:3020}"
 ANALYZE_LIMIT="${ANALYZE_LIMIT:-1}"
 LOCK_FILE="${LOCK_FILE:-/tmp/lyzer-analyze.lock}"
+: "${LYZER_JOB_TOKEN:?LYZER_JOB_TOKEN is required}"
 
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
@@ -15,6 +16,7 @@ echo "[$(date -Is)] Analyze pending agendas"
 
 curl --fail --show-error --silent \
   -X POST "$API_BASE/jobs/analyze" \
+  -H "Authorization: Bearer $LYZER_JOB_TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"limit\":${ANALYZE_LIMIT}}"
 

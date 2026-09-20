@@ -1,7 +1,6 @@
 .env
 .env.*
 !.env.example
-!.env.scheduler.example
 
 docs/
 

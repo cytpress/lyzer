@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-lyzer_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -32,10 +32,38 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL_NAME: ${GEMINI_MODEL_NAME}
       CLOUDFLARE_DEPLOY_HOOK_URL: ${CLOUDFLARE_DEPLOY_HOOK_URL}
+      LYZER_JOB_TOKEN: ${LYZER_JOB_TOKEN}
     ports:
-      - "3020:3000"
+      - "127.0.0.1:3020:3000"
     depends_on:
       postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: ops/scheduler/Dockerfile
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Taipei
+      API_BASE: http://api:3000
+      FETCH_PAGES: ${FETCH_PAGES:-3}
+      ANALYZE_LIMIT: ${ANALYZE_LIMIT:-1}
+      LYZER_JOB_TOKEN: ${LYZER_JOB_TOKEN}
+    depends_on:
+      api:
         condition: service_healthy
 
   tunnel:
@@ -45,7 +73,8 @@ services:
     environment:
       - TUNNEL_TOKEN=${TUNNEL_TOKEN}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

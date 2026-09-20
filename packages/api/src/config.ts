@@ -26,4 +26,5 @@ export const config = {
   analyzeBatchSize: readInt("ANALYZE_BATCH_SIZE", 3),
   ssgApiBase: process.env.SSG_API_BASE ?? "http://127.0.0.1:3000",
   cloudflareDeployHookUrl: process.env.CLOUDFLARE_DEPLOY_HOOK_URL ?? "",
+  jobToken: process.env.LYZER_JOB_TOKEN ?? "",
 };

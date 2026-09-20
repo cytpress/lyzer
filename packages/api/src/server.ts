@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { config } from "./config.js";
 import { closeDb } from "./db.js";
@@ -6,12 +7,35 @@ import { analyzePendingAgendas } from "./jobs/analyze.js";
 import { fetchNewGazettes } from "./jobs/fetch.js";
 import { deployCheck } from "./jobs/deployCheck.js";
 import { migrate } from "./schema.js";
-import { getAgendaDetail, getAgendaDetailsPage, getAgendaIds, getCommittees, getHomepageAgendas, getLegislatorStats } from "./ssg.js";
+import {
+  getAgendaDetail,
+  getAgendaDetailsPage,
+  getAgendaIds,
+  getCommittees,
+  getHomepageAgendas,
+  getLegislatorStats,
+} from "./ssg.js";
 const app = new Hono();
+
+function hasValidJobToken(authorization: string | undefined): boolean {
+  if (!config.jobToken || !authorization?.startsWith("Bearer ")) return false;
+
+  const suppliedToken = authorization.slice("Bearer ".length);
+  const expected = Buffer.from(config.jobToken);
+  const supplied = Buffer.from(suppliedToken);
+
+  return expected.length === supplied.length && timingSafeEqual(expected, supplied);
+}
 
 const openApiSpec = {
   openapi: "3.0.0",
   info: { title: "Lyzer API Control Panel (Scalar)", version: "0.2.0" },
+  components: {
+    securitySchemes: {
+      jobToken: { type: "http", scheme: "bearer" },
+    },
+  },
+  security: [{ jobToken: [] }],
   paths: {
     "/jobs/fetch": {
       post: {
@@ -108,6 +132,14 @@ app.get("/lyzer-console", (c) => {
 
 app.get("/health", (c) => c.json({ ok: true }));
 
+app.use("/jobs/*", async (c, next) => {
+  if (!hasValidJobToken(c.req.header("Authorization"))) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+
+  await next();
+});
+
 app.post("/jobs/fetch", async (c) => {
   const body = await c.req
     .json<{ pages?: number; startPage?: number }>()
@@ -125,9 +157,7 @@ app.post("/jobs/analyze", async (c) => {
 });
 
 app.post("/jobs/deploy-check", async (c) => {
-  const body = await c.req
-    .json<{ dryRun?: boolean }>()
-    .catch(() => ({ dryRun: undefined }));
+  const body = await c.req.json<{ dryRun?: boolean }>().catch(() => ({ dryRun: undefined }));
   const result = await deployCheck({ dryRun: body.dryRun });
   return c.json(result);
 });
