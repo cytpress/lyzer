@@ -1,4 +1,5 @@
 import MiniSearch from "minisearch";
+import { getCommitteeStyle } from "../lib/committee";
 import { expandQuery, miniSearchOptions } from "../lib/search";
 import type { HomepageAgenda } from "../types";
 
@@ -53,7 +54,7 @@ function renderBookmarkButton(agendaId: string): string {
   const active = isBookmarked(agendaId);
   return `
     <button
-      class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-500 transition hover:border-neutral-500 hover:text-neutral-900 data-[active=true]:border-amber-300 data-[active=true]:bg-amber-50 data-[active=true]:text-amber-600"
+      class="icon-button"
       type="button"
       data-bookmark-button
       data-agenda-id="${escapeHtml(agendaId)}"
@@ -71,23 +72,24 @@ function renderBookmarkButton(agendaId: string): string {
 function renderAgendaCard(agenda: HomepageAgenda): string {
   const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
   const committee = agenda.committee ?? "委員會";
+  const committeeStyle = getCommitteeStyle(committee);
 
   return `
-    <li class="mx-auto w-11/12 md:w-4/5" data-agenda-card data-agenda-id="${escapeHtml(agenda.agendaId)}">
-      <article class="flex flex-col justify-center rounded-3xl border-2 border-neutral-200 bg-white px-4 py-4 transition-all duration-200 ease-in-out hover:border-neutral-500 md:px-8 md:py-8">
-        <div class="mb-2 flex items-start justify-between gap-4">
-          <a class="min-w-0" href="/gazettes/${encodeURIComponent(agenda.agendaId)}">
-            <h2 class="mb-2 text-lg font-medium leading-snug text-neutral-900 md:text-xl">${escapeHtml(agenda.summaryTitle)}</h2>
+    <li class="page-shell-narrow" data-agenda-card data-agenda-id="${escapeHtml(agenda.agendaId)}">
+      <article class="agenda-card relative flex flex-col justify-center px-4 py-5 md:px-8 md:py-7">
+        <div class="mb-3 flex items-start justify-between gap-4">
+          <a class="min-w-0 after:absolute after:inset-0 after:content-['']" href="/gazettes/${encodeURIComponent(agenda.agendaId)}">
+            <h2 class="text-lg font-medium leading-snug text-neutral-900 md:text-xl">${escapeHtml(agenda.summaryTitle)}</h2>
           </a>
-          ${renderBookmarkButton(agenda.agendaId)}
+          <div class="relative z-10">${renderBookmarkButton(agenda.agendaId)}</div>
         </div>
-        <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-neutral-500 md:text-sm">
-          <span class="rounded-full bg-neutral-100 px-3 py-1 text-neutral-700">${escapeHtml(committee)}</span>
-          <span>${escapeHtml(meetingDate)}</span>
-          <span class="hidden md:inline">/</span>
-          <span class="truncate">${escapeHtml(agenda.gazetteId)}</span>
+        <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
+          <span class="committee-tag" data-tone="${committeeStyle.tone}"><span class="md:hidden">${escapeHtml(committeeStyle.shortName)}</span><span class="hidden md:inline">${escapeHtml(committee)}</span></span>
+          <span>會議日期：${escapeHtml(meetingDate)}</span>
+          <span class="hidden text-neutral-300 md:inline">／</span>
+          <span class="hidden truncate md:inline">${escapeHtml(agenda.gazetteId)}</span>
         </div>
-        <p class="line-clamp-2 text-sm leading-relaxed text-neutral-600 md:line-clamp-3">${escapeHtml(
+        <p class="line-clamp-2 text-sm leading-7 text-neutral-600 md:line-clamp-3">${escapeHtml(
           agenda.overallSummary || agenda.subject || "此議程尚無摘要。"
         )}</p>
       </article>
@@ -274,9 +276,7 @@ function initSearchPage(): void {
     buttons.forEach((button) => {
       const active = (button.dataset.committee ?? "") === selectedCommittee;
       button.dataset.active = active ? "true" : "false";
-      button.className = active
-        ? "rounded-full border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm text-white transition"
-        : "rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-600 transition hover:border-neutral-500 hover:text-neutral-900";
+      button.className = "filter-chip";
     });
   };
 
