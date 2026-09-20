@@ -1,0 +1,1 @@
+export const AGENDA_CATALOG_CHUNK_SIZE = 1000;

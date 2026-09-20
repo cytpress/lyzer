@@ -4,6 +4,8 @@ import type { HomepageAgenda } from "../types";
 
 const BOOKMARK_STORAGE_KEY = "lyzer-bookmarks";
 const PAGE_SIZE = 10;
+let agendaCatalogPromise: Promise<HomepageAgenda[]> | null = null;
+let miniSearchPromise: Promise<MiniSearch[] | null> | null = null;
 
 function readJsonScript<T>(id: string): T | null {
   const element = document.getElementById(id);
@@ -125,6 +127,13 @@ function initBookmarks(): void {
 }
 
 async function loadMiniSearch(): Promise<MiniSearch[] | null> {
+  if (miniSearchPromise) return miniSearchPromise;
+
+  miniSearchPromise = loadMiniSearchChunks();
+  return miniSearchPromise;
+}
+
+async function loadMiniSearchChunks(): Promise<MiniSearch[] | null> {
   try {
     const response = await fetch("/search-index.json");
     if (!response.ok) throw new Error(`search-index ${response.status}`);
@@ -132,8 +141,7 @@ async function loadMiniSearch(): Promise<MiniSearch[] | null> {
     return Promise.all(
       payload.chunks.map(async (chunk) => {
         const chunkResponse = await fetch(chunk);
-        if (!chunkResponse.ok)
-          throw new Error(`search-index chunk ${chunkResponse.status}`);
+        if (!chunkResponse.ok) throw new Error(`search-index chunk ${chunkResponse.status}`);
         const chunkPayload = (await chunkResponse.json()) as { index: string };
         return MiniSearch.loadJSON(chunkPayload.index, miniSearchOptions);
       })
@@ -142,6 +150,47 @@ async function loadMiniSearch(): Promise<MiniSearch[] | null> {
     console.warn(error);
     return null;
   }
+}
+
+async function loadAgendaCatalog(): Promise<HomepageAgenda[]> {
+  if (agendaCatalogPromise) return agendaCatalogPromise;
+
+  agendaCatalogPromise = (async () => {
+    const response = await fetch("/agenda-catalog.json");
+    if (!response.ok) throw new Error(`agenda-catalog ${response.status}`);
+    const payload = (await response.json()) as { chunks: string[] };
+    const chunks = await Promise.all(
+      payload.chunks.map(async (chunk) => {
+        const chunkResponse = await fetch(chunk);
+        if (!chunkResponse.ok) throw new Error(`agenda-catalog chunk ${chunkResponse.status}`);
+        return (await chunkResponse.json()) as HomepageAgenda[];
+      })
+    );
+    return chunks.flat();
+  })();
+
+  return agendaCatalogPromise;
+}
+
+function agendaFromSearchResult(result: Record<string, unknown>): HomepageAgenda | null {
+  const agendaId = typeof result.agendaId === "string" ? result.agendaId : String(result.id ?? "");
+  if (!agendaId) return null;
+
+  return {
+    agendaId,
+    gazetteId: typeof result.gazetteId === "string" ? result.gazetteId : "",
+    meetingDates: [],
+    meetingDate: typeof result.meetingDate === "string" ? result.meetingDate : null,
+    subject: typeof result.subject === "string" ? result.subject : null,
+    committee: typeof result.committee === "string" ? result.committee : null,
+    summaryTitle: typeof result.summaryTitle === "string" ? result.summaryTitle : agendaId,
+    overallSummary: typeof result.overallSummary === "string" ? result.overallSummary : "",
+    agendaItems: [],
+    legislators: [],
+    respondents: [],
+    resultAndNextSteps: [],
+    analyzedAt: null,
+  };
 }
 
 function setUrlQuery(query: string): void {
@@ -172,8 +221,8 @@ function initSearchPage(): void {
   const root = document.querySelector<HTMLElement>("[data-search-page]");
   if (!root) return;
 
-  const agendas = readJsonScript<HomepageAgenda[]>("lyzer-agendas-data") ?? [];
-  const itemById = new Map(agendas.map((agenda) => [agenda.agendaId, agenda]));
+  let agendas = readJsonScript<HomepageAgenda[]>("lyzer-agendas-data") ?? [];
+  const totalAgendaCount = Number(root.dataset.totalCount ?? agendas.length);
   const input = root.querySelector<HTMLInputElement>("[data-search-input]");
   const headerInput = document.querySelector<HTMLInputElement>("[data-header-search-input]");
   const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-committee-button]"));
@@ -190,6 +239,9 @@ function initSearchPage(): void {
   let currentPage = 1;
   let selectedCommittee = "";
   let currentQuery = new URL(window.location.href).searchParams.get("q") ?? "";
+  let catalogLoaded = false;
+  let loadingCatalog = false;
+  let loadingSearch = false;
 
   if (input) input.value = currentQuery;
   if (headerInput) headerInput.value = currentQuery;
@@ -207,7 +259,7 @@ function initSearchPage(): void {
         ? miniSearch
             .flatMap((index) => index.search(expandQuery(query)))
             .sort((left, right) => right.score - left.score)
-            .map((result) => itemById.get(String(result.id)))
+            .map((result) => agendaFromSearchResult(result as Record<string, unknown>))
             .filter((agenda): agenda is HomepageAgenda => Boolean(agenda))
         : [...agendas];
 
@@ -262,20 +314,57 @@ function initSearchPage(): void {
 
   const render = () => {
     const results = filtered();
-    const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+    const isInitialCatalog = !catalogLoaded && !currentQuery && !selectedCommittee;
+    const resultCount = isInitialCatalog ? totalAgendaCount : results.length;
+    const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
     currentPage = Math.min(currentPage, totalPages);
     const start = (currentPage - 1) * PAGE_SIZE;
     const visible = results.slice(start, start + PAGE_SIZE);
 
-    count.textContent = `${results.length} 筆摘要`;
+    count.textContent = `${resultCount} 筆摘要`;
     if (status)
-      status.textContent =
-        currentQuery && !miniSearch ? "搜尋索引載入中" : currentQuery ? `搜尋「${currentQuery}」` : "";
+      status.textContent = loadingCatalog
+        ? "載入摘要資料中"
+        : loadingSearch
+          ? "載入搜尋索引中"
+          : currentQuery
+            ? `搜尋「${currentQuery}」`
+            : "";
     list.innerHTML = visible.map(renderAgendaCard).join("");
     empty.hidden = visible.length > 0;
     renderPagination(totalPages);
     syncCommitteeButtons();
     syncBookmarkButtons(list);
+  };
+
+  const ensureCatalog = async () => {
+    if (catalogLoaded) return;
+    const startedLoading = !loadingCatalog;
+    if (startedLoading) {
+      loadingCatalog = true;
+      render();
+    }
+    try {
+      agendas = await loadAgendaCatalog();
+      catalogLoaded = true;
+    } catch (error) {
+      console.warn(error);
+      if (status) status.textContent = "摘要資料載入失敗，請稍後再試";
+    } finally {
+      if (startedLoading) {
+        loadingCatalog = false;
+        render();
+      }
+    }
+  };
+
+  const ensureSearch = async () => {
+    if (miniSearch || loadingSearch) return;
+    loadingSearch = true;
+    render();
+    miniSearch = await loadMiniSearch();
+    loadingSearch = false;
+    render();
   };
 
   const updateQuery = (query: string) => {
@@ -287,42 +376,51 @@ function initSearchPage(): void {
     render();
   };
 
-  input?.addEventListener("input", () => updateQuery(input.value));
-  headerInput?.addEventListener("input", () => updateQuery(headerInput.value));
-  sortSelect?.addEventListener("change", () => render());
+  input?.addEventListener("input", () => {
+    updateQuery(input.value);
+    if (input.value.trim()) void ensureSearch();
+  });
+  headerInput?.addEventListener("input", () => {
+    updateQuery(headerInput.value);
+    if (headerInput.value.trim()) void ensureSearch();
+  });
+  sortSelect?.addEventListener("change", () => {
+    if (!currentQuery) void ensureCatalog();
+    else render();
+  });
   buttons.forEach((button) => {
     button.addEventListener("click", () => {
       selectedCommittee = button.dataset.committee ?? "";
       currentPage = 1;
-      render();
+      void ensureCatalog();
     });
   });
   pagination.addEventListener("click", (event) => {
     const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-page]");
     if (!button?.dataset.page) return;
-    currentPage = Number(button.dataset.page);
-    render();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const targetPage = Number(button.dataset.page);
+    const showPage = () => {
+      currentPage = targetPage;
+      render();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    if (!catalogLoaded && !currentQuery) void ensureCatalog().then(showPage);
+    else showPage();
   });
 
   render();
-  void loadMiniSearch().then((index) => {
-    miniSearch = index;
-    render();
-  });
+  if (currentQuery) void ensureSearch();
 }
 
 function initBookmarksPage(): void {
   const root = document.querySelector<HTMLElement>("[data-bookmarks-page]");
   if (!root) return;
 
-  const agendas = readJsonScript<HomepageAgenda[]>("lyzer-agendas-data") ?? [];
-  const itemById = new Map(agendas.map((agenda) => [agenda.agendaId, agenda]));
   const list = root.querySelector<HTMLElement>("[data-bookmarks-list]");
   const empty = root.querySelector<HTMLElement>("[data-empty-state]");
   if (!list || !empty) return;
 
-  const render = () => {
+  const render = (itemById: Map<string, HomepageAgenda>) => {
     const bookmarked = readBookmarks()
       .map((id) => itemById.get(id))
       .filter((agenda): agenda is HomepageAgenda => Boolean(agenda));
@@ -331,9 +429,26 @@ function initBookmarksPage(): void {
     syncBookmarkButtons(list);
   };
 
-  window.addEventListener("lyzer-bookmarks-changed", render);
-  window.addEventListener("storage", render);
-  render();
+  const bookmarkIds = readBookmarks();
+  if (bookmarkIds.length === 0) {
+    empty.hidden = false;
+    return;
+  }
+
+  empty.textContent = "正在載入收藏的議事摘要…";
+  void loadAgendaCatalog()
+    .then((agendas) => {
+      const itemById = new Map(agendas.map((agenda) => [agenda.agendaId, agenda]));
+      const rerender = () => render(itemById);
+      window.addEventListener("lyzer-bookmarks-changed", rerender);
+      window.addEventListener("storage", rerender);
+      empty.textContent = "目前沒有收藏的議事摘要。";
+      rerender();
+    })
+    .catch((error) => {
+      console.warn(error);
+      empty.textContent = "收藏資料載入失敗，請稍後再試。";
+    });
 }
 
 initHeaderSearch();

@@ -88,7 +88,7 @@ export const miniSearchOptions: Options<SearchDocument> = {
     "respondents",
     "resultAndNextSteps",
   ],
-  storeFields: ["agendaId", "summaryTitle", "overallSummary", "committee", "meetingDate"],
+  storeFields: ["agendaId", "gazetteId", "summaryTitle", "overallSummary", "subject", "committee", "meetingDate"],
   searchOptions: {
     boost: {
       summaryTitle: 3,
