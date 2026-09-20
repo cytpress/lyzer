@@ -79,6 +79,21 @@ input[type="search"]::-webkit-search-cancel-button {
   display: none;
 }
 
+.header-search-form {
+  display: none;
+}
+
+.header-search-field {
+  position: relative;
+  display: block;
+  width: 6rem;
+  transition: width 300ms ease-in-out;
+}
+
+.header-search-field:focus-within {
+  width: 15rem;
+}
+
 .keyword {
   background: linear-gradient(transparent 58%, #fde68a 58%);
   font-weight: 600;
@@ -286,6 +301,10 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 @media (min-width: 768px) {
+  .header-search-form {
+    display: block;
+  }
+
   .page-shell,
   .page-shell-narrow {
     width: min(calc(100% - 4rem), var(--page-max));

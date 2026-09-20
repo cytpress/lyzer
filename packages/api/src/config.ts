@@ -22,7 +22,7 @@ export const config = {
   lyapiGazetteLimit: readInt("LYAPI_GAZETTE_LIMIT", 20),
   lyapiAgendaLimit: readInt("LYAPI_AGENDA_LIMIT", 100),
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModelName: process.env.GEMINI_MODEL_NAME ?? "gemini-3-flash-preview",
+  geminiModelName: process.env.GEMINI_MODEL_NAME ?? "gemini-3.5-flash-lite",
   analyzeBatchSize: readInt("ANALYZE_BATCH_SIZE", 3),
   ssgApiBase: process.env.SSG_API_BASE ?? "http://127.0.0.1:3000",
   cloudflareDeployHookUrl: process.env.CLOUDFLARE_DEPLOY_HOOK_URL ?? "",

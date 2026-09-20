@@ -2,23 +2,38 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
 
-<BaseLayout title="關於 | lyzer">
-  <section class="mx-auto grid w-11/12 gap-8 md:w-4/5 md:grid-cols-[1fr_0.75fr]">
-    <div>
-      <p class="mb-2 text-sm text-neutral-500">about lyzer</p>
-      <h1 class="mb-6 text-3xl leading-tight font-semibold tracking-normal text-neutral-950 md:text-5xl">關於</h1>
-      <p class="text-base leading-8 text-neutral-600">
-        lyzer
-        將立法院委員會紀錄整理成較容易閱讀的摘要，協助使用者理解一場會議討論了什麼、各方如何回應，以及後續處理狀態。
+<BaseLayout title="關於 LYZER 立院公報摘要 | lyzer">
+  <article class="mx-auto flex w-full flex-col space-y-6 px-6 py-10 md:w-4/5 md:space-y-12 md:px-20 md:py-16">
+    <h1 class="text-2xl font-semibold md:text-3xl">關於 LYZER 立院公報摘要</h1>
+    <section>
+      <h2 class="mb-2 text-lg font-semibold text-neutral-900 md:mb-4 md:text-xl">了解國會，從委員會開始</h2>
+      <p class="mb-2 text-base leading-[180%] text-neutral-800 md:leading-relaxed">
+        立法院的委員會是國家政策與法案被實質形塑的關鍵場域。從法案的逐條討論、預算審查，到對政府部門的質詢，所有重要的審議過程都在這裡發生。然而，對於一般民眾而言，要深入了解這些複雜的討論，有著極高的門檻。
       </p>
-    </div>
-
-    <div class="rounded-3xl border-2 border-neutral-200 p-6">
-      <h2 class="mb-3 text-lg font-medium text-neutral-950">資料流程</h2>
-      <p class="leading-8 text-neutral-600">
-        lyzer 會定期從 LYAPI 抓取公報與議程資料，分析完成後由 Astro 產生靜態頁面並部署到 Cloudflare Pages。
-        公開網站不依賴家中主機 runtime。
+    </section>
+    <section>
+      <h2 class="mb-2 text-lg font-semibold text-neutral-900 md:mb-4 md:text-xl">資訊的鴻溝</h2>
+      <p class="mb-2 text-base leading-[180%] text-neutral-800 md:leading-relaxed">
+        除了新聞媒體的片段報導或社群平台的討論，最直接的原始資訊來源便是立法院的IVOD和官方公報。其中，立法院公報完整記錄了每一次會議的發言細節。但動輒數十甚至上百頁的篇幅，以及資料的查找不便，也加深了想瞭解的難度，因此難以投入時間去閱讀。
       </p>
-    </div>
-  </section>
+    </section>
+    <section>
+      <h2 class="mb-2 text-lg font-semibold text-neutral-900 md:mb-4 md:text-xl">為一般民眾而生的 AI 摘要</h2>
+      <p class="mb-2 text-base leading-[180%] text-neutral-800 md:leading-relaxed">
+        本站的誕生，就是為了解決這個問題。透過大型語言模型（AI）的分析能力，將極長的公報內容，盡量濃縮為簡短、易於理解的摘要。好讓使用者能夠快速瞭解每場會議的議題、爭議、討論過程，將數小時的閱讀時間，縮短成幾分鐘的瀏覽。
+      </p>
+    </section>
+    <section>
+      <h2 class="mb-2 text-lg font-semibold text-neutral-900 md:mb-4 md:text-xl">聯絡我</h2>
+      <p class="mb-1 text-base leading-[180%] text-neutral-800 md:leading-relaxed">
+        若對本站有任何建議、發現任何問題，歡迎透過email與我聯繫。
+      </p>
+      <p class="mb-2 text-base leading-[180%] text-neutral-800 md:leading-relaxed">
+        電子郵件：
+        <a class="text-blue-600 underline hover:text-blue-800" href="mailto:ganymede5035@gmail.com"
+          >ganymede5035@gmail.com</a
+        >
+      </p>
+    </section>
+  </article>
 </BaseLayout>

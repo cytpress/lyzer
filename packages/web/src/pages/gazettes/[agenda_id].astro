@@ -48,6 +48,8 @@ const sourceLinks = [
 
 const chineseNumbers = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
 const itemNumber = (index: number) => chineseNumbers[index] ?? String(index + 1);
+const speakerId = (itemIndex: number, role: "legislator" | "respondent", speakerIndex: number) =>
+  `item-${itemIndex}-${role}-speaker-${speakerIndex}`;
 ---
 
 <BaseLayout title={`${title} | lyzer`} description={analysis.overall_summary_sentence ?? detail.subject ?? title}>
@@ -126,12 +128,19 @@ const itemNumber = (index: number) => chineseNumbers[index] ?? String(index + 1)
                     )}
                   </section>
 
-                  <section id={`item-${index}-legislators`} class="detail-section" data-toc-target>
-                    <h3>立法委員發言</h3>
+                  <section class="detail-section" data-toc-observer-target={`item-${index}-legislators`}>
+                    <h3 id={`item-${index}-legislators`} data-toc-target>
+                      立法委員發言
+                    </h3>
                     {legislators.length > 0 ? (
                       <div class="space-y-6">
-                        {legislators.map((speaker) => (
-                          <section>
+                        {legislators.map((speaker, speakerIndex) => (
+                          <section
+                            id={speakerId(index, "legislator", speakerIndex)}
+                            class="scroll-mt-24"
+                            data-toc-target
+                            data-toc-parent-group={`item-${index}-legislators`}
+                          >
                             <h4>{speakerName(speaker)}</h4>
                             {asArray(speaker.speaker_viewpoint).length > 0 ? (
                               <ul>
@@ -150,12 +159,19 @@ const itemNumber = (index: number) => chineseNumbers[index] ?? String(index + 1)
                     )}
                   </section>
 
-                  <section id={`item-${index}-respondents`} class="detail-section" data-toc-target>
-                    <h3>相關人員回應</h3>
+                  <section class="detail-section" data-toc-observer-target={`item-${index}-respondents`}>
+                    <h3 id={`item-${index}-respondents`} data-toc-target>
+                      相關人員回應
+                    </h3>
                     {respondents.length > 0 ? (
                       <div class="space-y-6">
-                        {respondents.map((speaker) => (
-                          <section>
+                        {respondents.map((speaker, speakerIndex) => (
+                          <section
+                            id={speakerId(index, "respondent", speakerIndex)}
+                            class="scroll-mt-24"
+                            data-toc-target
+                            data-toc-parent-group={`item-${index}-respondents`}
+                          >
                             <h4>{speakerName(speaker)}</h4>
                             {asArray(speaker.speaker_viewpoint).length > 0 ? (
                               <ul>
@@ -247,14 +263,50 @@ const itemNumber = (index: number) => chineseNumbers[index] ?? String(index + 1)
                     </a>
                   </li>
                   <li>
-                    <a class="toc-link" href={`#item-${index}-legislators`}>
+                    <a
+                      class="toc-link"
+                      href={`#item-${index}-legislators`}
+                      data-toc-group-link={`item-${index}-legislators`}
+                    >
                       立法委員發言
                     </a>
+                    {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
+                      <ol
+                        class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                        data-toc-children-for={`item-${index}-legislators`}
+                      >
+                        {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
+                          <li>
+                            <a class="toc-link text-xs" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                              {speakerName(speaker)}
+                            </a>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                   </li>
                   <li>
-                    <a class="toc-link" href={`#item-${index}-respondents`}>
+                    <a
+                      class="toc-link"
+                      href={`#item-${index}-respondents`}
+                      data-toc-group-link={`item-${index}-respondents`}
+                    >
                       相關人員回應
                     </a>
+                    {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
+                      <ol
+                        class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                        data-toc-children-for={`item-${index}-respondents`}
+                      >
+                        {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
+                          <li>
+                            <a class="toc-link text-xs" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                              {speakerName(speaker)}
+                            </a>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
                   </li>
                   <li>
                     <a class="toc-link" href={`#item-${index}-result`}>
@@ -313,14 +365,50 @@ const itemNumber = (index: number) => chineseNumbers[index] ?? String(index + 1)
                   </a>
                 </li>
                 <li>
-                  <a class="toc-link" href={`#item-${index}-legislators`}>
+                  <a
+                    class="toc-link"
+                    href={`#item-${index}-legislators`}
+                    data-toc-group-link={`item-${index}-legislators`}
+                  >
                     立法委員發言
                   </a>
+                  {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
+                    <ol
+                      class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                      data-toc-children-for={`item-${index}-legislators`}
+                    >
+                      {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
+                        <li>
+                          <a class="toc-link text-xs" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                            {speakerName(speaker)}
+                          </a>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                 </li>
                 <li>
-                  <a class="toc-link" href={`#item-${index}-respondents`}>
+                  <a
+                    class="toc-link"
+                    href={`#item-${index}-respondents`}
+                    data-toc-group-link={`item-${index}-respondents`}
+                  >
                     相關人員回應
                   </a>
+                  {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
+                    <ol
+                      class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                      data-toc-children-for={`item-${index}-respondents`}
+                    >
+                      {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
+                        <li>
+                          <a class="toc-link text-xs" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                            {speakerName(speaker)}
+                          </a>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
                 </li>
                 <li>
                   <a class="toc-link" href={`#item-${index}-result`}>

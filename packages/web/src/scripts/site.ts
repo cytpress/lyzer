@@ -464,6 +464,9 @@ function initDetailToc(): void {
   const closeButtons = document.querySelectorAll<HTMLButtonElement>("[data-toc-close]");
   const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-detail-toc] a[href^='#']"));
   const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-target][id]"));
+  const groupTargets = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-observer-target]"));
+  const groupLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-toc-group-link]"));
+  const groupChildren = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-children-for]"));
 
   if (!drawer || !openButton || tocLinks.length === 0) return;
 
@@ -490,18 +493,51 @@ function initDetailToc(): void {
     });
   };
 
+  const setExpandedGroups = (expandedGroups: Set<string>) => {
+    groupChildren.forEach((children) => {
+      const groupId = children.dataset.tocChildrenFor;
+      children.hidden = !groupId || !expandedGroups.has(groupId);
+    });
+    groupLinks.forEach((link) => {
+      const groupId = link.dataset.tocGroupLink;
+      link.dataset.active = groupId && expandedGroups.has(groupId) ? "true" : "false";
+    });
+  };
+
   const observer = new IntersectionObserver(
     (entries) => {
-      const visible = entries
-        .filter((entry) => entry.isIntersecting)
-        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
-      if (visible?.target.id) setActiveLink(visible.target.id);
+      const visible = entries.filter((entry) => entry.isIntersecting);
+      const current = visible[visible.length - 1];
+      if (current?.target.id) setActiveLink(current.target.id);
     },
-    { rootMargin: "-20% 0px -70% 0px" }
+    { rootMargin: "-73px 0px -86% 0px", threshold: 0 }
   );
 
   targets.forEach((target) => observer.observe(target));
-  if (window.location.hash) setActiveLink(decodeURIComponent(window.location.hash.slice(1)));
+
+  const expandedGroups = new Set<string>();
+  const groupObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const groupId = (entry.target as HTMLElement).dataset.tocObserverTarget;
+        if (!groupId) return;
+        if (entry.isIntersecting) expandedGroups.add(groupId);
+        else expandedGroups.delete(groupId);
+      });
+      setExpandedGroups(expandedGroups);
+    },
+    { rootMargin: "-73px 0px -85% 0px", threshold: 0 }
+  );
+  groupTargets.forEach((target) => groupObserver.observe(target));
+
+  if (window.location.hash) {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    setActiveLink(id);
+    const target = document.getElementById(id);
+    const parentGroup = target?.dataset.tocParentGroup;
+    if (parentGroup) expandedGroups.add(parentGroup);
+    setExpandedGroups(expandedGroups);
+  }
 }
 
 initHeaderSearch();
