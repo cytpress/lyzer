@@ -92,10 +92,12 @@ SSG_API_BASE=https://api.lyzer.tw pnpm dev:web
 
 1. 將變更 push 或合併到 GitHub `v2`。
 2. GitHub Actions 執行 lint、型別檢查、API build 與 Compose 驗證。
-3. Cloudflare Pages 的 Git 整合會自動建置 `v2`，更新 `lyzer.pages.dev` 與 `lyzer.tw` 的網站內容。
+3. Cloudflare Pages 的 Git 整合會接收 `v2` push；當變更符合目前的 `packages/web/*` 路徑篩選時，才會自動建置並更新 `lyzer.pages.dev` 與 `lyzer.tw`。其他 commit 在 Pages 顯示為 `Idle` 是正常現象。
 4. GitHub Actions 通過後，若變更涉及 API、scheduler、Dockerfile 或 Compose，進入 Dockhand 的 `lyzer` Git Stack 按 update/deploy。
 5. 只修改網站時，不需要重新部署 Ubuntu stack。
 6. 確認四個 container 都是 healthy/running，並檢查 scheduler 與 API logs。
+
+若根目錄的 `package.json`、lockfile 或共用設定有變更且會影響網站，現有 Pages 路徑篩選不一定會啟動建置；此時應手動觸發 deploy hook，或一併調整 Pages 的 build watch paths。
 
 目前 Dockhand 採人工一鍵部署，沒有開啟公開 webhook。這可避免 CI 尚未完成時自動更新 Ubuntu。若日後要全自動化，應讓 CI 成功後再呼叫受保護的 Dockhand webhook。
 
