@@ -2,8 +2,10 @@
 import AgendaCard from "../components/AgendaCard.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getCommittees, getHomepageAgendas } from "../lib/api";
+import { normalizeCommitteeList } from "../lib/committee";
 
-const [agendas, committees] = await Promise.all([getHomepageAgendas(), getCommittees()]);
+const [agendas, rawCommittees] = await Promise.all([getHomepageAgendas(), getCommittees()]);
+const committees = normalizeCommitteeList(rawCommittees);
 const firstPage = agendas.slice(0, 10);
 const serializedFirstPage = JSON.stringify(firstPage).replaceAll("<", "\\u003c");
 ---

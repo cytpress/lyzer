@@ -1,6 +1,6 @@
 ---
 import BookmarkButton from "./BookmarkButton.astro";
-import { getCommitteeStyle } from "../lib/committee";
+import { getCommitteeStyle, splitCommitteeNames } from "../lib/committee";
 import type { HomepageAgenda } from "../types";
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 
 const { agenda } = Astro.props;
 const committee = agenda.committee ?? "委員會";
-const committeeStyle = getCommitteeStyle(committee);
+const committeeNames = splitCommitteeNames(committee);
 const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
 ---
 
@@ -25,9 +25,19 @@ const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未�
     </div>
 
     <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
-      <span class="committee-tag" data-tone={committeeStyle.tone}>
-        <span class="md:hidden">{committeeStyle.shortName}</span><span class="hidden md:inline">{committee}</span>
-      </span>
+      {
+        committeeNames.map((name) => {
+          const style = getCommitteeStyle(name);
+          return (
+            <span class="committee-tag" data-tone={style.tone}>
+              <>
+                <span class="md:hidden">{style.shortName}</span>
+                <span class="hidden md:inline">{name}</span>
+              </>
+            </span>
+          );
+        })
+      }
       <span>會議日期：{meetingDate}</span>
       <span class="hidden text-neutral-300 md:inline">／</span>
       <span class="hidden truncate md:inline">{agenda.gazetteId}</span>

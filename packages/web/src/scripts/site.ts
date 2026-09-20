@@ -1,5 +1,5 @@
 import MiniSearch from "minisearch";
-import { getCommitteeStyle } from "../lib/committee";
+import { getCommitteeStyle, splitCommitteeNames } from "../lib/committee";
 import { expandQuery, miniSearchOptions } from "../lib/search";
 import type { HomepageAgenda } from "../types";
 
@@ -72,7 +72,12 @@ function renderBookmarkButton(agendaId: string): string {
 function renderAgendaCard(agenda: HomepageAgenda): string {
   const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
   const committee = agenda.committee ?? "委員會";
-  const committeeStyle = getCommitteeStyle(committee);
+  const committeeTags = splitCommitteeNames(committee)
+    .map((name) => {
+      const style = getCommitteeStyle(name);
+      return `<span class="committee-tag" data-tone="${style.tone}"><span class="md:hidden">${escapeHtml(style.shortName)}</span><span class="hidden md:inline">${escapeHtml(name)}</span></span>`;
+    })
+    .join("");
 
   return `
     <li class="page-shell-narrow" data-agenda-card data-agenda-id="${escapeHtml(agenda.agendaId)}">
@@ -84,7 +89,7 @@ function renderAgendaCard(agenda: HomepageAgenda): string {
           <div class="relative z-10">${renderBookmarkButton(agenda.agendaId)}</div>
         </div>
         <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
-          <span class="committee-tag" data-tone="${committeeStyle.tone}"><span class="md:hidden">${escapeHtml(committeeStyle.shortName)}</span><span class="hidden md:inline">${escapeHtml(committee)}</span></span>
+          ${committeeTags}
           <span>會議日期：${escapeHtml(meetingDate)}</span>
           <span class="hidden text-neutral-300 md:inline">／</span>
           <span class="hidden truncate md:inline">${escapeHtml(agenda.gazetteId)}</span>
@@ -265,7 +270,9 @@ function initSearchPage(): void {
             .filter((agenda): agenda is HomepageAgenda => Boolean(agenda))
         : [...agendas];
 
-    const scoped = base.filter((agenda) => !selectedCommittee || agenda.committee === selectedCommittee);
+    const scoped = base.filter(
+      (agenda) => !selectedCommittee || splitCommitteeNames(agenda.committee).includes(selectedCommittee)
+    );
     const sort = sortSelect?.value ?? "date-desc";
 
     if (query && miniSearch && sort === "relevance") return scoped;
@@ -451,7 +458,54 @@ function initBookmarksPage(): void {
     });
 }
 
+function initDetailToc(): void {
+  const drawer = document.querySelector<HTMLElement>("[data-mobile-toc]");
+  const openButton = document.querySelector<HTMLButtonElement>("[data-toc-open]");
+  const closeButtons = document.querySelectorAll<HTMLButtonElement>("[data-toc-close]");
+  const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-detail-toc] a[href^='#']"));
+  const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-target][id]"));
+
+  if (!drawer || !openButton || tocLinks.length === 0) return;
+
+  const setDrawerOpen = (open: boolean) => {
+    drawer.classList.toggle("hidden", !open);
+    openButton.setAttribute("aria-expanded", open ? "true" : "false");
+    document.body.style.overflow = open ? "hidden" : "";
+    if (open) drawer.querySelector<HTMLAnchorElement>("a")?.focus();
+    else openButton.focus();
+  };
+
+  openButton.addEventListener("click", () => setDrawerOpen(true));
+  closeButtons.forEach((button) => button.addEventListener("click", () => setDrawerOpen(false)));
+  drawer.addEventListener("click", (event) => {
+    if ((event.target as Element | null)?.closest("a[href^='#']")) setDrawerOpen(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !drawer.classList.contains("hidden")) setDrawerOpen(false);
+  });
+
+  const setActiveLink = (id: string) => {
+    tocLinks.forEach((link) => {
+      link.dataset.active = link.hash === `#${id}` ? "true" : "false";
+    });
+  };
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+      if (visible?.target.id) setActiveLink(visible.target.id);
+    },
+    { rootMargin: "-20% 0px -70% 0px" }
+  );
+
+  targets.forEach((target) => observer.observe(target));
+  if (window.location.hash) setActiveLink(decodeURIComponent(window.location.hash.slice(1)));
+}
+
 initHeaderSearch();
 initBookmarks();
 initSearchPage();
 initBookmarksPage();
+initDetailToc();

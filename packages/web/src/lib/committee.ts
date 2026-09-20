@@ -14,10 +14,35 @@ const committeeStyles: Record<string, CommitteeStyle> = {
   社會福利及衛生環境委員會: { shortName: "社福環衛", tone: "teal" },
 };
 
+const preferredOrder = Object.keys(committeeStyles);
+
+export function splitCommitteeNames(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[、,，]/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+}
+
+export function normalizeCommitteeList(values: string[]): string[] {
+  const names = Array.from(new Set(values.flatMap((value) => splitCommitteeNames(value))));
+  return names.sort((left, right) => {
+    const leftIndex = preferredOrder.indexOf(left);
+    const rightIndex = preferredOrder.indexOf(right);
+    if (leftIndex !== -1 || rightIndex !== -1) {
+      if (leftIndex === -1) return 1;
+      if (rightIndex === -1) return -1;
+      return leftIndex - rightIndex;
+    }
+    return left.localeCompare(right, "zh-Hant");
+  });
+}
+
 export function getCommitteeStyle(name: string): CommitteeStyle {
+  const shortName = name.replace(/委員會$/, "");
   return (
     committeeStyles[name] ?? {
-      shortName: name.replace(/委員會$/, ""),
+      shortName: shortName || name,
       tone: "neutral",
     }
   );
