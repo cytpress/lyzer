@@ -138,7 +138,6 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
                         {legislators.map((speaker, speakerIndex) => (
                           <section
                             id={speakerId(index, "legislator", speakerIndex)}
-                            class="scroll-mt-24"
                             data-toc-target
                             data-toc-parent-group={`item-${index}-legislators`}
                           >
@@ -169,7 +168,6 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
                         {respondents.map((speaker, speakerIndex) => (
                           <section
                             id={speakerId(index, "respondent", speakerIndex)}
-                            class="scroll-mt-24"
                             data-toc-target
                             data-toc-parent-group={`item-${index}-respondents`}
                           >
@@ -212,7 +210,7 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
         )
       }
 
-      <section id="source-data" class="mt-4 scroll-mt-24 border-t border-neutral-300 pt-10" data-toc-target>
+      <section id="source-data" class="mt-4 border-t border-neutral-300 pt-10" data-toc-target>
         <h2 class="mb-5 text-xl font-semibold text-neutral-950">原始資料</h2>
         <dl class="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-3 text-sm leading-7">
           <dt class="text-neutral-500">公報</dt><dd class="break-all text-neutral-800">{detail.gazetteId}</dd>
@@ -273,12 +271,14 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
                     </a>
                     {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
                       <ol
-                        class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                        class="toc-children space-y-1 pl-3"
                         data-toc-children-for={`item-${index}-legislators`}
+                        data-expanded="false"
+                        aria-hidden="true"
                       >
                         {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
                           <li>
-                            <a class="toc-link text-xs" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                            <a class="toc-link" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
                               {speakerName(speaker)}
                             </a>
                           </li>
@@ -296,12 +296,14 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
                     </a>
                     {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
                       <ol
-                        class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                        class="toc-children space-y-1 pl-3"
                         data-toc-children-for={`item-${index}-respondents`}
+                        data-expanded="false"
+                        aria-hidden="true"
                       >
                         {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
                           <li>
-                            <a class="toc-link text-xs" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                            <a class="toc-link" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
                               {speakerName(speaker)}
                             </a>
                           </li>
@@ -375,12 +377,14 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
                   </a>
                   {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
                     <ol
-                      class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                      class="toc-children space-y-1 pl-3"
                       data-toc-children-for={`item-${index}-legislators`}
+                      data-expanded="false"
+                      aria-hidden="true"
                     >
                       {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
                         <li>
-                          <a class="toc-link text-xs" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                          <a class="toc-link" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
                             {speakerName(speaker)}
                           </a>
                         </li>
@@ -398,12 +402,14 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
                   </a>
                   {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
                     <ol
-                      class="mt-1 hidden space-y-1 border-l border-neutral-200 pl-3"
+                      class="toc-children space-y-1 pl-3"
                       data-toc-children-for={`item-${index}-respondents`}
+                      data-expanded="false"
+                      aria-hidden="true"
                     >
                       {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
                         <li>
-                          <a class="toc-link text-xs" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                          <a class="toc-link" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
                             {speakerName(speaker)}
                           </a>
                         </li>

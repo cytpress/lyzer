@@ -231,6 +231,7 @@ function initSearchPage(): void {
   if (!root) return;
 
   let agendas = readJsonScript<HomepageAgenda[]>("lyzer-agendas-data") ?? [];
+  const totalAgendaCount = Number(root.dataset.totalCount ?? agendas.length);
   const input = root.querySelector<HTMLInputElement>("[data-search-input]");
   const headerInput = document.querySelector<HTMLInputElement>("[data-header-search-input]");
   const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-committee-button]"));
@@ -326,16 +327,13 @@ function initSearchPage(): void {
   const render = () => {
     const results = filtered();
     const isSearch = Boolean(currentQuery.trim());
-    const totalPages = isSearch ? Math.max(1, Math.ceil(results.length / PAGE_SIZE)) : 1;
+    const resultCount = !catalogLoaded && !isSearch && !selectedCommittee ? totalAgendaCount : results.length;
+    const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
     currentPage = Math.min(currentPage, totalPages);
-    const start = isSearch ? (currentPage - 1) * PAGE_SIZE : 0;
+    const start = (currentPage - 1) * PAGE_SIZE;
     const visible = results.slice(start, start + PAGE_SIZE);
 
-    count.textContent = isSearch
-      ? `${results.length} 筆摘要`
-      : selectedCommittee && catalogLoaded
-        ? `顯示最新 ${visible.length} 筆，共 ${results.length} 筆摘要`
-        : `最新 ${visible.length} 筆摘要`;
+    count.textContent = `${resultCount} 筆摘要`;
     sortControl?.classList.toggle("hidden", !isSearch);
     sortControl?.classList.toggle("flex", isSearch);
     if (status)
@@ -348,7 +346,7 @@ function initSearchPage(): void {
             : "";
     list.innerHTML = visible.map(renderAgendaCard).join("");
     empty.hidden = visible.length > 0;
-    renderPagination(isSearch ? totalPages : 1);
+    renderPagination(totalPages);
     syncCommitteeButtons();
     syncBookmarkButtons(list);
   };
@@ -405,7 +403,8 @@ function initSearchPage(): void {
   });
   buttons.forEach((button) => {
     button.addEventListener("click", () => {
-      selectedCommittee = button.dataset.committee ?? "";
+      const committee = button.dataset.committee ?? "";
+      selectedCommittee = committee && committee === selectedCommittee ? "" : committee;
       currentPage = 1;
       void ensureCatalog().then(render);
     });
@@ -427,7 +426,7 @@ function initSearchPage(): void {
   if (currentQuery) void ensureSearch();
 }
 
-function initBookmarksPage(): void {
+function initBookmarksPage(signal: AbortSignal): void {
   const root = document.querySelector<HTMLElement>("[data-bookmarks-page]");
   if (!root) return;
 
@@ -453,10 +452,11 @@ function initBookmarksPage(): void {
   empty.textContent = "正在載入收藏的議事摘要…";
   void loadAgendaCatalog()
     .then((agendas) => {
+      if (signal.aborted) return;
       const itemById = new Map(agendas.map((agenda) => [agenda.agendaId, agenda]));
       const rerender = () => render(itemById);
-      window.addEventListener("lyzer-bookmarks-changed", rerender);
-      window.addEventListener("storage", rerender);
+      window.addEventListener("lyzer-bookmarks-changed", rerender, { signal });
+      window.addEventListener("storage", rerender, { signal });
       empty.textContent = "目前沒有收藏的議事摘要。";
       rerender();
     })
@@ -467,6 +467,9 @@ function initBookmarksPage(): void {
 }
 
 function initDetailToc(): void {
+  detailTocController?.abort();
+  detailTocController = new AbortController();
+  const { signal } = detailTocController;
   const drawer = document.querySelector<HTMLElement>("[data-mobile-toc]");
   const openButton = document.querySelector<HTMLButtonElement>("[data-toc-open]");
   const closeButtons = document.querySelectorAll<HTMLButtonElement>("[data-toc-close]");
@@ -485,25 +488,34 @@ function initDetailToc(): void {
     else openButton.focus();
   };
 
-  openButton.addEventListener("click", () => setDrawerOpen(true));
-  closeButtons.forEach((button) => button.addEventListener("click", () => setDrawerOpen(false)));
-  drawer.addEventListener("click", (event) => {
-    if ((event.target as Element | null)?.closest("a[href^='#']")) setDrawerOpen(false);
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !drawer.classList.contains("hidden")) setDrawerOpen(false);
-  });
+  openButton.addEventListener("click", () => setDrawerOpen(true), { signal });
+  closeButtons.forEach((button) => button.addEventListener("click", () => setDrawerOpen(false), { signal }));
+  drawer.addEventListener(
+    "click",
+    (event) => {
+      if ((event.target as Element | null)?.closest("a[href^='#']")) setDrawerOpen(false);
+    },
+    { signal }
+  );
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Escape" && !drawer.classList.contains("hidden")) setDrawerOpen(false);
+    },
+    { signal }
+  );
 
   const setExpandedGroups = (expandedGroups: Set<string>) => {
     groupChildren.forEach((children) => {
       const groupId = children.dataset.tocChildrenFor;
       const expanded = Boolean(groupId && expandedGroups.has(groupId));
-      children.hidden = !expanded;
-      children.classList.toggle("hidden", !expanded);
+      children.dataset.expanded = expanded ? "true" : "false";
+      children.setAttribute("aria-hidden", expanded ? "false" : "true");
+      children.style.maxHeight = expanded ? `${children.scrollHeight}px` : "0px";
     });
     groupLinks.forEach((link) => {
       const groupId = link.dataset.tocGroupLink;
-      link.dataset.active = groupId && expandedGroups.has(groupId) ? "true" : "false";
+      link.setAttribute("aria-expanded", groupId && expandedGroups.has(groupId) ? "true" : "false");
     });
   };
 
@@ -519,9 +531,11 @@ function initDetailToc(): void {
   };
 
   let updateScheduled = false;
+  let scrollReleaseTimer: number | undefined;
+  let scrollingToTarget = false;
   const updateActiveSection = () => {
     updateScheduled = false;
-    const anchorOffset = 240;
+    const anchorOffset = 112;
     let current = targets[0];
     for (const target of targets) {
       if (target.getBoundingClientRect().top > anchorOffset) break;
@@ -530,18 +544,32 @@ function initDetailToc(): void {
     if (current?.id) setActiveLink(current.id);
   };
   const scheduleUpdate = () => {
+    if (scrollingToTarget) {
+      window.clearTimeout(scrollReleaseTimer);
+      scrollReleaseTimer = window.setTimeout(() => {
+        scrollingToTarget = false;
+        scheduleUpdate();
+      }, 160);
+      return;
+    }
     if (updateScheduled) return;
     updateScheduled = true;
     window.requestAnimationFrame(updateActiveSection);
   };
 
-  window.addEventListener("scroll", scheduleUpdate, { passive: true });
-  window.addEventListener("resize", scheduleUpdate);
+  window.addEventListener("scroll", scheduleUpdate, { passive: true, signal });
+  window.addEventListener("resize", scheduleUpdate, { signal });
   tocLinks.forEach((link) =>
-    link.addEventListener("click", () => {
-      const id = decodeURIComponent(link.hash.slice(1));
-      setActiveLink(id);
-    })
+    link.addEventListener(
+      "click",
+      () => {
+        const id = decodeURIComponent(link.hash.slice(1));
+        scrollingToTarget = true;
+        setActiveLink(id);
+        scheduleUpdate();
+      },
+      { signal }
+    )
   );
 
   if (window.location.hash) {
@@ -550,8 +578,19 @@ function initDetailToc(): void {
   } else scheduleUpdate();
 }
 
-initHeaderSearch();
+let detailTocController: AbortController | null = null;
+let pageController: AbortController | null = null;
+
 initBookmarks();
-initSearchPage();
-initBookmarksPage();
-initDetailToc();
+
+function initPage(): void {
+  pageController?.abort();
+  pageController = new AbortController();
+  initHeaderSearch();
+  initSearchPage();
+  initBookmarksPage(pageController.signal);
+  initDetailToc();
+  syncBookmarkButtons();
+}
+
+document.addEventListener("astro:page-load", initPage);
