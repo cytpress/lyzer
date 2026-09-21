@@ -2,6 +2,7 @@ import { config } from "../config.js";
 import { loadAgendaText } from "../content.js";
 import { query } from "../db.js";
 import { analyzeWithGemini } from "../gemini.js";
+import { normalizeAnalysis, shouldSkipAnalysis } from "../prompts.js";
 import type { JsonObject } from "../types.js";
 
 function cleanSpeakerName(name: string | null | undefined, isLegislator = false): string {
@@ -38,6 +39,7 @@ function cleanSpeakerName(name: string | null | undefined, isLegislator = false)
 
 interface AgendaCandidate {
   agenda_id: string;
+  category_code: number | null;
   meeting_dates: string[] | null;
   subject: string | null;
   parsed_url: string | null;
@@ -57,6 +59,7 @@ async function pickCandidates(limit: number, agendaId?: string): Promise<AgendaC
       `
         select
           a.agenda_id,
+          a.category_code,
           a.meeting_dates,
           a.subject,
           a.parsed_url,
@@ -73,6 +76,7 @@ async function pickCandidates(limit: number, agendaId?: string): Promise<AgendaC
     `
       select
         a.agenda_id,
+        a.category_code,
         a.meeting_dates,
         a.subject,
         a.parsed_url,
@@ -97,6 +101,39 @@ async function pickCandidates(limit: number, agendaId?: string): Promise<AgendaC
   );
 }
 
+function normalizeAnalysisResult(analysis: JsonObject, categoryCode: number | null): JsonObject {
+  if (categoryCode === null || shouldSkipAnalysis(categoryCode)) {
+    throw new Error(`Unsupported analysis category_code: ${categoryCode}`);
+  }
+
+  const normalized = normalizeAnalysis(analysis, categoryCode);
+  if (Array.isArray(normalized.agenda_items)) {
+    for (const item of normalized.agenda_items) {
+      if (item && typeof item === "object") {
+        const itemObj = item as JsonObject;
+        if (Array.isArray(itemObj.legislator_speakers)) {
+          for (const speaker of itemObj.legislator_speakers) {
+            if (speaker && typeof speaker === "object") {
+              const speakerObj = speaker as JsonObject;
+              speakerObj.speaker_name = cleanSpeakerName(speakerObj.speaker_name as string, true);
+            }
+          }
+        }
+        if (Array.isArray(itemObj.respondent_speakers)) {
+          for (const speaker of itemObj.respondent_speakers) {
+            if (speaker && typeof speaker === "object") {
+              const speakerObj = speaker as JsonObject;
+              speakerObj.speaker_name = cleanSpeakerName(speakerObj.speaker_name as string);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return normalized;
+}
+
 async function markProcessing(agendaId: string): Promise<void> {
   await query(
     `
@@ -104,6 +141,11 @@ async function markProcessing(agendaId: string): Promise<void> {
       values ($1, 'processing', null, now())
       on conflict (agenda_id) do update set
         status = 'processing',
+        analysis_json = null,
+        committee_names = null,
+        document_type = null,
+        is_public = null,
+        analyzed_at = null,
         error_message = null,
         updated_at = now()
     `,
@@ -112,17 +154,26 @@ async function markProcessing(agendaId: string): Promise<void> {
 }
 
 async function markCompleted(agendaId: string, analysis: JsonObject): Promise<void> {
+  const committeeNames = Array.isArray(analysis.committee_name)
+    ? analysis.committee_name.filter((name): name is string => typeof name === "string")
+    : null;
+  const documentType = typeof analysis.document_type === "string" ? analysis.document_type : null;
+  const isPublic = typeof analysis.is_public === "boolean" ? analysis.is_public : null;
+
   await query(
     `
       update analysis_results
       set status = 'completed',
           analysis_json = $2::jsonb,
+          committee_names = $3::text[],
+          document_type = $4,
+          is_public = $5,
           analyzed_at = now(),
           error_message = null,
           updated_at = now()
       where agenda_id = $1
     `,
-    [agendaId, JSON.stringify(analysis)]
+    [agendaId, JSON.stringify(analysis), committeeNames, documentType, isPublic]
   );
 }
 
@@ -132,6 +183,10 @@ async function markFailed(agendaId: string, error: unknown): Promise<void> {
     `
       update analysis_results
       set status = 'failed',
+          analysis_json = null,
+          committee_names = null,
+          document_type = null,
+          is_public = null,
           error_message = $2,
           analyzed_at = now(),
           updated_at = now()
@@ -184,41 +239,15 @@ export async function analyzePendingAgendas(
     if (candidates.length === 0) return result;
     result.picked = 1;
     const agenda = candidates[0];
+    if (agenda.category_code === null || shouldSkipAnalysis(agenda.category_code)) return result;
     await markProcessing(agenda.agenda_id);
     try {
       const sourceText = await loadAgendaText(agenda);
       const analysis = await analyzeWithGemini({
-        agendaId: agenda.agenda_id,
-        subject: agenda.subject,
-        meetingDates: agenda.meeting_dates ?? [],
-        sourceText,
-      });
-
-      if (Array.isArray(analysis.agenda_items)) {
-        for (const item of analysis.agenda_items) {
-          if (item && typeof item === "object") {
-            const itemObj = item as JsonObject;
-            if (Array.isArray(itemObj.legislator_speakers)) {
-              for (const s of itemObj.legislator_speakers) {
-                if (s && typeof s === "object") {
-                  const sObj = s as JsonObject;
-                  sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string, true);
-                }
-              }
-            }
-            if (Array.isArray(itemObj.respondent_speakers)) {
-              for (const s of itemObj.respondent_speakers) {
-                if (s && typeof s === "object") {
-                  const sObj = s as JsonObject;
-                  sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      await markCompleted(agenda.agenda_id, analysis);
+          categoryCode: agenda.category_code,
+          sourceText,
+        });
+      await markCompleted(agenda.agenda_id, normalizeAnalysisResult(analysis, agenda.category_code));
       result.completed += 1;
     } catch (error) {
       console.error(error);
@@ -252,37 +281,10 @@ export async function analyzePendingAgendas(
       try {
         const sourceText = await loadAgendaText(agenda);
         const analysis = await analyzeWithGemini({
-          agendaId: agenda.agenda_id,
-          subject: agenda.subject,
-          meetingDates: agenda.meeting_dates ?? [],
+          categoryCode: agenda.category_code ?? 0,
           sourceText,
         });
-
-        if (Array.isArray(analysis.agenda_items)) {
-          for (const item of analysis.agenda_items) {
-            if (item && typeof item === "object") {
-              const itemObj = item as JsonObject;
-              if (Array.isArray(itemObj.legislator_speakers)) {
-                for (const s of itemObj.legislator_speakers) {
-                  if (s && typeof s === "object") {
-                    const sObj = s as JsonObject;
-                    sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string, true);
-                  }
-                }
-              }
-              if (Array.isArray(itemObj.respondent_speakers)) {
-                for (const s of itemObj.respondent_speakers) {
-                  if (s && typeof s === "object") {
-                    const sObj = s as JsonObject;
-                    sObj.speaker_name = cleanSpeakerName(sObj.speaker_name as string);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        await markCompleted(agenda.agenda_id, analysis);
+        await markCompleted(agenda.agenda_id, normalizeAnalysisResult(analysis, agenda.category_code));
         result.completed += 1;
 
         if (result.completed >= limit) {

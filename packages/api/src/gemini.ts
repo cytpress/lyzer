@@ -4,9 +4,7 @@ import { analysisSchema, buildAnalysisPrompt } from "./prompts.js";
 import type { JsonObject } from "./types.js";
 
 interface AnalyzeInput {
-  agendaId: string;
-  subject: string | null;
-  meetingDates: string[];
+  categoryCode: number;
   sourceText: string;
 }
 
@@ -18,7 +16,10 @@ export async function analyzeWithGemini(input: AnalyzeInput): Promise<JsonObject
   const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
   const response = await ai.models.generateContent({
     model: config.geminiModelName,
-    contents: buildAnalysisPrompt(input),
+    contents: buildAnalysisPrompt({
+      categoryCode: input.categoryCode,
+      sourceText: input.sourceText,
+    }),
     config: {
       temperature: 0.2,
       responseMimeType: "application/json",

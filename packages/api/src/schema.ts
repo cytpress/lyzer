@@ -30,6 +30,9 @@ export async function migrate(): Promise<void> {
       agenda_id text primary key references agendas(agenda_id) on delete cascade,
       status text not null check (status in ('pending', 'processing', 'completed', 'failed', 'skipped')),
       analysis_json jsonb,
+      committee_names text[],
+      document_type text,
+      is_public boolean,
       analyzed_at timestamptz,
       error_message text,
       updated_at timestamptz not null default now()

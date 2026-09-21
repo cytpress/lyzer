@@ -165,6 +165,7 @@ export async function getHomepageAgendas(): Promise<HomepageAgenda[]> {
     from agendas a
     join analysis_results ar on ar.agenda_id = a.agenda_id
     where ar.status = 'completed'
+      and coalesce(ar.is_public, true)
     order by coalesce(a.meeting_dates[1], date '1900-01-01') desc, a.agenda_id desc
   `);
 
@@ -177,6 +178,7 @@ export async function getAgendaIds(): Promise<string[]> {
     from agendas a
     join analysis_results ar on ar.agenda_id = a.agenda_id
     where ar.status = 'completed'
+      and coalesce(ar.is_public, true)
     order by a.agenda_id desc
   `);
 
@@ -211,6 +213,7 @@ export async function getAgendaDetailsPage(options: {
       join gazettes g on g.gazette_id = a.gazette_id
       join analysis_results ar on ar.agenda_id = a.agenda_id
       where ar.status = 'completed'
+        and coalesce(ar.is_public, true)
         and ($1::text is null or a.agenda_id < $1)
       order by a.agenda_id desc
       limit $2
@@ -255,6 +258,7 @@ export async function getAgendaDetail(agendaId: string): Promise<AgendaDetail | 
       join analysis_results ar on ar.agenda_id = a.agenda_id
       where a.agenda_id = $1
         and ar.status = 'completed'
+        and coalesce(ar.is_public, true)
       limit 1
     `,
     [agendaId]
@@ -282,6 +286,7 @@ export async function getLegislatorStats(): Promise<LegislatorSpeechStat[]> {
     join gazettes g on g.gazette_id = a.gazette_id
     join analysis_results ar on ar.agenda_id = a.agenda_id
     where ar.status = 'completed'
+      and coalesce(ar.is_public, true)
     order by coalesce(a.meeting_dates[1], date '1900-01-01') desc, a.agenda_id desc
   `);
 
