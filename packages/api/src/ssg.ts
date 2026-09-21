@@ -123,6 +123,7 @@ function toHomepageAgenda(row: HomepageRow): HomepageAgenda {
     meetingDate: meetingDates[0] ?? null,
     subject: row.subject,
     committee: asCommittee(analysis.committee_name),
+    documentType: asString(analysis.document_type),
     summaryTitle: asString(analysis.summary_title) ?? row.subject ?? row.agenda_id,
     overallSummary: asString(analysis.overall_summary_sentence) ?? "",
     agendaItems: agendaItems(analysis),
@@ -185,10 +186,12 @@ export async function getAgendaIds(): Promise<string[]> {
   return rows.map((row) => row.agenda_id);
 }
 
-export async function getAgendaDetailsPage(options: {
-  cursor?: string;
-  limit?: number;
-} = {}): Promise<AgendaDetailsPage> {
+export async function getAgendaDetailsPage(
+  options: {
+    cursor?: string;
+    limit?: number;
+  } = {}
+): Promise<AgendaDetailsPage> {
   const cursor = options.cursor?.trim() || null;
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? 200), 1), 250);
   const rows = await query<DetailRow>(
@@ -223,7 +226,7 @@ export async function getAgendaDetailsPage(options: {
 
   return {
     items: rows.map(toAgendaDetail),
-    nextCursor: rows.length === limit ? rows[rows.length - 1]?.agenda_id ?? null : null,
+    nextCursor: rows.length === limit ? (rows[rows.length - 1]?.agenda_id ?? null) : null,
   };
 }
 

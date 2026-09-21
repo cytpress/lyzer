@@ -1,7 +1,7 @@
 import { config } from "../config.js";
 import { loadAgendaText } from "../content.js";
 import { query } from "../db.js";
-import { analyzeWithGemini } from "../gemini.js";
+import { analyzeWithGemini, GeminiInputTooLargeError } from "../gemini.js";
 import { normalizeAnalysis, shouldSkipAnalysis } from "../prompts.js";
 import type { JsonObject } from "../types.js";
 
@@ -14,12 +14,11 @@ function cleanSpeakerName(name: string | null | undefined, isLegislator = false)
   const titlePart = parts.slice(1).join(" ");
 
   // 2. 去除名字部分的 "立法委員"、"委員"、"立法"
-  namePart = namePart
-    .replace(/\s*(立法委員|委員|立法)\s*/g, "")
-    .trim();
+  namePart = namePart.replace(/\s*(立法委員|委員|立法)\s*/g, "").trim();
 
   // 3. 處理官員常見的「姓 + 職稱 + 名」格式，例如「莊部長翠雲」->「莊翠雲」
-  const titleRegex = /^([\u4e00-\u9fa5])(部長|署長|局長|次長|主任委員|主任|主委|處長|組長|司長|科長|秘書長|常務次長|政務次長|代理部長|代理署長|代理局長|總經理|董事長|行長|理事長)([\u4e00-\u9fa5]+)$/;
+  const titleRegex =
+    /^([\u4e00-\u9fa5])(部長|署長|局長|次長|主任委員|主任|主委|處長|組長|司長|科長|秘書長|常務次長|政務次長|代理部長|代理署長|代理局長|總經理|董事長|行長|理事長)([\u4e00-\u9fa5]+)$/;
   const match = namePart.match(titleRegex);
   if (match) {
     const lastName = match[1];
@@ -210,6 +209,10 @@ function isTransientApiError(error: unknown): boolean {
   );
 }
 
+function isPermanentInputError(error: unknown): boolean {
+  return error instanceof GeminiInputTooLargeError;
+}
+
 async function markPending(agendaId: string): Promise<void> {
   await query(
     `
@@ -244,15 +247,20 @@ export async function analyzePendingAgendas(
     try {
       const sourceText = await loadAgendaText(agenda);
       const analysis = await analyzeWithGemini({
-          categoryCode: agenda.category_code,
-          sourceText,
-        });
+        categoryCode: agenda.category_code,
+        sourceText,
+      });
       await markCompleted(agenda.agenda_id, normalizeAnalysisResult(analysis, agenda.category_code));
       result.completed += 1;
     } catch (error) {
       console.error(error);
-      if (isTransientApiError(error)) {
-        console.warn(`[Analyze Job] Gemini API transient error (429/503) detected for agenda ${agenda.agenda_id}. Resetting status to pending and aborting.`);
+      if (isPermanentInputError(error)) {
+        await markFailed(agenda.agenda_id, error);
+        result.failed += 1;
+      } else if (isTransientApiError(error)) {
+        console.warn(
+          `[Analyze Job] Gemini API transient error (429/503) detected for agenda ${agenda.agenda_id}. Resetting status to pending and aborting.`
+        );
         await markPending(agenda.agenda_id);
       } else {
         await markFailed(agenda.agenda_id, error);
@@ -292,15 +300,21 @@ export async function analyzePendingAgendas(
         }
       } catch (error) {
         console.error(error);
-        if (isTransientApiError(error)) {
-          console.warn(`[Analyze Job] Gemini API transient error (429/503) detected. Resetting agenda ${agenda.agenda_id} to pending and aborting queue immediately.`);
+        if (isPermanentInputError(error)) {
+          await markFailed(agenda.agenda_id, error);
+          result.failed += 1;
+        } else if (isTransientApiError(error)) {
+          console.warn(
+            `[Analyze Job] Gemini API transient error (429/503) detected. Resetting agenda ${agenda.agenda_id} to pending and aborting queue immediately.`
+          );
           await markPending(agenda.agenda_id);
           // 融斷保護：將 attempts 設為最大上限以立即跳出 while 迴圈
           attempts = maxAttempts;
           break;
+        } else {
+          await markFailed(agenda.agenda_id, error);
+          result.failed += 1;
         }
-        await markFailed(agenda.agenda_id, error);
-        result.failed += 1;
 
         if (attempts >= maxAttempts) {
           break;

@@ -36,6 +36,7 @@ export interface HomepageAgenda {
   meetingDate: string | null;
   subject: string | null;
   committee: string | null;
+  documentType: string | null;
   summaryTitle: string;
   overallSummary: string;
   agendaItems: string[];
