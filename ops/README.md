@@ -45,13 +45,22 @@ FETCH_PAGES
 ANALYZE_LIMIT
 ```
 
+若要讓本機維運工具在使用者明確要求時操作 Dockhand，可使用 repo 外的本機認證檔 `/home/cytpress/.config/lyzer/dockhand.env`。檔案只保存變數名稱與秘密值，不要把 token 寫入 repo、README、logs 或 command history；建議使用只允許管理 `lyzer` stack 的專用 token，並定期輪替：
+
+```env
+DOCKHAND_BASE_URL=http://127.0.0.1:3000
+DOCKHAND_API_TOKEN=<local-secret>
+```
+
+本機認證檔應設為僅本人可讀（`chmod 600`）。未收到明確的更新或部署要求時，不會因讀取到此 token 而自動操作正式服務；若 Dockhand API 或權限不可用，應停止在部署步驟，不得改用手動 Compose。
+
 `LYZER_JOB_TOKEN` 建議用 `openssl rand -hex 32` 產生。首次接管現有環境時必須沿用 Compose project name `lyzer`，才能繼續使用 `lyzer_postgres_data` volume。
 
 ## 排程
 
 排程器使用 `Asia/Taipei` 時區：
 
-- 每 5 分鐘：分析待處理議程，單次數量由 `ANALYZE_LIMIT` 控制。
+- 每 3 分鐘：分析待處理議程，單次數量由 `ANALYZE_LIMIT` 控制。
 - 每天 02:00：抓取最新公報，頁數由 `FETCH_PAGES` 控制。
 - 每天 05:00：檢查是否有新分析，必要時呼叫 Cloudflare Pages deploy hook。
 
