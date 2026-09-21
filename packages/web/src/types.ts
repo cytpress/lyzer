@@ -18,6 +18,8 @@ export interface AnalysisAgendaItem {
 export interface AnalysisJson {
   summary_title?: string;
   committee_name?: string[] | string | null;
+  document_type?: string | null;
+  is_public?: boolean;
   overall_summary_sentence?: string;
   agenda_items?: AnalysisAgendaItem[] | null;
   legislator_speakers?: string[];
@@ -35,6 +37,7 @@ export interface HomepageAgenda {
   meetingDate: string | null;
   subject: string | null;
   committee: string | null;
+  documentType: string | null;
   summaryTitle: string;
   overallSummary: string;
   agendaItems: string[];

@@ -12,6 +12,7 @@ const committeeStyles: Record<string, CommitteeStyle> = {
   交通委員會: { shortName: "交通", tone: "orange" },
   司法及法制委員會: { shortName: "司法法制", tone: "violet" },
   社會福利及衛生環境委員會: { shortName: "社福環衛", tone: "teal" },
+  黨團協商: { shortName: "黨團協商", tone: "neutral" },
 };
 
 const preferredOrder = Object.keys(committeeStyles);

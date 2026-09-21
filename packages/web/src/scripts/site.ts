@@ -71,8 +71,9 @@ function renderBookmarkButton(agendaId: string): string {
 
 function renderAgendaCard(agenda: HomepageAgenda): string {
   const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
-  const committee = agenda.committee ?? "委員會";
-  const committeeTags = splitCommitteeNames(committee)
+  const committees = splitCommitteeNames(agenda.committee);
+  const tags = committees.length > 0 ? committees : [agenda.documentType ?? "委員會"];
+  const committeeTags = tags
     .map((name) => {
       const style = getCommitteeStyle(name);
       return `<span class="committee-tag" data-tone="${style.tone}"><span class="md:hidden">${escapeHtml(style.shortName)}</span><span class="hidden md:inline">${escapeHtml(name)}</span></span>`;
@@ -190,6 +191,7 @@ function agendaFromSearchResult(result: Record<string, unknown>): HomepageAgenda
     meetingDate: typeof result.meetingDate === "string" ? result.meetingDate : null,
     subject: typeof result.subject === "string" ? result.subject : null,
     committee: typeof result.committee === "string" ? result.committee : null,
+    documentType: typeof result.documentType === "string" ? result.documentType : null,
     summaryTitle: typeof result.summaryTitle === "string" ? result.summaryTitle : agendaId,
     overallSummary: typeof result.overallSummary === "string" ? result.overallSummary : "",
     agendaItems: [],
@@ -229,7 +231,6 @@ function initSearchPage(): void {
   if (!root) return;
 
   let agendas = readJsonScript<HomepageAgenda[]>("lyzer-agendas-data") ?? [];
-  const totalAgendaCount = Number(root.dataset.totalCount ?? agendas.length);
   const input = root.querySelector<HTMLInputElement>("[data-search-input]");
   const headerInput = document.querySelector<HTMLInputElement>("[data-header-search-input]");
   const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-committee-button]"));
@@ -239,6 +240,7 @@ function initSearchPage(): void {
   const empty = root.querySelector<HTMLElement>("[data-empty-state]");
   const pagination = root.querySelector<HTMLElement>("[data-pagination]");
   const sortSelect = root.querySelector<HTMLSelectElement>("[data-sort-select]");
+  const sortControl = root.querySelector<HTMLElement>("[data-sort-control]");
 
   if (!list || !count || !empty || !pagination) return;
 
@@ -273,6 +275,8 @@ function initSearchPage(): void {
     const scoped = base.filter(
       (agenda) => !selectedCommittee || splitCommitteeNames(agenda.committee).includes(selectedCommittee)
     );
+    if (!query) return scoped.sort(byDate("desc"));
+
     const sort = sortSelect?.value ?? "date-desc";
 
     if (query && miniSearch && sort === "relevance") return scoped;
@@ -321,14 +325,19 @@ function initSearchPage(): void {
 
   const render = () => {
     const results = filtered();
-    const isInitialCatalog = !catalogLoaded && !currentQuery && !selectedCommittee;
-    const resultCount = isInitialCatalog ? totalAgendaCount : results.length;
-    const totalPages = Math.max(1, Math.ceil(resultCount / PAGE_SIZE));
+    const isSearch = Boolean(currentQuery.trim());
+    const totalPages = isSearch ? Math.max(1, Math.ceil(results.length / PAGE_SIZE)) : 1;
     currentPage = Math.min(currentPage, totalPages);
-    const start = (currentPage - 1) * PAGE_SIZE;
+    const start = isSearch ? (currentPage - 1) * PAGE_SIZE : 0;
     const visible = results.slice(start, start + PAGE_SIZE);
 
-    count.textContent = `${resultCount} 筆摘要`;
+    count.textContent = isSearch
+      ? `${results.length} 筆摘要`
+      : selectedCommittee && catalogLoaded
+        ? `顯示最新 ${visible.length} 筆，共 ${results.length} 筆摘要`
+        : `最新 ${visible.length} 筆摘要`;
+    sortControl?.classList.toggle("hidden", !isSearch);
+    sortControl?.classList.toggle("flex", isSearch);
     if (status)
       status.textContent = loadingCatalog
         ? "載入摘要資料中"
@@ -339,7 +348,7 @@ function initSearchPage(): void {
             : "";
     list.innerHTML = visible.map(renderAgendaCard).join("");
     empty.hidden = visible.length > 0;
-    renderPagination(totalPages);
+    renderPagination(isSearch ? totalPages : 1);
     syncCommitteeButtons();
     syncBookmarkButtons(list);
   };
@@ -392,14 +401,13 @@ function initSearchPage(): void {
     if (headerInput.value.trim()) void ensureSearch();
   });
   sortSelect?.addEventListener("change", () => {
-    if (!currentQuery) void ensureCatalog();
-    else render();
+    render();
   });
   buttons.forEach((button) => {
     button.addEventListener("click", () => {
       selectedCommittee = button.dataset.committee ?? "";
       currentPage = 1;
-      void ensureCatalog();
+      void ensureCatalog().then(render);
     });
   });
   pagination.addEventListener("click", (event) => {
@@ -464,7 +472,6 @@ function initDetailToc(): void {
   const closeButtons = document.querySelectorAll<HTMLButtonElement>("[data-toc-close]");
   const tocLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-detail-toc] a[href^='#']"));
   const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-target][id]"));
-  const groupTargets = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-observer-target]"));
   const groupLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>("[data-toc-group-link]"));
   const groupChildren = Array.from(document.querySelectorAll<HTMLElement>("[data-toc-children-for]"));
 
@@ -487,16 +494,12 @@ function initDetailToc(): void {
     if (event.key === "Escape" && !drawer.classList.contains("hidden")) setDrawerOpen(false);
   });
 
-  const setActiveLink = (id: string) => {
-    tocLinks.forEach((link) => {
-      link.dataset.active = link.hash === `#${id}` ? "true" : "false";
-    });
-  };
-
   const setExpandedGroups = (expandedGroups: Set<string>) => {
     groupChildren.forEach((children) => {
       const groupId = children.dataset.tocChildrenFor;
-      children.hidden = !groupId || !expandedGroups.has(groupId);
+      const expanded = Boolean(groupId && expandedGroups.has(groupId));
+      children.hidden = !expanded;
+      children.classList.toggle("hidden", !expanded);
     });
     groupLinks.forEach((link) => {
       const groupId = link.dataset.tocGroupLink;
@@ -504,40 +507,47 @@ function initDetailToc(): void {
     });
   };
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting);
-      const current = visible[visible.length - 1];
-      if (current?.target.id) setActiveLink(current.target.id);
-    },
-    { rootMargin: "-73px 0px -86% 0px", threshold: 0 }
-  );
+  const setActiveLink = (id: string) => {
+    tocLinks.forEach((link) => {
+      link.dataset.active = link.hash === `#${id}` ? "true" : "false";
+    });
 
-  targets.forEach((target) => observer.observe(target));
+    const target = document.getElementById(id);
+    const directGroup = groupLinks.find((link) => link.hash === `#${id}`)?.dataset.tocGroupLink;
+    const groupId = target?.dataset.tocParentGroup ?? directGroup;
+    setExpandedGroups(groupId ? new Set([groupId]) : new Set());
+  };
 
-  const expandedGroups = new Set<string>();
-  const groupObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        const groupId = (entry.target as HTMLElement).dataset.tocObserverTarget;
-        if (!groupId) return;
-        if (entry.isIntersecting) expandedGroups.add(groupId);
-        else expandedGroups.delete(groupId);
-      });
-      setExpandedGroups(expandedGroups);
-    },
-    { rootMargin: "-73px 0px -85% 0px", threshold: 0 }
+  let updateScheduled = false;
+  const updateActiveSection = () => {
+    updateScheduled = false;
+    const anchorOffset = 240;
+    let current = targets[0];
+    for (const target of targets) {
+      if (target.getBoundingClientRect().top > anchorOffset) break;
+      current = target;
+    }
+    if (current?.id) setActiveLink(current.id);
+  };
+  const scheduleUpdate = () => {
+    if (updateScheduled) return;
+    updateScheduled = true;
+    window.requestAnimationFrame(updateActiveSection);
+  };
+
+  window.addEventListener("scroll", scheduleUpdate, { passive: true });
+  window.addEventListener("resize", scheduleUpdate);
+  tocLinks.forEach((link) =>
+    link.addEventListener("click", () => {
+      const id = decodeURIComponent(link.hash.slice(1));
+      setActiveLink(id);
+    })
   );
-  groupTargets.forEach((target) => groupObserver.observe(target));
 
   if (window.location.hash) {
     const id = decodeURIComponent(window.location.hash.slice(1));
     setActiveLink(id);
-    const target = document.getElementById(id);
-    const parentGroup = target?.dataset.tocParentGroup;
-    if (parentGroup) expandedGroups.add(parentGroup);
-    setExpandedGroups(expandedGroups);
-  }
+  } else scheduleUpdate();
 }
 
 initHeaderSearch();

@@ -48,7 +48,7 @@ const serializedFirstPage = JSON.stringify(firstPage).replaceAll("<", "\\u003c")
         <span data-result-count>{agendas.length} 筆摘要</span>
         <div class="flex items-center gap-2">
           <span data-search-status></span>
-          <label class="hidden items-center gap-2 md:flex">
+          <label class="hidden items-center gap-2" data-sort-control>
             <span>排序</span>
             <select
               class="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-500"

@@ -7,6 +7,7 @@ export interface SearchDocument {
   gazetteId: string;
   meetingDate: string | null;
   committee: string | null;
+  documentType: string | null;
   summaryTitle: string;
   overallSummary: string;
   subject: string | null;
@@ -67,6 +68,7 @@ export function toSearchDocument(agenda: HomepageAgenda): SearchDocument {
     gazetteId: agenda.gazetteId,
     meetingDate: agenda.meetingDate,
     committee: agenda.committee,
+    documentType: agenda.documentType,
     summaryTitle: agenda.summaryTitle,
     overallSummary: agenda.overallSummary,
     subject: agenda.subject,
@@ -89,7 +91,16 @@ export const miniSearchOptions: Options<SearchDocument> = {
     "respondents",
     "resultAndNextSteps",
   ],
-  storeFields: ["agendaId", "gazetteId", "summaryTitle", "overallSummary", "subject", "committee", "meetingDate"],
+  storeFields: [
+    "agendaId",
+    "gazetteId",
+    "summaryTitle",
+    "overallSummary",
+    "subject",
+    "committee",
+    "documentType",
+    "meetingDate",
+  ],
   searchOptions: {
     boost: {
       summaryTitle: 3,
