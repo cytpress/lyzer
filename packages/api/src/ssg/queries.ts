@@ -16,6 +16,7 @@ export async function getHomepageAgendas(): Promise<HomepageAgenda[]> {
     from agendas a
     join analysis_results ar on ar.agenda_id = a.agenda_id
     where ar.status = 'completed'
+      -- 舊資料 is_public 為 null 時沿用既有公開行為
       and coalesce(ar.is_public, true)
     order by coalesce(a.meeting_dates[1], date '1900-01-01') desc, a.agenda_id desc
   `);
@@ -67,6 +68,7 @@ export async function getAgendaDetailsPage(
       join analysis_results ar on ar.agenda_id = a.agenda_id
       where ar.status = 'completed'
         and coalesce(ar.is_public, true)
+        -- 以 agenda_id 做 keyset pagination，避免 offset 隨資料增加而變慢
         and ($1::text is null or a.agenda_id < $1)
       order by a.agenda_id desc
       limit $2

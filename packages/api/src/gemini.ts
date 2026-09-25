@@ -30,6 +30,7 @@ export async function analyzeWithGemini(input: AnalyzeInput): Promise<JsonObject
     sourceText: input.sourceText,
   });
 
+  // 短文本直接送出以省掉一次 token 計數請求，只有接近上限時才做預檢
   if (input.sourceText.length >= TOKEN_COUNT_CHECK_THRESHOLD) {
     const tokenCount = await ai.models.countTokens({
       model: config.geminiModelName,
@@ -45,6 +46,7 @@ export async function analyzeWithGemini(input: AnalyzeInput): Promise<JsonObject
     contents,
     config: {
       temperature: 0.2,
+      // 同時指定 JSON MIME 與 schema，讓回應格式由模型 API 約束
       responseMimeType: "application/json",
       responseSchema: analysisSchema,
     },

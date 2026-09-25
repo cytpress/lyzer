@@ -112,6 +112,7 @@ export async function fetchNewGazettes(options: { pages?: number; startPage?: nu
       const agendas = await listGazetteAgendas(gazette.gazetteId, config.lyapiAgendaLimit);
 
       await withClient(async (client) => {
+        // 以單一本公報為交易單位，避免公報已更新但議程只寫入一部分
         await client.query("begin");
         try {
           await upsertGazette(client, gazette);

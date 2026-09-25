@@ -54,6 +54,7 @@ export async function pickCandidates(limit: number, agendaId?: string): Promise<
         and (
           ar.status is null
           or ar.status = 'pending'
+          -- 回收程序中斷後遺留的 processing 紀錄，讓工作能再次排入
           or (
             ar.status = 'processing'
             and ar.updated_at < now() - interval '30 minutes'

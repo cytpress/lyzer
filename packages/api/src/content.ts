@@ -32,6 +32,7 @@ function parsedBlocksToText(payload: unknown): string {
         : [];
       if (lines.length === 0) return "";
 
+      // 保留來源提供的頁面行號，讓後續證據定位能對應回原文的大段落
       const lineNumber = typeof blockLines[index] === "number" ? blockLines[index] : null;
       const prefix = lineNumber ? `[line ${lineNumber}] ` : "";
       return `${prefix}${lines.join("\n")}`;
@@ -89,6 +90,7 @@ export async function loadAgendaText(agenda: AgendaForContent): Promise<string> 
     return parsedTexts.join("\n\n");
   }
 
+  // Parsed 文件無法取得或沒有可用區塊時才退回純文字來源
   const txtUrls = uniqueUrls([
     ...extractProcessedUrls(agenda.raw, "txt").map((item) => item.url),
     agenda.txt_url ?? "",

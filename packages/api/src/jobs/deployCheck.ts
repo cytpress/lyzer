@@ -75,6 +75,7 @@ export async function deployCheck(options: { dryRun?: boolean } = {}): Promise<D
     throw new Error(`Cloudflare Deploy Hook responded with error: ${response.status} ${response.statusText}`);
   }
 
+  // 只在 hook 確認成功後推進檢查游標，失敗時下次仍會重試這批資料
   // 6. 部署成功，更新 last_deployed_analysis_at 為最新分析時間
   await query(
     `

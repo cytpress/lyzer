@@ -25,6 +25,7 @@ function hasValidJobToken(authorization: string | undefined): boolean {
   const expected = Buffer.from(config.jobToken);
   const supplied = Buffer.from(suppliedToken);
 
+  // timingSafeEqual 需要長度相同，因此先檢查長度再做固定時間比較
   return expected.length === supplied.length && timingSafeEqual(expected, supplied);
 }
 
@@ -60,6 +61,7 @@ app.post("/jobs/deploy-check", async (c) => {
   return c.json(result);
 });
 
+// SSG 讀取端點供建置期間抓取公開資料，工作觸發端點則由上面的 Bearer 驗證保護
 app.get("/api/ssg/homepage", async (c) => c.json(await getHomepageAgendas()));
 app.get("/api/ssg/agenda-ids", async (c) => c.json(await getAgendaIds()));
 app.get("/api/ssg/agenda-details", async (c) => {

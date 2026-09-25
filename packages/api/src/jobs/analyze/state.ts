@@ -3,6 +3,7 @@ import { query } from "@/db";
 import type { JsonObject } from "@/types";
 
 export async function markProcessing(agendaId: string): Promise<void> {
+  // 重跑時先清除舊分析欄位，避免失敗期間仍被 SSG 當成最新結果使用
   await query(
     `
       insert into analysis_results (agenda_id, status, error_message, updated_at)

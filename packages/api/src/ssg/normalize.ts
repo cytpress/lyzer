@@ -59,6 +59,7 @@ export function asCommittee(value: unknown): string | null {
 function agendaItems(analysis: JsonObject): string[] {
   const items = analysis.agenda_items;
   if (!Array.isArray(items)) return [];
+  // 匯入的舊版分析有些議程項目仍以純字串保存
   return items
     .map((item) => {
       if (typeof item === "string") return item;
@@ -75,6 +76,7 @@ function nextSteps(analysis: JsonObject): string[] {
   const topLevel = asStringArray(analysis.result_and_next_steps);
   if (topLevel.length > 0) return topLevel;
 
+  // 舊版資料將後續事項放在各議程項目內，沒有新版頂層欄位時再回頭彙整
   const items = analysis.agenda_items;
   if (!Array.isArray(items)) return [];
   return items.flatMap((item) => {
@@ -87,6 +89,7 @@ function speakerNames(analysis: JsonObject, key: "legislator_speakers" | "respon
   const topLevel = asStringArray(analysis[key]);
   if (topLevel.length > 0) return topLevel;
 
+  // v1 匯入資料通常只有 agenda_items 內的發言者清單，因此由各議程項目合併並去重
   const items = analysis.agenda_items;
   if (!Array.isArray(items)) return [];
 

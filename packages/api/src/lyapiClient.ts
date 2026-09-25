@@ -39,6 +39,7 @@ function sleep(milliseconds: number): Promise<void> {
 }
 
 async function scheduleLyapiRequest<T>(request: () => Promise<T>): Promise<T> {
+  // 將同一個程序內的請求排成隊列，避免抓取多個公報時同時打到上游
   const scheduledRequest = lyapiRequestQueue.then(async () => {
     const waitMilliseconds = Math.max(0, nextLyapiRequestAt - Date.now());
     if (waitMilliseconds > 0) await sleep(waitMilliseconds);
@@ -51,6 +52,7 @@ async function scheduleLyapiRequest<T>(request: () => Promise<T>): Promise<T> {
   });
 
   lyapiRequestQueue = scheduledRequest.then(
+    // 讓前一個請求失敗後後續請求仍能繼續排隊
     () => undefined,
     () => undefined
   );
@@ -59,6 +61,7 @@ async function scheduleLyapiRequest<T>(request: () => Promise<T>): Promise<T> {
 }
 
 function get429RetryDelay(response: Response, retryCount: number): number {
+  // 優先遵守上游提供的 Retry-After，沒有時才使用遞增等待時間
   const retryAfter = response.headers.get("Retry-After")?.trim();
   if (retryAfter) {
     const seconds = Number(retryAfter);

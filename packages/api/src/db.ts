@@ -22,6 +22,7 @@ export async function withClient<T>(callback: (client: PoolClient) => Promise<T>
   try {
     return await callback(client);
   } finally {
+    // 即使交易或查詢失敗也要歸還連線，避免連線池逐漸耗盡
     client.release();
   }
 }

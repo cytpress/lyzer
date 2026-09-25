@@ -53,7 +53,7 @@ export async function analyzePendingAgendas(
   }
 
   // 2. 一般佇列分析：防卡死且自動補位機制
-  // 為了防範外部網路全斷等極端狀況造成無限迴圈，設定最大嘗試次數為 limit * 3
+  // 失敗項目不計入完成數，因此同一輪可繼續補抓候選，但設上限避免無限重試
   const maxAttempts = limit * 3;
   let attempts = 0;
 
@@ -90,6 +90,7 @@ export async function analyzePendingAgendas(
             `[Analyze Job] Gemini API transient error (429/503) detected. Resetting agenda ${agenda.agenda_id} to pending and aborting queue immediately.`
           );
           await markPending(agenda.agenda_id);
+          // 配額或上游暫時故障時停止整批，避免同一輪繼續消耗請求並擴大失敗
           // 融斷保護：將 attempts 設為最大上限以立即跳出 while 迴圈
           attempts = maxAttempts;
           break;

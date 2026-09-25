@@ -2,6 +2,7 @@
 import { pool } from "@/db";
 
 export async function migrate(): Promise<void> {
+  // 啟動時只建立缺少的資料表與索引，正式 schema 變更仍由維運流程手動執行
   await pool.query(`
     create table if not exists gazettes (
       gazette_id text primary key,

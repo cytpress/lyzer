@@ -36,12 +36,14 @@ export function normalizeAnalysis(analysis: JsonObject, categoryCode: number): J
   const modelPublic = analysis.is_public !== false;
 
   if (categoryCode === 8) {
+    // 黨團協商固定使用文件類型，不從模型輸出推導委員會
     normalized.document_type = "黨團協商";
     normalized.committee_name = null;
     normalized.is_public = hasAgendaItems && modelPublic;
     return normalized;
   }
 
+  // 委員會名稱先白名單化，避免模型創造資料庫與前端都不認得的分類
   normalized.document_type = "委員會";
   normalized.committee_name = committeeNames.length > 0 ? committeeNames : null;
   normalized.is_public =
