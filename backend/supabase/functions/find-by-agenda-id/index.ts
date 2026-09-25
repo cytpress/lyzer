@@ -47,10 +47,31 @@ serve(async (req) => {
       });
     }
 
-    // 組合最終的 URL 並執行轉址
-    const detailedPageId = data.analyzed_content_id;
-    const siteUrl = Deno.env.get("SITE_URL") || "https://ly-gazette.vercel.app";
-    const redirectUrl = `${siteUrl}/detailedGazette/${detailedPageId}`;
+    // v2 的詳細頁以 agenda_id 作為路徑；先確認新站有公開頁面，避免轉到不存在的頁面。
+    const pageResponse = await fetch(
+      `https://api.lyzer.tw/api/ssg/agendas/${encodeURIComponent(agendaId)}`,
+      { signal: AbortSignal.timeout(8_000) },
+    );
+
+    if (pageResponse.status === 404) {
+      return new Response(JSON.stringify({ error: "新站尚無此議程的公開摘要頁面" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+
+    if (!pageResponse.ok) {
+      console.error("新站頁面查詢失敗:", pageResponse.status);
+      return new Response(JSON.stringify({ error: "目前無法確認新站摘要頁面" }), {
+        status: 502,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+
+    const redirectUrl = new URL(
+      `/gazettes/${encodeURIComponent(agendaId)}/`,
+      "https://lyzer.tw",
+    );
 
     return new Response(null, {
       status: 302,
