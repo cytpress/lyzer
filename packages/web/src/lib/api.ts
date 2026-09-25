@@ -24,6 +24,7 @@ export async function getAgendaDetailsForBuild(): Promise<AgendaDetail[]> {
   const details: AgendaDetail[] = [];
   let cursor: string | null = null;
 
+  // 建置時分頁讀取所有公開詳情，避免單次 API 回應超大
   while (true) {
     const params = new URLSearchParams({ limit: "200" });
     if (cursor) params.set("cursor", cursor);

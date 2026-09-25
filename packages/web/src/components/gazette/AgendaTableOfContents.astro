@@ -1,6 +1,7 @@
 ---
 // 呈現桌面目錄與手機目錄抽屜
 import { itemNumber, itemTitle, speakerId, speakerName } from "@/lib/detail";
+import { tocLinkClasses } from "@/lib/styles";
 import type { AnalysisAgendaItem } from "@/types";
 
 interface Props {
@@ -17,23 +18,23 @@ const { agendaItems } = Astro.props;
       {
         agendaItems.map((_, index) => (
           <li>
-            <a class="toc-link font-medium" href={`#item-${index}-title`}>
+            <a class={`${tocLinkClasses} font-medium`} href={`#item-${index}-title`}>
               討論事項{itemNumber(index)}
             </a>
             <ol class="mt-2 space-y-1.5 border-l border-neutral-200 pl-3 text-sm">
               <li>
-                <a class="toc-link" href={`#item-${index}-core`}>
+                <a class={tocLinkClasses} href={`#item-${index}-core`}>
                   核心議題
                 </a>
               </li>
               <li>
-                <a class="toc-link" href={`#item-${index}-controversy`}>
+                <a class={tocLinkClasses} href={`#item-${index}-controversy`}>
                   相關爭議
                 </a>
               </li>
               <li>
                 <a
-                  class="toc-link"
+                  class={tocLinkClasses}
                   href={`#item-${index}-legislators`}
                   data-toc-group-link={`item-${index}-legislators`}
                 >
@@ -48,7 +49,7 @@ const { agendaItems } = Astro.props;
                   >
                     {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
                       <li>
-                        <a class="toc-link" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "legislator", speakerIndex)}`}>
                           {speakerName(speaker)}
                         </a>
                       </li>
@@ -58,7 +59,7 @@ const { agendaItems } = Astro.props;
               </li>
               <li>
                 <a
-                  class="toc-link"
+                  class={tocLinkClasses}
                   href={`#item-${index}-respondents`}
                   data-toc-group-link={`item-${index}-respondents`}
                 >
@@ -73,7 +74,7 @@ const { agendaItems } = Astro.props;
                   >
                     {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
                       <li>
-                        <a class="toc-link" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "respondent", speakerIndex)}`}>
                           {speakerName(speaker)}
                         </a>
                       </li>
@@ -82,7 +83,7 @@ const { agendaItems } = Astro.props;
                 )}
               </li>
               <li>
-                <a class="toc-link" href={`#item-${index}-result`}>
+                <a class={tocLinkClasses} href={`#item-${index}-result`}>
                   相關後續
                 </a>
               </li>
@@ -90,7 +91,7 @@ const { agendaItems } = Astro.props;
           </li>
         ))
       }
-      <li><a class="toc-link font-medium" href="#source-data">原始資料</a></li>
+      <li><a class={`${tocLinkClasses} font-medium`} href="#source-data">原始資料</a></li>
     </ol>
   </nav>
 </aside>
@@ -116,29 +117,34 @@ const { agendaItems } = Astro.props;
   >
     <div class="mb-6 flex items-center justify-between">
       <p class="font-semibold text-neutral-950">本頁目錄</p>
-      <button class="toc-close-button" type="button" data-toc-close aria-label="關閉目錄">×</button>
+      <button
+        class="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-neutral-300 bg-white text-neutral-500 transition-colors duration-[160ms] hover:border-neutral-500 hover:text-neutral-900"
+        type="button"
+        data-toc-close
+        aria-label="關閉目錄">×</button
+      >
     </div>
     <ol class="space-y-5">
       {
         agendaItems.map((item, index) => (
           <li>
-            <a class="toc-link font-medium" href={`#item-${index}-title`}>
+            <a class={`${tocLinkClasses} font-medium`} href={`#item-${index}-title`}>
               討論事項{itemNumber(index)}：{itemTitle(item)}
             </a>
             <ol class="mt-2 space-y-2 border-l border-neutral-200 pl-3 text-sm">
               <li>
-                <a class="toc-link" href={`#item-${index}-core`}>
+                <a class={tocLinkClasses} href={`#item-${index}-core`}>
                   核心議題
                 </a>
               </li>
               <li>
-                <a class="toc-link" href={`#item-${index}-controversy`}>
+                <a class={tocLinkClasses} href={`#item-${index}-controversy`}>
                   相關爭議
                 </a>
               </li>
               <li>
                 <a
-                  class="toc-link"
+                  class={tocLinkClasses}
                   href={`#item-${index}-legislators`}
                   data-toc-group-link={`item-${index}-legislators`}
                 >
@@ -153,7 +159,7 @@ const { agendaItems } = Astro.props;
                   >
                     {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
                       <li>
-                        <a class="toc-link" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "legislator", speakerIndex)}`}>
                           {speakerName(speaker)}
                         </a>
                       </li>
@@ -163,7 +169,7 @@ const { agendaItems } = Astro.props;
               </li>
               <li>
                 <a
-                  class="toc-link"
+                  class={tocLinkClasses}
                   href={`#item-${index}-respondents`}
                   data-toc-group-link={`item-${index}-respondents`}
                 >
@@ -178,7 +184,7 @@ const { agendaItems } = Astro.props;
                   >
                     {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
                       <li>
-                        <a class="toc-link" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "respondent", speakerIndex)}`}>
                           {speakerName(speaker)}
                         </a>
                       </li>
@@ -187,7 +193,7 @@ const { agendaItems } = Astro.props;
                 )}
               </li>
               <li>
-                <a class="toc-link" href={`#item-${index}-result`}>
+                <a class={tocLinkClasses} href={`#item-${index}-result`}>
                   相關後續
                 </a>
               </li>
@@ -195,7 +201,7 @@ const { agendaItems } = Astro.props;
           </li>
         ))
       }
-      <li><a class="toc-link font-medium" href="#source-data">原始資料</a></li>
+      <li><a class={`${tocLinkClasses} font-medium`} href="#source-data">原始資料</a></li>
     </ol>
   </nav>
 </div>

@@ -1,8 +1,22 @@
 // 整理委員會名稱、顯示色彩與標籤短名
 export interface CommitteeStyle {
   shortName: string;
-  tone: string;
+  tone: CommitteeTone;
 }
+
+export const committeeToneClasses = {
+  blue: "bg-blue-100",
+  red: "bg-red-100",
+  yellow: "bg-yellow-100",
+  lime: "bg-lime-100",
+  green: "bg-green-100",
+  orange: "bg-orange-100",
+  violet: "bg-violet-100",
+  teal: "bg-teal-100",
+  neutral: "bg-neutral-100",
+} as const;
+
+export type CommitteeTone = keyof typeof committeeToneClasses;
 
 const committeeStyles: Record<string, CommitteeStyle> = {
   內政委員會: { shortName: "內政", tone: "blue" },
@@ -28,6 +42,7 @@ export function splitCommitteeNames(value: string | null | undefined): string[] 
 
 export function normalizeCommitteeList(values: string[]): string[] {
   const names = Array.from(new Set(values.flatMap((value) => splitCommitteeNames(value))));
+  // 固定委員會依網站慣用順序排列，其他會議類型再依中文排序
   return names.sort((left, right) => {
     const leftIndex = preferredOrder.indexOf(left);
     const rightIndex = preferredOrder.indexOf(right);
@@ -48,4 +63,8 @@ export function getCommitteeStyle(name: string): CommitteeStyle {
       tone: "neutral",
     }
   );
+}
+
+export function getCommitteeTagClasses(tone: CommitteeTone): string {
+  return `inline-flex items-center rounded px-2 py-1 text-xs leading-5 text-neutral-700 md:text-sm ${committeeToneClasses[tone]}`;
 }

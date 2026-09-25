@@ -1,6 +1,7 @@
 ---
 // 呈現首頁與篩選結果共用的公報摘要卡片
-import { getCommitteeStyle, splitCommitteeNames } from "@/lib/committee";
+import { getCommitteeStyle, getCommitteeTagClasses, splitCommitteeNames } from "@/lib/committee";
+import { agendaCardClasses } from "@/lib/styles";
 import type { HomepageAgenda } from "@/types";
 
 interface Props {
@@ -14,7 +15,7 @@ const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未�
 ---
 
 <li class="page-shell" data-agenda-card data-agenda-id={agenda.agendaId}>
-  <article class="agenda-card relative flex flex-col justify-center px-4 py-5 md:px-8 md:py-7">
+  <article class={agendaCardClasses}>
     <div class="mb-3">
       <a class="min-w-0 after:absolute after:inset-0 after:content-['']" href={`/gazettes/${agenda.agendaId}`}>
         <h2 class="text-lg leading-snug font-medium text-neutral-900 md:text-xl">
@@ -28,7 +29,7 @@ const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未�
         tags.map((name) => {
           const style = getCommitteeStyle(name);
           return (
-            <span class="committee-tag" data-tone={style.tone}>
+            <span class={getCommitteeTagClasses(style.tone)}>
               <>
                 <span class="md:hidden">{style.shortName}</span>
                 <span class="hidden md:inline">{name}</span>

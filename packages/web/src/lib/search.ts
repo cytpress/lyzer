@@ -41,6 +41,7 @@ export function tokenize(text: string): string[] {
         continue;
       }
 
+      // 中文沒有空格斷詞，以相鄰雙字詞保留部分子字串搜尋能力
       for (let index = 0; index < chunk.length - 1; index += 1) {
         tokens.push(chunk.slice(index, index + 2));
       }

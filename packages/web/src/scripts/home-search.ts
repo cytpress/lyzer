@@ -1,10 +1,12 @@
 // 管理首頁搜尋、篩選、分頁和結果渲染
 import MiniSearch from "minisearch";
-import { getCommitteeStyle, splitCommitteeNames } from "@/lib/committee";
+import { getCommitteeStyle, getCommitteeTagClasses, splitCommitteeNames } from "@/lib/committee";
 import type { AgendaCatalogItem } from "@/lib/catalog";
 import { expandQuery, miniSearchOptions } from "@/lib/search";
+import { agendaCardClasses, filterChipClasses } from "@/lib/styles";
 
 const PAGE_SIZE = 10;
+// 頁面上已有首批資料，完整目錄與搜尋索引等使用者需要時才載入
 let agendaCatalogPromise: Promise<AgendaCatalogItem[]> | null = null;
 let miniSearchPromise: Promise<MiniSearch[] | null> | null = null;
 
@@ -36,13 +38,13 @@ function renderAgendaCard(agenda: AgendaCatalogItem): string {
   const committeeTags = tags
     .map((name) => {
       const style = getCommitteeStyle(name);
-      return `<span class="committee-tag" data-tone="${style.tone}"><span class="md:hidden">${escapeHtml(style.shortName)}</span><span class="hidden md:inline">${escapeHtml(name)}</span></span>`;
+      return `<span class="${getCommitteeTagClasses(style.tone)}"><span class="md:hidden">${escapeHtml(style.shortName)}</span><span class="hidden md:inline">${escapeHtml(name)}</span></span>`;
     })
     .join("");
 
   return `
     <li class="page-shell" data-agenda-card data-agenda-id="${escapeHtml(agenda.agendaId)}">
-      <article class="agenda-card relative flex flex-col justify-center px-4 py-5 md:px-8 md:py-7">
+      <article class="${agendaCardClasses}">
         <div class="mb-3">
           <a class="min-w-0 after:absolute after:inset-0 after:content-['']" href="/gazettes/${encodeURIComponent(agenda.agendaId)}">
             <h2 class="text-lg font-medium leading-snug text-neutral-900 md:text-xl">${escapeHtml(agenda.summaryTitle)}</h2>
@@ -74,6 +76,7 @@ async function loadMiniSearchChunks(): Promise<MiniSearch[] | null> {
     const response = await fetch("/search-index.json");
     if (!response.ok) throw new Error(`search-index ${response.status}`);
     const payload = (await response.json()) as { chunks: string[] };
+    // 每個索引分塊獨立下載，避免首頁初始 HTML 帶入整份全文索引
     return Promise.all(
       payload.chunks.map(async (chunk) => {
         const chunkResponse = await fetch(chunk);
@@ -194,7 +197,7 @@ export function initHomeSearch(): void {
     buttons.forEach((button) => {
       const active = (button.dataset.committee ?? "") === selectedCommittee;
       button.dataset.active = active ? "true" : "false";
-      button.className = "filter-chip";
+      button.className = filterChipClasses;
     });
   };
 
@@ -278,6 +281,7 @@ export function initHomeSearch(): void {
       render();
     }
     try {
+      // 分頁或委員會篩選需要完整目錄，首頁初次顯示則沿用靜態輸出的最新十筆
       agendas = await loadAgendaCatalog();
       catalogLoaded = true;
       catalogLoadFailed = false;

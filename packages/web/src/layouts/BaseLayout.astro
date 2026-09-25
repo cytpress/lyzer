@@ -40,8 +40,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
           <img class="h-9 w-auto md:hidden" src="/brand/lyzer-no-text.svg" alt="LYZER" />
         </a>
 
-        <form class="header-search-form" data-header-search-form>
-          <label class="header-search-field">
+        <form class="hidden md:block" data-header-search-form>
+          <label class="relative block w-24 transition-[width] duration-300 ease-in-out focus-within:w-60">
             <span class="sr-only">搜尋公報摘要</span>
             <input
               class="h-10 w-full rounded-2xl border-2 border-neutral-300 bg-white pr-10 pl-3 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-500"

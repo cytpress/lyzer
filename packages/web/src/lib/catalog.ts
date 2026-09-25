@@ -3,6 +3,7 @@ import type { HomepageAgenda } from "@/types";
 
 export const AGENDA_CATALOG_CHUNK_SIZE = 1000;
 
+// 首頁篩選只帶卡片會顯示的欄位，完整摘要留在詳細頁避免重複傳輸
 export type AgendaCatalogItem = Pick<
   HomepageAgenda,
   | "agendaId"

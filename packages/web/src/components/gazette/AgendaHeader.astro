@@ -1,6 +1,6 @@
 ---
 // 呈現公報詳細頁標題、分類標籤與摘要
-import { getCommitteeStyle } from "@/lib/committee";
+import { getCommitteeStyle, getCommitteeTagClasses } from "@/lib/committee";
 
 interface Props {
   title: string;
@@ -21,11 +21,7 @@ const { title, tags, meetingDates, summary } = Astro.props;
     {
       tags.map((name) => {
         const style = getCommitteeStyle(name);
-        return (
-          <span class="committee-tag" data-tone={style.tone}>
-            {name}
-          </span>
-        );
+        return <span class={getCommitteeTagClasses(style.tone)}>{name}</span>;
       })
     }
     {meetingDates.map((date) => <span>會議日期：{date}</span>)}

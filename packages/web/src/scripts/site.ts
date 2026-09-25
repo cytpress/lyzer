@@ -9,4 +9,5 @@ function initPage(): void {
   initDetailToc();
 }
 
+// Astro transitions 會替換頁面內容而不重載文件，因此互動要在每次頁面切換後重新初始化
 document.addEventListener("astro:page-load", initPage);

@@ -2,6 +2,7 @@
 let detailTocController: AbortController | null = null;
 
 export function initDetailToc(): void {
+  // transitions 不會清除舊頁面的 document listener，先中止前一頁註冊的事件
   detailTocController?.abort();
   detailTocController = new AbortController();
   const { signal } = detailTocController;
@@ -71,6 +72,7 @@ export function initDetailToc(): void {
   const updateActiveSection = () => {
     updateScheduled = false;
     const anchorOffset = 112;
+    // 以固定閱讀基準線判斷目前段落，避免 IntersectionObserver 多個區塊同時交錯時指示跳動
     let current = targets[0];
     for (const target of targets) {
       if (target.getBoundingClientRect().top > anchorOffset) break;
@@ -88,6 +90,7 @@ export function initDetailToc(): void {
       return;
     }
     if (updateScheduled) return;
+    // 將連續 scroll 事件合併到一個畫面影格內計算
     updateScheduled = true;
     window.requestAnimationFrame(updateActiveSection);
   };
