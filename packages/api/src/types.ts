@@ -1,3 +1,4 @@
+// 集中定義 API、資料來源與摘要分析共用型別
 export type JsonObject = Record<string, unknown>;
 
 export interface NormalizedGazette {

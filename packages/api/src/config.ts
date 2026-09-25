@@ -1,3 +1,4 @@
+// 讀取並驗證 API 與排程工作使用的環境設定
 import "dotenv/config";
 
 // 本機獨立開發 (非 Docker 容器化) 的 fallback 預設連線字串

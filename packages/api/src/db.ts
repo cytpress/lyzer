@@ -1,6 +1,7 @@
+// 建立 PostgreSQL 連線池並封裝資料庫查詢
 import pg from "pg";
 import type { PoolClient, QueryResultRow } from "pg";
-import { config } from "./config.js";
+import { config } from "@/config";
 
 const { Pool } = pg;
 

@@ -1,5 +1,6 @@
-import { config } from "../config.js";
-import { query } from "../db.js";
+// 檢查新完成的分析並視需要觸發網站部署
+import { config } from "@/config";
+import { query } from "@/db";
 
 export interface DeployCheckResult {
   shouldDeploy: boolean;

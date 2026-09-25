@@ -1,7 +1,8 @@
+// 定義分析輸出結構並正規化不同類別的模型結果
 import { Type } from "@google/genai";
-import { buildCaucusPrompt } from "./prompts/caucus.js";
-import { buildCommitteePrompt } from "./prompts/committee.js";
-import type { JsonObject } from "./types.js";
+import { buildCaucusPrompt } from "@/prompts/caucus";
+import { buildCommitteePrompt } from "@/prompts/committee";
+import type { JsonObject } from "@/types";
 
 export const ALLOWED_COMMITTEE_NAMES = [
   "內政委員會",
@@ -18,12 +19,7 @@ export const ALLOWED_COMMITTEE_NAMES = [
   "全院委員會",
 ] as const;
 
-export const HIDDEN_COMMITTEE_NAMES = new Set([
-  "程序委員會",
-  "紀律委員會",
-  "修憲委員會",
-  "全院委員會",
-]);
+export const HIDDEN_COMMITTEE_NAMES = new Set(["程序委員會", "紀律委員會", "修憲委員會", "全院委員會"]);
 
 export function shouldSkipAnalysis(categoryCode: number | null | undefined): boolean {
   return categoryCode !== 3 && categoryCode !== 8;
@@ -34,8 +30,7 @@ export function normalizeAnalysis(analysis: JsonObject, categoryCode: number): J
   const rawCommitteeNames = Array.isArray(analysis.committee_name) ? analysis.committee_name : [];
   const committeeNames = rawCommitteeNames.filter(
     (name): name is string =>
-      typeof name === "string" &&
-      ALLOWED_COMMITTEE_NAMES.includes(name as (typeof ALLOWED_COMMITTEE_NAMES)[number])
+      typeof name === "string" && ALLOWED_COMMITTEE_NAMES.includes(name as (typeof ALLOWED_COMMITTEE_NAMES)[number])
   );
   const hasAgendaItems = Array.isArray(analysis.agenda_items) && analysis.agenda_items.length > 0;
   const modelPublic = analysis.is_public !== false;
@@ -50,9 +45,7 @@ export function normalizeAnalysis(analysis: JsonObject, categoryCode: number): J
   normalized.document_type = "委員會";
   normalized.committee_name = committeeNames.length > 0 ? committeeNames : null;
   normalized.is_public =
-    hasAgendaItems &&
-    modelPublic &&
-    !committeeNames.some((name) => HIDDEN_COMMITTEE_NAMES.has(name));
+    hasAgendaItems && modelPublic && !committeeNames.some((name) => HIDDEN_COMMITTEE_NAMES.has(name));
   return normalized;
 }
 

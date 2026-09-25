@@ -1,4 +1,5 @@
-/* Category 3: 委員會議事紀錄分析 prompt。保留 v1 的分析欄位與判斷規則。 */
+// 定義委員會議事紀錄使用的分析指示
+/* Category 3：委員會議事紀錄分析 prompt，保留 v1 分析欄位與判斷規則 */
 
 const committeeNameInstruction = `請從以下委員會名稱中，根據文本內容判斷並選擇最符合的一個或多個名稱，將它們作為 JSON 字串陣列填入 "committee_name" 欄位。
 
@@ -18,7 +19,6 @@ const committeeNameInstruction = `請從以下委員會名稱中，根據文本�
 單一委員會輸出一個名稱。聯席會議列出原文明確提到的所有相關委員會，並將主導委員會放在第一個。若原文沒有足夠資訊判斷，committee_name 輸出 null。
 
 程序委員會、紀律委員會、修憲委員會及全院委員會仍要完整分析，但 is_public 必須輸出 false。`;
-
 
 const committeeFewShotExample = `
 以下範例用來說明整理方式與詳細程度。當一個欄位包含數個彼此獨立的重點時，才分成 JSON 陣列中的不同字串元素。
@@ -88,7 +88,6 @@ const committeeFewShotExample = `
 --- 範例結束 ---
 `;
 
-
 const commonAnalysisInstructions = `
 請以提供的原文為唯一依據。範例只示範整理方式，不可把範例中的人名、數字或議題帶入實際分析。請篩選並統整重點，不要把所有細節逐句重述：
 
@@ -129,7 +128,6 @@ const commonAnalysisInstructions = `
 
 最後請使用台灣繁體中文，維持客觀中立，只根據原文分析。輸出符合既定 schema 的 JSON，不要輸出 Markdown 或其他說明。
 `;
-
 
 export function buildCommitteePrompt(sourceText: string): string {
   return `

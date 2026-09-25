@@ -1,5 +1,6 @@
-import { config } from "./config.js";
-import type { JsonObject, NormalizedAgenda, NormalizedGazette, ProcessedUrl } from "./types.js";
+// 封裝 LYAPI 請求、重試與資料正規化
+import { config } from "@/config";
+import type { JsonObject, NormalizedAgenda, NormalizedGazette, ProcessedUrl } from "@/types";
 
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};

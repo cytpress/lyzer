@@ -1,5 +1,6 @@
-import { extractProcessedUrls } from "./lyapiClient.js";
-import type { JsonObject } from "./types.js";
+// 下載公報原文並整理模型分析使用的文字內容
+import { extractProcessedUrls } from "@/lyapiClient";
+import type { JsonObject } from "@/types";
 
 interface AgendaForContent {
   agenda_id: string;

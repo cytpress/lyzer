@@ -1,4 +1,5 @@
-/* Category 8: 黨團協商紀錄分析 prompt。沿用 v1 的欄位與判斷規則。
+// 定義黨團協商紀錄使用的分析指示
+/* Category 8：黨團協商紀錄分析 prompt，沿用 v1 欄位與判斷規則
  * Example source: https://v2.ly.govapi.tw/gazette_agenda_doc/1151801_00010/parsed
  */
 
@@ -61,7 +62,6 @@ const caucusFewShotExample = `
 --- 範例結束 ---
 `;
 
-
 const commonAnalysisInstructions = `
 請以提供的原文為唯一依據。範例只示範整理方式，不可把範例中的人名、數字或議題帶入實際分析。請篩選並統整重點，不要把所有細節逐句重述：
 
@@ -102,7 +102,6 @@ const commonAnalysisInstructions = `
 
 最後請使用台灣繁體中文，維持客觀中立，只根據原文分析。輸出符合既定 schema 的 JSON，不要輸出 Markdown 或其他說明。
 `;
-
 
 export function buildCaucusPrompt(sourceText: string): string {
   return `

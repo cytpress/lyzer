@@ -1,12 +1,13 @@
+// 註冊健康檢查、排程工作與公開 SSG API 路由
 import { serve } from "@hono/node-server";
 import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
-import { config } from "./config.js";
-import { closeDb } from "./db.js";
-import { analyzePendingAgendas } from "./jobs/analyze.js";
-import { fetchNewGazettes } from "./jobs/fetch.js";
-import { deployCheck } from "./jobs/deployCheck.js";
-import { migrate } from "./schema.js";
+import { config } from "@/config";
+import { closeDb } from "@/db";
+import { analyzePendingAgendas } from "@/jobs/analyze";
+import { fetchNewGazettes } from "@/jobs/fetch";
+import { deployCheck } from "@/jobs/deployCheck";
+import { migrate } from "@/schema";
 import {
   getAgendaDetail,
   getAgendaDetailsPage,
@@ -14,7 +15,7 @@ import {
   getCommittees,
   getHomepageAgendas,
   getLegislatorStats,
-} from "./ssg.js";
+} from "@/ssg";
 const app = new Hono();
 
 function hasValidJobToken(authorization: string | undefined): boolean {

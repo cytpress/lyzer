@@ -1,8 +1,9 @@
+// 同步新公報與議程資料並更新資料庫
 import type { PoolClient } from "pg";
-import { config } from "../config.js";
-import { listGazetteAgendas, listGazettes } from "../lyapiClient.js";
-import { withClient } from "../db.js";
-import type { NormalizedAgenda, NormalizedGazette } from "../types.js";
+import { config } from "@/config";
+import { listGazetteAgendas, listGazettes } from "@/lyapiClient";
+import { withClient } from "@/db";
+import type { NormalizedAgenda, NormalizedGazette } from "@/types";
 
 export interface FetchJobResult {
   gazettes: number;

@@ -1,7 +1,8 @@
+// 送出公報分析請求並解析 Gemini 結構化回應
 import { GoogleGenAI } from "@google/genai";
-import { config } from "./config.js";
-import { analysisSchema, buildAnalysisPrompt } from "./prompts.js";
-import type { JsonObject } from "./types.js";
+import { config } from "@/config";
+import { analysisSchema, buildAnalysisPrompt } from "@/prompts";
+import type { JsonObject } from "@/types";
 
 interface AnalyzeInput {
   categoryCode: number;

@@ -1,4 +1,5 @@
-import { pool } from "./db.js";
+// 建立和更新 Lyzer PostgreSQL 所需的資料表與索引
+import { pool } from "@/db";
 
 export async function migrate(): Promise<void> {
   await pool.query(`
