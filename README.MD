@@ -26,7 +26,7 @@ browser -> Cloudflare Pages static site
 2. 分析：定期撈取待處理的議程，呼叫 Gemini 生成 AI 摘要與結構化大綱。
 3. 編譯與部署：當有新分析完成時，自動戳 Cloudflare Pages 部署 hook，由 Pages 雲端拉取資料進行 Astro 靜態編譯（SSG），確保公開網站在我自己 server 掛掉出事時還能運作。
 
-Ubuntu 主機以 Docker Compose 執行 PostgreSQL、API、排程器與 Cloudflare Tunnel，並由 Dockhand 管理整個 Compose stack。部署、環境變數、備份與故障排除請看 [維運說明](ops/README.md)。
+Ubuntu 主機以 Docker Compose 執行 PostgreSQL、API、排程器與 Cloudflare Tunnel，並由 Dockhand 管理 Lyzer stack；網站則由 Cloudflare Pages 透過 Git 整合發布。
 
 ---
 

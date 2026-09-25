@@ -28,6 +28,6 @@ Lyzer 的 Docker Compose stack 已經決議由 Dockhand 管理；這是本專案
 - 修改功能時一併移除已確認沒有引用的死碼、舊流程與無用設定。
 - 刪除前先搜尋 repo 內的 import、route、script、Docker/CI 設定與文件引用；可能被外部 API 或人工操作使用的項目先列出，不要只因 repo 內找不到引用就直接刪除。
 
-## 參考文件
+## 本機維運資料
 
-執行日常開發、更新與部署前，先讀取 [`ops/README.md`](ops/README.md)；若本檔與操作細節有衝突，以本檔的 Dockhand 唯一入口規範為準。
+詳細主機操作筆記保存在本機忽略檔 `docs/private-runbook.md`，不得加入公開 repo。開始維運前若該檔存在，先讀取操作細節；若不存在，以本檔規範為準。正式 Lyzer stack 的唯一部署入口仍是 Dockhand。
