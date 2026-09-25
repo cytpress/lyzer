@@ -102,6 +102,8 @@ SSG_API_BASE=https://api.lyzer.tw pnpm dev:web
 1. 將變更 push 或合併到 GitHub `v2`。
 2. GitHub Actions 執行 lint、型別檢查、API build 與 Compose 驗證。
 3. Cloudflare Pages 的 Git 整合會接收 `v2` push；當變更符合目前的 `packages/web/*` 路徑篩選時，才會自動建置並更新 `lyzer.pages.dev` 與 `lyzer.tw`。其他 commit 在 Pages 顯示為 `Idle` 是正常現象。
+   - `lyzer.pages.dev` 是正式 `v2` 部署的別名，不是測試站；它與 `lyzer.tw` 顯示同一版網站。`lyzer.pages.dev` 和版本子網域由 `packages/web/public/_headers` 設為 `noindex`，正式網域 `lyzer.tw` 保持可索引。
+   - 測試網站變更時，從 `v2` 開 feature branch 並開 PR；Cloudflare Pages 會建立 branch/hash Preview 網址，供合併前檢查。Pages Preview 預設帶有 `X-Robots-Tag: noindex`，目前專案也對版本子網域明確套用相同標頭。
 4. GitHub Actions 通過後，若變更涉及 API、scheduler、Dockerfile 或 Compose，進入 Dockhand 的 `lyzer` Git Stack 按 update/deploy。
 5. 只修改網站時，不需要重新部署 Ubuntu stack。
 6. 確認四個 container 都是 healthy/running，並檢查 scheduler 與 API logs。
