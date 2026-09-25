@@ -1,4 +1,4 @@
-# Lyzer v2 維運說明
+# Lyzer 維運說明
 
 這台 Ubuntu 主機只使用一套 Lyzer 執行架構：GitHub 保存原始碼，`docker-compose.yml` 定義服務，Dockhand 管理完整 Compose stack。Cloudflare Pages 發布靜態網站，Cloudflare Tunnel 將 API 提供給 Pages 建置流程。不要再用 systemd timer 或另一份 `docker compose up` 長期管理同一組服務。
 
@@ -68,7 +68,7 @@ DOCKHAND_API_TOKEN=<local-secret>
 
 ## 日常開發
 
-正式開發分支是 `main`。一般變更建議建立短期 feature branch，完成後用 Pull Request 合併到 `main`；小型維運修正也可直接 commit 到 `main`。`v2` 保留為遷移完成時的回復參照，不再日常開發。commit 使用 Conventional Commits，例如 `feat: 新增搜尋功能`、`fix: 修正部署設定`，並在 body 用項目符號補充細節。
+正式開發分支只有 `main`。一般變更建議建立短期 feature branch，完成後用 Pull Request 合併到 `main`；小型維運修正也可直接 commit 到 `main`。GitHub Actions 只驗證 `main` 與目標為 `main` 的 Pull Request。commit 使用 Conventional Commits，例如 `feat: 新增搜尋功能`、`fix: 修正部署設定`，並在 body 用項目符號補充細節。
 
 首次安裝或切換工具鏈：
 
