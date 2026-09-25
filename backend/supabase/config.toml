@@ -1,0 +1,6 @@
+project_id = "ly"
+
+[functions.find-by-agenda-id]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/find-by-agenda-id/index.ts"

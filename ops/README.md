@@ -25,7 +25,7 @@ PostgreSQL -> SSG API -> Cloudflare Pages build -> lyzer.tw
 在 Dockhand 建立一個 Git Stack，並讓它成為 Lyzer 在這台主機上的唯一部署入口：
 
 - Repository：`https://github.com/cytpress/lyzer.git`
-- Branch：`v2`
+- Branch：`main`
 - Compose path：`docker-compose.yml`
 - Project/stack name：`lyzer`
 - 更新方式：先拉取指定 branch，再重新建置並部署整個 stack
@@ -68,7 +68,7 @@ DOCKHAND_API_TOKEN=<local-secret>
 
 ## 日常開發
 
-正式開發分支是 `v2`。一般變更建議建立短期 feature branch，完成後用 Pull Request 合併到 `v2`；小型維運修正也可直接 commit 到 `v2`。commit 使用 Conventional Commits，例如 `feat: 新增搜尋功能`、`fix: 修正部署設定`，並在 body 用項目符號補充細節。
+正式開發分支是 `main`。一般變更建議建立短期 feature branch，完成後用 Pull Request 合併到 `main`；小型維運修正也可直接 commit 到 `main`。`v2` 保留為遷移完成時的回復參照，不再日常開發。commit 使用 Conventional Commits，例如 `feat: 新增搜尋功能`、`fix: 修正部署設定`，並在 body 用項目符號補充細節。
 
 首次安裝或切換工具鏈：
 
@@ -99,11 +99,11 @@ SSG_API_BASE=https://api.lyzer.tw pnpm dev:web
 
 網站與 Ubuntu 服務是兩條部署路徑：
 
-1. 將變更 push 或合併到 GitHub `v2`。
+1. 將變更 push 或合併到 GitHub `main`。
 2. GitHub Actions 執行 lint、型別檢查、API build 與 Compose 驗證。
-3. Cloudflare Pages 的 Git 整合會接收 `v2` push；當變更符合目前的 `packages/web/*` 路徑篩選時，才會自動建置並更新正式站 `lyzer.tw`。其他 commit 在 Pages 顯示為 `Idle` 是正常現象。
+3. Cloudflare Pages 的 Git 整合會接收 `main` push；當變更符合目前的 `packages/web/*` 路徑篩選時，才會自動建置並更新正式站 `lyzer.tw`。其他 commit 在 Pages 顯示為 `Idle` 是正常現象。
    - `lyzer.pages.dev` 透過 Cloudflare Bulk Redirect 永久轉址至 `lyzer.tw`，並保留路徑與 query string；它不再提供第二份公開網站。
-   - 測試網站變更時，從 `v2` 開 feature branch 並開 PR；Cloudflare Pages 會建立 branch/hash Preview 網址，供合併前檢查。Pages Preview 預設帶有 `X-Robots-Tag: noindex`，目前專案也對版本子網域明確套用相同標頭。
+   - 測試網站變更時，從 `main` 開 feature branch 並開 PR；Cloudflare Pages 會建立 branch/hash Preview 網址，供合併前檢查。Pages Preview 預設帶有 `X-Robots-Tag: noindex`，目前專案也對版本子網域明確套用相同標頭。
 4. GitHub Actions 通過後，若變更涉及 API、scheduler、Dockerfile 或 Compose，進入 Dockhand 的 `lyzer` Git Stack 按 update/deploy。
 5. 只修改網站時，不需要重新部署 Ubuntu stack。
 6. 確認四個 container 都是 healthy/running，並檢查 scheduler 與 API logs。
@@ -141,6 +141,6 @@ PostgreSQL 資料保存在 Docker volume `lyzer_postgres_data`。更新應避免
 
 程式回復方式是讓 Dockhand checkout 已知可用的 commit，重新 build 並部署。資料庫異動前先用 `pg_dump` 備份；若異動無法向後相容，程式回復與資料庫回復必須一起規劃。
 
-Cloudflare Pages 的正式專案是 `lyzer`，正式 branch 為 `v2`，正式網域為 `lyzer.tw`。Pages 建置透過 `api.lyzer.tw` 讀取 SSG 資料；deploy hook 只保存於秘密環境變數。
+Cloudflare Pages 的正式專案是 `lyzer`，正式 branch 為 `main`，正式網域為 `lyzer.tw`。Pages 建置透過 `api.lyzer.tw` 讀取 SSG 資料；deploy hook 只保存於秘密環境變數。
 
-舊版 `main`、Vercel 與 Supabase 遷移不在這份維運流程內。在退役舊版前，仍需把 Supabase `find-by-agenda-id` 的轉址改到 `https://lyzer.tw/gazettes/<agenda_id>`。
+Vercel 專案只保留舊網址轉址設定；Supabase 只保留 `find-by-agenda-id` 舊連結轉址 function，其程式碼位於 `backend/supabase/functions/find-by-agenda-id/`。一般網站發布由 Cloudflare Pages 的 `main` 分支負責，Ubuntu stack 則由 Dockhand 追蹤 `main`。
