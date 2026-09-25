@@ -1,10 +1,10 @@
 import MiniSearch from "minisearch";
 import { getCommitteeStyle, splitCommitteeNames } from "../lib/committee";
+import type { AgendaCatalogItem } from "../lib/catalog";
 import { expandQuery, miniSearchOptions } from "../lib/search";
-import type { HomepageAgenda } from "../types";
 
 const PAGE_SIZE = 10;
-let agendaCatalogPromise: Promise<HomepageAgenda[]> | null = null;
+let agendaCatalogPromise: Promise<AgendaCatalogItem[]> | null = null;
 let miniSearchPromise: Promise<MiniSearch[] | null> | null = null;
 
 function readJsonScript<T>(id: string): T | null {
@@ -28,8 +28,8 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
-function renderAgendaCard(agenda: HomepageAgenda): string {
-  const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
+function renderAgendaCard(agenda: AgendaCatalogItem): string {
+  const meetingDate = agenda.meetingDate ?? "日期未明";
   const committees = splitCommitteeNames(agenda.committee);
   const tags = committees.length > 0 ? committees : [agenda.documentType ?? "委員會"];
   const committeeTags = tags
@@ -87,7 +87,7 @@ async function loadMiniSearchChunks(): Promise<MiniSearch[] | null> {
   }
 }
 
-async function loadAgendaCatalog(): Promise<HomepageAgenda[]> {
+async function loadAgendaCatalog(): Promise<AgendaCatalogItem[]> {
   if (agendaCatalogPromise) return agendaCatalogPromise;
 
   agendaCatalogPromise = (async () => {
@@ -98,7 +98,7 @@ async function loadAgendaCatalog(): Promise<HomepageAgenda[]> {
       payload.chunks.map(async (chunk) => {
         const chunkResponse = await fetch(chunk);
         if (!chunkResponse.ok) throw new Error(`agenda-catalog chunk ${chunkResponse.status}`);
-        return (await chunkResponse.json()) as HomepageAgenda[];
+        return (await chunkResponse.json()) as AgendaCatalogItem[];
       })
     );
     return chunks.flat();
@@ -107,25 +107,19 @@ async function loadAgendaCatalog(): Promise<HomepageAgenda[]> {
   return agendaCatalogPromise;
 }
 
-function agendaFromSearchResult(result: Record<string, unknown>): HomepageAgenda | null {
+function agendaFromSearchResult(result: Record<string, unknown>): AgendaCatalogItem | null {
   const agendaId = typeof result.agendaId === "string" ? result.agendaId : String(result.id ?? "");
   if (!agendaId) return null;
 
   return {
     agendaId,
     gazetteId: typeof result.gazetteId === "string" ? result.gazetteId : "",
-    meetingDates: [],
     meetingDate: typeof result.meetingDate === "string" ? result.meetingDate : null,
     subject: typeof result.subject === "string" ? result.subject : null,
     committee: typeof result.committee === "string" ? result.committee : null,
     documentType: typeof result.documentType === "string" ? result.documentType : null,
     summaryTitle: typeof result.summaryTitle === "string" ? result.summaryTitle : agendaId,
     overallSummary: typeof result.overallSummary === "string" ? result.overallSummary : "",
-    agendaItems: [],
-    legislators: [],
-    respondents: [],
-    resultAndNextSteps: [],
-    analyzedAt: null,
   };
 }
 
@@ -157,7 +151,7 @@ function initSearchPage(): void {
   const root = document.querySelector<HTMLElement>("[data-search-page]");
   if (!root) return;
 
-  let agendas = readJsonScript<HomepageAgenda[]>("lyzer-agendas-data") ?? [];
+  let agendas = readJsonScript<AgendaCatalogItem[]>("lyzer-agendas-data") ?? [];
   const totalAgendaCount = Number(root.dataset.totalCount ?? agendas.length);
   const input = root.querySelector<HTMLInputElement>("[data-search-input]");
   const headerInput = document.querySelector<HTMLInputElement>("[data-header-search-input]");
@@ -184,13 +178,13 @@ function initSearchPage(): void {
   if (input) input.value = currentQuery;
   if (headerInput) headerInput.value = currentQuery;
 
-  const byDate = (direction: "asc" | "desc") => (a: HomepageAgenda, b: HomepageAgenda) => {
+  const byDate = (direction: "asc" | "desc") => (a: AgendaCatalogItem, b: AgendaCatalogItem) => {
     const left = a.meetingDate ?? "";
     const right = b.meetingDate ?? "";
     return direction === "asc" ? left.localeCompare(right) : right.localeCompare(left);
   };
 
-  const filtered = (): HomepageAgenda[] => {
+  const filtered = (): AgendaCatalogItem[] => {
     const query = currentQuery.trim();
     const base =
       query && miniSearch
@@ -198,7 +192,7 @@ function initSearchPage(): void {
             .flatMap((index) => index.search(expandQuery(query)))
             .sort((left, right) => right.score - left.score)
             .map((result) => agendaFromSearchResult(result as Record<string, unknown>))
-            .filter((agenda): agenda is HomepageAgenda => Boolean(agenda))
+            .filter((agenda): agenda is AgendaCatalogItem => Boolean(agenda))
         : [...agendas];
 
     const scoped = base.filter(
