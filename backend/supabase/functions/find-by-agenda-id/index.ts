@@ -1,4 +1,4 @@
-// backend/supabase/functions/find-by-agenda-id/index.ts
+// 保留舊 Supabase 議程網址並轉址至新站公開摘要
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
@@ -14,11 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    // 以目前 Lyzer API 是否有公開頁面為準，不依賴舊 Supabase 資料庫。
-    const pageResponse = await fetch(
-      `https://api.lyzer.tw/api/ssg/agendas/${encodeURIComponent(agendaId)}`,
-      { signal: AbortSignal.timeout(8_000) },
-    );
+    // 以目前 Lyzer API 是否有公開頁面為準，不依賴舊 Supabase 資料庫
+    const pageResponse = await fetch(`https://api.lyzer.tw/api/ssg/agendas/${encodeURIComponent(agendaId)}`, {
+      signal: AbortSignal.timeout(8_000),
+    });
 
     if (pageResponse.status === 404) {
       return new Response(JSON.stringify({ error: "新站尚無此議程的公開摘要頁面" }), {
@@ -35,10 +34,7 @@ serve(async (req) => {
       });
     }
 
-    const redirectUrl = new URL(
-      `/gazettes/${encodeURIComponent(agendaId)}/`,
-      "https://lyzer.tw",
-    );
+    const redirectUrl = new URL(`/gazettes/${encodeURIComponent(agendaId)}/`, "https://lyzer.tw");
 
     return new Response(null, {
       status: 302,
