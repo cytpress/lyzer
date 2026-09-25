@@ -47,7 +47,7 @@ const serializedFirstPage = JSON.stringify(firstPage).replaceAll("<", "\\u003c")
       <div class="flex min-h-10 items-center justify-between gap-3 text-sm text-neutral-500">
         <span data-result-count>{agendas.length} 筆摘要</span>
         <div class="flex items-center gap-2">
-          <span data-search-status></span>
+          <span data-search-status role="status" aria-live="polite"></span>
           <label class="hidden items-center gap-2" data-sort-control>
             <span>排序</span>
             <select

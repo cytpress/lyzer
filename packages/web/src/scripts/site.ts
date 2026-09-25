@@ -178,6 +178,7 @@ function initSearchPage(): void {
   let currentQuery = new URL(window.location.href).searchParams.get("q") ?? "";
   let catalogLoaded = false;
   let loadingCatalog = false;
+  let catalogLoadFailed = false;
   let loadingSearch = false;
 
   if (input) input.value = currentQuery;
@@ -252,6 +253,19 @@ function initSearchPage(): void {
   };
 
   const render = () => {
+    const needsFullCatalog = Boolean(selectedCommittee) && !currentQuery.trim() && !catalogLoaded;
+    if (needsFullCatalog) {
+      count.textContent = "篩選結果";
+      if (status) {
+        status.textContent = catalogLoadFailed ? "摘要資料載入失敗，請重新整理後再試" : "載入完整摘要資料中…";
+      }
+      list.replaceChildren();
+      empty.hidden = true;
+      pagination.replaceChildren();
+      syncCommitteeButtons();
+      return;
+    }
+
     const results = filtered();
     const isSearch = Boolean(currentQuery.trim());
     const resultCount = !catalogLoaded && !isSearch && !selectedCommittee ? totalAgendaCount : results.length;
@@ -281,15 +295,18 @@ function initSearchPage(): void {
     if (catalogLoaded) return;
     const startedLoading = !loadingCatalog;
     if (startedLoading) {
+      catalogLoadFailed = false;
       loadingCatalog = true;
       render();
     }
     try {
       agendas = await loadAgendaCatalog();
       catalogLoaded = true;
+      catalogLoadFailed = false;
     } catch (error) {
       console.warn(error);
-      if (status) status.textContent = "摘要資料載入失敗，請稍後再試";
+      agendaCatalogPromise = null;
+      catalogLoadFailed = true;
     } finally {
       if (startedLoading) {
         loadingCatalog = false;
