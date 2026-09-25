@@ -143,6 +143,6 @@ PostgreSQL 資料保存在 Docker volume `lyzer_postgres_data`。更新應避免
 
 Cloudflare Pages 的正式專案是 `lyzer`，正式 branch 為 `main`，正式網域為 `lyzer.tw`。Pages 建置透過 `api.lyzer.tw` 讀取 SSG 資料；`lyzer-build` deploy hook 也綁定 `main`，hook URL 只保存於秘密環境變數。
 
-Vercel 專案只保留舊網址轉址設定；Supabase repo source 只保留 `find-by-agenda-id` 舊連結轉址 function，其程式碼位於 `backend/supabase/functions/find-by-agenda-id/`。一般網站發布由 Cloudflare Pages 的 `main` 分支負責，Ubuntu stack 則由 Dockhand 追蹤 `main`。2026-09-25 已解除 Vercel 專案 `cytpress-projects/lyzer` 的 Git 連線，既有 Production 轉址部署仍在線，但 push 不會再觸發 Vercel 部署。
+Vercel 專案只保留舊網址轉址設定；Supabase repo source 只保留 `find-by-agenda-id` 舊連結轉址 function，其程式碼位於 `backend/supabase/functions/find-by-agenda-id/`。此 function 直接向 `api.lyzer.tw` 確認公開頁面，不依賴 Supabase 資料庫。一般網站發布由 Cloudflare Pages 的 `main` 分支負責，Ubuntu stack 則由 Dockhand 追蹤 `main`。2026-09-25 已解除 Vercel 專案 `cytpress-projects/lyzer` 的 Git 連線，既有 Production 轉址部署仍在線，但 push 不會再觸發 Vercel 部署。
 
-2026-09-25 已停用 Supabase `analyze`、`fetch`、`rescue` 三個 cron jobs，避免與 Dockhand 的 scheduler 重複執行；同日已刪除舊的 `analyze-pending-agendas`、`fetch-new-gazettes`、`rescue-stuck-analyses`、`backfill-fks`、`backfill-historical-gazettes` Edge Functions。Supabase 目前只保留 `find-by-agenda-id`。
+2026-09-25 已停用 Supabase `analyze`、`fetch`、`rescue` 三個 cron jobs，並刪除舊的 `analyze-pending-agendas`、`fetch-new-gazettes`、`rescue-stuck-analyses`、`backfill-fks`、`backfill-historical-gazettes` Edge Functions。為讓舊連結轉址不依賴舊資料，已部署 `find-by-agenda-id` v8，並移除舊 V1 的 public tables、views 與排程 HTTP/cron 紀錄；Supabase 目前只保留轉址 function，Storage 沒有 bucket 或檔案。清理後 `pg_database_size` 仍回報 644 MB，但目前資料表總量約 14 MB 且 CLI 未偵測到資料膨脹；若 Supabase 用量頁刷新後仍顯示超額，需由 Supabase 檢查資料表以外的磁碟占用。
