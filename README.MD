@@ -1,13 +1,9 @@
 # lyzer
 
-> [!WARNING]
-> 本專案幾乎 99.9% 都是透過 Vibe Coding 產出。若遇到什麼問題，歡迎開個 issue 之類的。
-
----
 
 ### 這個專案是甚麼？
 
-LYZER 是一個開源專案，旨在利用大型語言模型（AI）自動化分析並摘要立法院公報內容，讓一般民眾能更快速地理解立法院委員會的實質討論過程。
+LYZER 是一個開源專案，旨在利用大型語言模型，自動化分析並摘要立法院公報內容，讓一般民眾能更快速地理解立法院委員會的實質討論過程。
 
 ---
 
@@ -32,7 +28,7 @@ Ubuntu 主機以 Docker Compose 執行 PostgreSQL、API、排程器與 Cloudflar
 
 ### 特別感謝
 
-- 特別感謝歐噴有限公司OpenFun Ltd. 。
+- 特別感謝歐噴有限公司 OpenFun Ltd.。
 - 本專案的 API 與資料來源為 [OpenFun Ltd. LYAPI](https://ly.govapi.tw/)，並依 CC BY 4.0 授權條款使用。
 
 ---
