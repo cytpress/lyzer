@@ -1,8 +1,13 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getAgendaDetailsForBuild } from "../../lib/api";
-import { getCommitteeStyle, splitCommitteeNames } from "../../lib/committee";
-import type { AgendaDetail, AnalysisAgendaItem, SpeakerDetail } from "../../types";
+// 依議程識別碼產生公報摘要詳細頁
+import AgendaHeader from "@/components/gazette/AgendaHeader.astro";
+import AgendaSections from "@/components/gazette/AgendaSections.astro";
+import AgendaSourceData from "@/components/gazette/AgendaSourceData.astro";
+import AgendaTableOfContents from "@/components/gazette/AgendaTableOfContents.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getAgendaDetailsForBuild } from "@/lib/api";
+import { splitCommitteeNames } from "@/lib/committee";
+import type { AgendaDetail, AnalysisAgendaItem } from "@/types";
 
 export async function getStaticPaths() {
   const details = await getAgendaDetailsForBuild();
@@ -14,418 +19,36 @@ export async function getStaticPaths() {
 
 const { detail } = Astro.props as { detail: AgendaDetail };
 const analysis = detail.analysis;
+const agendaItems: AnalysisAgendaItem[] = analysis.agenda_items ?? [];
 const title = analysis.summary_title ?? detail.subject ?? detail.agendaId;
-const agendaItems = analysis.agenda_items ?? [];
-
-function asArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
-    : [];
-}
-
-function committeeNames(value: unknown): string[] {
-  if (typeof value === "string") return splitCommitteeNames(value);
-  return asArray(value).flatMap((name) => splitCommitteeNames(name));
-}
-
-function itemTitle(item: AnalysisAgendaItem): string {
-  return item.item_title ?? item.title ?? "未命名議程";
-}
-
-function speakerName(speaker: SpeakerDetail): string {
-  return speaker.speaker_name ?? "未標示發言者";
-}
-
-const committees = committeeNames(analysis.committee_name);
+const committees =
+  typeof analysis.committee_name === "string"
+    ? splitCommitteeNames(analysis.committee_name)
+    : Array.isArray(analysis.committee_name)
+      ? analysis.committee_name.flatMap((name) => splitCommitteeNames(name))
+      : [];
 const tags = committees.length > 0 ? committees : [analysis.document_type ?? "委員會"];
-const meetingDates = detail.meetingDates.length > 0 ? detail.meetingDates : [];
 const sourceLinks = [
   { label: "立法院頁面", href: detail.officialPageUrl },
   { label: "官方 PDF", href: detail.officialPdfUrl },
   { label: "文字檔", href: detail.txtUrl },
   { label: "Parsed JSON", href: detail.parsedUrl },
 ].filter((link): link is { label: string; href: string } => Boolean(link.href));
-
-const chineseNumbers = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
-const itemNumber = (index: number) => chineseNumbers[index] ?? String(index + 1);
-const speakerId = (itemIndex: number, role: "legislator" | "respondent", speakerIndex: number) =>
-  `item-${itemIndex}-${role}-speaker-${speakerIndex}`;
 ---
 
 <BaseLayout title={`${title} | lyzer`} description={analysis.overall_summary_sentence ?? detail.subject ?? title}>
-  <div class="page-shell grid justify-center gap-10 lg:grid-cols-[minmax(0,48rem)_18rem] lg:gap-16">
+  <div class="page-shell">
     <article class="min-w-0">
       <a class="mb-6 inline-flex text-sm text-neutral-500 transition hover:text-neutral-950" href="/">← 回到摘要列表</a>
-
-      <header class="mb-10 border-b border-neutral-300 pb-8">
-        <div class="mb-4">
-          <h1 class="text-2xl leading-snug font-semibold text-neutral-950 md:text-3xl">{title}</h1>
-        </div>
-
-        <div class="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
-          {
-            tags.map((name) => {
-              const style = getCommitteeStyle(name);
-              return (
-                <span class="committee-tag" data-tone={style.tone}>
-                  {name}
-                </span>
-              );
-            })
-          }
-          {meetingDates.map((date) => <span>會議日期：{date}</span>)}
-        </div>
-
-        <p class="text-base leading-8 text-neutral-800 md:text-lg md:leading-9">
-          {analysis.overall_summary_sentence ?? detail.subject}
-        </p>
-      </header>
-
-      {
-        agendaItems.length > 0 ? (
-          <div>
-            {agendaItems.map((item, index) => {
-              const coreIssues = asArray(item.core_issue);
-              const controversies = asArray(item.controversy);
-              const results = asArray(item.result_status_next);
-              const legislators = item.legislator_speakers ?? [];
-              const respondents = item.respondent_speakers ?? [];
-
-              return (
-                <section
-                  class="border-b border-neutral-300 pb-12 last:border-0"
-                  aria-labelledby={`item-${index}-title`}
-                >
-                  <div id={`item-${index}-title`} class="detail-section" data-toc-target>
-                    <p class="detail-kicker">討論事項{itemNumber(index)}</p>
-                    <h2>{itemTitle(item)}</h2>
-                  </div>
-
-                  <section id={`item-${index}-core`} class="detail-section" data-toc-target>
-                    <h3>核心議題</h3>
-                    {coreIssues.length > 1 ? (
-                      <ul>
-                        {coreIssues.map((point) => (
-                          <li>{point}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>{coreIssues[0] ?? "無相關核心議題"}</p>
-                    )}
-                  </section>
-
-                  <section id={`item-${index}-controversy`} class="detail-section" data-toc-target>
-                    <h3>相關爭議</h3>
-                    {controversies.length > 1 ? (
-                      <ul>
-                        {controversies.map((point) => (
-                          <li>{point}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>{controversies[0] ?? "無相關爭議"}</p>
-                    )}
-                  </section>
-
-                  <section class="detail-section" data-toc-observer-target={`item-${index}-legislators`}>
-                    <h3 id={`item-${index}-legislators`} data-toc-target>
-                      立法委員發言
-                    </h3>
-                    {legislators.length > 0 ? (
-                      <div class="space-y-6">
-                        {legislators.map((speaker, speakerIndex) => (
-                          <section
-                            id={speakerId(index, "legislator", speakerIndex)}
-                            data-toc-target
-                            data-toc-parent-group={`item-${index}-legislators`}
-                          >
-                            <h4>{speakerName(speaker)}</h4>
-                            {asArray(speaker.speaker_viewpoint).length > 0 ? (
-                              <ul>
-                                {asArray(speaker.speaker_viewpoint).map((point) => (
-                                  <li>{point}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p>無相關發言紀錄</p>
-                            )}
-                          </section>
-                        ))}
-                      </div>
-                    ) : (
-                      <p>無相關發言紀錄</p>
-                    )}
-                  </section>
-
-                  <section class="detail-section" data-toc-observer-target={`item-${index}-respondents`}>
-                    <h3 id={`item-${index}-respondents`} data-toc-target>
-                      相關人員回應
-                    </h3>
-                    {respondents.length > 0 ? (
-                      <div class="space-y-6">
-                        {respondents.map((speaker, speakerIndex) => (
-                          <section
-                            id={speakerId(index, "respondent", speakerIndex)}
-                            data-toc-target
-                            data-toc-parent-group={`item-${index}-respondents`}
-                          >
-                            <h4>{speakerName(speaker)}</h4>
-                            {asArray(speaker.speaker_viewpoint).length > 0 ? (
-                              <ul>
-                                {asArray(speaker.speaker_viewpoint).map((point) => (
-                                  <li>{point}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p>無相關發言紀錄</p>
-                            )}
-                          </section>
-                        ))}
-                      </div>
-                    ) : (
-                      <p>無相關發言紀錄</p>
-                    )}
-                  </section>
-
-                  <section id={`item-${index}-result`} class="detail-section" data-toc-target>
-                    <h3>相關後續</h3>
-                    {results.length > 1 ? (
-                      <ul>
-                        {results.map((point) => (
-                          <li>{point}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p>{results[0] ?? "無相關後續"}</p>
-                    )}
-                  </section>
-                </section>
-              );
-            })}
-          </div>
-        ) : (
-          <p class="py-8 leading-8 text-neutral-600">此議程沒有可呈現的實質摘要。</p>
-        )
-      }
-
-      <section id="source-data" class="mt-4 border-t border-neutral-300 pt-10" data-toc-target>
-        <h2 class="mb-5 text-xl font-semibold text-neutral-950">原始資料</h2>
-        <dl class="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-3 text-sm leading-7">
-          <dt class="text-neutral-500">公報</dt><dd class="break-all text-neutral-800">{detail.gazetteId}</dd>
-          <dt class="text-neutral-500">卷／期／冊</dt><dd class="text-neutral-800">
-            {detail.volume ?? "-"}／{detail.issue ?? "-"}／{detail.booklet ?? "-"}
-          </dd>
-          <dt class="text-neutral-500">發布日期</dt><dd class="text-neutral-800">{detail.publishDate ?? "-"}</dd>
-          <dt class="text-neutral-500">原始連結</dt>
-          <dd class="flex flex-wrap gap-x-4 gap-y-1">
-            {
-              sourceLinks.map((link) => (
-                <a
-                  class="underline underline-offset-4 hover:text-neutral-950"
-                  href={link.href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {link.label}
-                </a>
-              ))
-            }
-          </dd>
-        </dl>
-      </section>
+      <AgendaHeader
+        title={title}
+        tags={tags}
+        meetingDates={detail.meetingDates}
+        summary={analysis.overall_summary_sentence ?? detail.subject}
+      />
+      <AgendaSections agendaItems={agendaItems} />
+      <AgendaSourceData detail={detail} sourceLinks={sourceLinks} />
     </article>
-
-    <aside class="hidden lg:block" aria-label="本頁目錄">
-      <nav
-        class="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto border-l border-neutral-300 pl-6"
-        data-detail-toc
-      >
-        <p class="mb-4 text-sm font-semibold text-neutral-900">本頁目錄</p>
-        <ol class="space-y-5">
-          {
-            agendaItems.map((_, index) => (
-              <li>
-                <a class="toc-link font-medium" href={`#item-${index}-title`}>
-                  討論事項{itemNumber(index)}
-                </a>
-                <ol class="mt-2 space-y-1.5 border-l border-neutral-200 pl-3 text-sm">
-                  <li>
-                    <a class="toc-link" href={`#item-${index}-core`}>
-                      核心議題
-                    </a>
-                  </li>
-                  <li>
-                    <a class="toc-link" href={`#item-${index}-controversy`}>
-                      相關爭議
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      class="toc-link"
-                      href={`#item-${index}-legislators`}
-                      data-toc-group-link={`item-${index}-legislators`}
-                    >
-                      立法委員發言
-                    </a>
-                    {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
-                      <ol
-                        class="toc-children space-y-1 pl-3"
-                        data-toc-children-for={`item-${index}-legislators`}
-                        data-expanded="false"
-                        aria-hidden="true"
-                      >
-                        {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
-                          <li>
-                            <a class="toc-link" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
-                              {speakerName(speaker)}
-                            </a>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                  </li>
-                  <li>
-                    <a
-                      class="toc-link"
-                      href={`#item-${index}-respondents`}
-                      data-toc-group-link={`item-${index}-respondents`}
-                    >
-                      相關人員回應
-                    </a>
-                    {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
-                      <ol
-                        class="toc-children space-y-1 pl-3"
-                        data-toc-children-for={`item-${index}-respondents`}
-                        data-expanded="false"
-                        aria-hidden="true"
-                      >
-                        {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
-                          <li>
-                            <a class="toc-link" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
-                              {speakerName(speaker)}
-                            </a>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                  </li>
-                  <li>
-                    <a class="toc-link" href={`#item-${index}-result`}>
-                      相關後續
-                    </a>
-                  </li>
-                </ol>
-              </li>
-            ))
-          }
-          <li><a class="toc-link font-medium" href="#source-data">原始資料</a></li>
-        </ol>
-      </nav>
-    </aside>
-  </div>
-
-  <button
-    class="fixed top-28 right-0 z-30 flex items-center gap-1 rounded-l-lg border border-r-0 border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-700 shadow-sm lg:hidden"
-    type="button"
-    data-toc-open
-    aria-controls="mobile-toc"
-    aria-expanded="false"
-  >
-    <svg class="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
-      ><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg
-    >
-    目錄
-  </button>
-  <div class="fixed inset-0 z-50 hidden lg:hidden" id="mobile-toc" data-mobile-toc>
-    <button class="absolute inset-0 bg-neutral-950/30" type="button" data-toc-close aria-label="關閉目錄"></button>
-    <nav
-      class="absolute top-0 right-0 h-full w-[min(85vw,22rem)] overflow-y-auto bg-white p-6 shadow-xl"
-      aria-label="本頁目錄"
-      data-detail-toc
-    >
-      <div class="mb-6 flex items-center justify-between">
-        <p class="font-semibold text-neutral-950">本頁目錄</p>
-        <button class="toc-close-button" type="button" data-toc-close aria-label="關閉目錄">×</button>
-      </div>
-      <ol class="space-y-5">
-        {
-          agendaItems.map((item, index) => (
-            <li>
-              <a class="toc-link font-medium" href={`#item-${index}-title`}>
-                討論事項{itemNumber(index)}：{itemTitle(item)}
-              </a>
-              <ol class="mt-2 space-y-2 border-l border-neutral-200 pl-3 text-sm">
-                <li>
-                  <a class="toc-link" href={`#item-${index}-core`}>
-                    核心議題
-                  </a>
-                </li>
-                <li>
-                  <a class="toc-link" href={`#item-${index}-controversy`}>
-                    相關爭議
-                  </a>
-                </li>
-                <li>
-                  <a
-                    class="toc-link"
-                    href={`#item-${index}-legislators`}
-                    data-toc-group-link={`item-${index}-legislators`}
-                  >
-                    立法委員發言
-                  </a>
-                  {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
-                    <ol
-                      class="toc-children space-y-1 pl-3"
-                      data-toc-children-for={`item-${index}-legislators`}
-                      data-expanded="false"
-                      aria-hidden="true"
-                    >
-                      {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
-                        <li>
-                          <a class="toc-link" href={`#${speakerId(index, "legislator", speakerIndex)}`}>
-                            {speakerName(speaker)}
-                          </a>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </li>
-                <li>
-                  <a
-                    class="toc-link"
-                    href={`#item-${index}-respondents`}
-                    data-toc-group-link={`item-${index}-respondents`}
-                  >
-                    相關人員回應
-                  </a>
-                  {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
-                    <ol
-                      class="toc-children space-y-1 pl-3"
-                      data-toc-children-for={`item-${index}-respondents`}
-                      data-expanded="false"
-                      aria-hidden="true"
-                    >
-                      {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
-                        <li>
-                          <a class="toc-link" href={`#${speakerId(index, "respondent", speakerIndex)}`}>
-                            {speakerName(speaker)}
-                          </a>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </li>
-                <li>
-                  <a class="toc-link" href={`#item-${index}-result`}>
-                    相關後續
-                  </a>
-                </li>
-              </ol>
-            </li>
-          ))
-        }
-        <li><a class="toc-link font-medium" href="#source-data">原始資料</a></li>
-      </ol>
-    </nav>
+    <AgendaTableOfContents agendaItems={agendaItems} />
   </div>
 </BaseLayout>

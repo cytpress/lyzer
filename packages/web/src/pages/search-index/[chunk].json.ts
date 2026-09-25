@@ -1,12 +1,9 @@
+// 輸出單一分段的全文搜尋索引
 import MiniSearch from "minisearch";
 import type { APIRoute } from "astro";
-import { getHomepageAgendas } from "../../lib/api";
-import {
-  SEARCH_INDEX_CHUNK_SIZE,
-  miniSearchOptions,
-  toSearchDocument,
-} from "../../lib/search";
-import type { HomepageAgenda } from "../../types";
+import { getHomepageAgendas } from "@/lib/api";
+import { SEARCH_INDEX_CHUNK_SIZE, miniSearchOptions, toSearchDocument } from "@/lib/search";
+import type { HomepageAgenda } from "@/types";
 
 export const prerender = true;
 
@@ -17,10 +14,7 @@ export async function getStaticPaths() {
   return Array.from({ length: chunkCount }, (_, index) => ({
     params: { chunk: String(index) },
     props: {
-      agendas: agendas.slice(
-        index * SEARCH_INDEX_CHUNK_SIZE,
-        (index + 1) * SEARCH_INDEX_CHUNK_SIZE
-      ),
+      agendas: agendas.slice(index * SEARCH_INDEX_CHUNK_SIZE, (index + 1) * SEARCH_INDEX_CHUNK_SIZE),
     },
   }));
 }

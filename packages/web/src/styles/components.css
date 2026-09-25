@@ -1,0 +1,184 @@
+/* 設定共用頁面容器、摘要卡片和目錄元件樣式 */
+@layer components {
+  .page-shell {
+    width: min(calc(100% - 2rem), var(--page-max));
+    margin-inline: auto;
+  }
+
+  .agenda-card {
+    border: 2px solid #e5e5e5;
+    border-radius: 1.5rem;
+    background: var(--surface);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .agenda-card:hover {
+    border-color: #a3a3a3;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.04);
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    background: #fff;
+    padding-inline: 1rem;
+    color: #525252;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .filter-chip:hover {
+    border-color: #737373;
+    color: #171717;
+  }
+
+  .filter-chip[data-active="true"] {
+    border-color: #171717;
+    background: #171717;
+    color: #fff;
+  }
+
+  .committee-tag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    color: #404040;
+    font-size: 0.75rem;
+    line-height: 1.25rem;
+  }
+
+  .committee-tag[data-tone="blue"] {
+    background: #dbeafe;
+  }
+  .committee-tag[data-tone="red"] {
+    background: #fee2e2;
+  }
+  .committee-tag[data-tone="yellow"] {
+    background: #fef9c3;
+  }
+  .committee-tag[data-tone="lime"] {
+    background: #ecfccb;
+  }
+  .committee-tag[data-tone="green"] {
+    background: #dcfce7;
+  }
+  .committee-tag[data-tone="orange"] {
+    background: #ffedd5;
+  }
+  .committee-tag[data-tone="violet"] {
+    background: #ede9fe;
+  }
+  .committee-tag[data-tone="teal"] {
+    background: #ccfbf1;
+  }
+  .committee-tag[data-tone="neutral"] {
+    background: #f5f5f5;
+  }
+
+  .toc-close-button {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d4d4d4;
+    border-radius: 999px;
+    background: #fff;
+    color: #737373;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .toc-close-button:hover {
+    border-color: #737373;
+    color: #171717;
+  }
+
+  .detail-section {
+    scroll-margin-top: 6rem;
+    margin-top: 2.5rem;
+  }
+
+  .detail-section h2,
+  .detail-section h3 {
+    margin-bottom: 0.75rem;
+    color: #171717;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .detail-section h4 {
+    margin-bottom: 0.5rem;
+    color: #262626;
+    font-weight: 600;
+  }
+
+  .detail-section p,
+  .detail-section li {
+    color: #404040;
+    font-size: 1rem;
+    line-height: 1.85;
+  }
+
+  .detail-section ul {
+    list-style: disc outside;
+    padding-left: 1.75rem;
+  }
+
+  .detail-section li + li {
+    margin-top: 0.4rem;
+  }
+
+  .detail-section .detail-kicker {
+    margin-bottom: 0.5rem;
+    color: #737373;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .toc-link {
+    display: block;
+    color: #737373;
+    line-height: 1.5;
+    transition: color 160ms ease;
+  }
+
+  .toc-link:hover,
+  .toc-link[data-active="true"] {
+    color: #171717;
+  }
+
+  .toc-link[data-active="true"] {
+    font-weight: 600;
+  }
+
+  .toc-children {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+      max-height 240ms ease,
+      margin-top 240ms ease,
+      opacity 160ms ease;
+  }
+
+  .toc-children[data-expanded="true"] {
+    margin-top: 0.375rem;
+    opacity: 1;
+  }
+}

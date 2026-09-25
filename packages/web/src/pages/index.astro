@@ -1,8 +1,9 @@
 ---
-import AgendaCard from "../components/AgendaCard.astro";
-import BaseLayout from "../layouts/BaseLayout.astro";
-import { getCommittees, getHomepageAgendas } from "../lib/api";
-import { normalizeCommitteeList } from "../lib/committee";
+// 產生首頁最新摘要、委員會篩選與搜尋介面
+import AgendaCard from "@/components/AgendaCard.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getCommittees, getHomepageAgendas } from "@/lib/api";
+import { normalizeCommitteeList } from "@/lib/committee";
 
 const [agendas, rawCommittees] = await Promise.all([getHomepageAgendas(), getCommittees()]);
 const committees = normalizeCommitteeList(rawCommittees);
@@ -14,7 +15,7 @@ const serializedFirstPage = JSON.stringify(firstPage).replaceAll("<", "\\u003c")
   <section data-search-page data-total-count={agendas.length}>
     <script is:inline id="lyzer-agendas-data" type="application/json" set:html={serializedFirstPage} />
 
-    <div class="page-shell-narrow mb-6 flex flex-col gap-4">
+    <div class="page-shell mb-6 flex flex-col gap-4">
       <div id="search" class="md:hidden">
         <label class="relative block">
           <span class="sr-only">搜尋公報摘要</span>
@@ -68,12 +69,12 @@ const serializedFirstPage = JSON.stringify(firstPage).replaceAll("<", "\\u003c")
     </ul>
 
     <div
-      class="page-shell-narrow mt-10 hidden rounded-3xl border border-dashed border-neutral-300 bg-white p-10 text-center text-neutral-500"
+      class="page-shell mt-10 hidden rounded-3xl border border-dashed border-neutral-300 bg-white p-10 text-center text-neutral-500"
       data-empty-state
     >
       沒有符合條件的議事摘要。
     </div>
 
-    <nav class="page-shell-narrow mt-8 flex items-center justify-center gap-2" data-pagination aria-label="分頁"></nav>
+    <nav class="page-shell mt-8 flex items-center justify-center gap-2" data-pagination aria-label="分頁"></nav>
   </section>
 </BaseLayout>

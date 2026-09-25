@@ -1,3 +1,4 @@
+// 整理委員會名稱、顯示色彩與標籤短名
 export interface CommitteeStyle {
   shortName: string;
   tone: string;

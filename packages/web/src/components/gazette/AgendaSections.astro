@@ -1,0 +1,135 @@
+---
+// 呈現議程重點、委員發言與相關人員回應
+import { asArray, itemNumber, itemTitle, speakerId, speakerName } from "@/lib/detail";
+import type { AnalysisAgendaItem } from "@/types";
+
+interface Props {
+  agendaItems: AnalysisAgendaItem[];
+}
+
+const { agendaItems } = Astro.props;
+---
+
+{
+  agendaItems.length > 0 ? (
+    <div>
+      {agendaItems.map((item, index) => {
+        const coreIssues = asArray(item.core_issue);
+        const controversies = asArray(item.controversy);
+        const results = asArray(item.result_status_next);
+        const legislators = item.legislator_speakers ?? [];
+        const respondents = item.respondent_speakers ?? [];
+
+        return (
+          <section class="border-b border-neutral-300 pb-12 last:border-0" aria-labelledby={`item-${index}-title`}>
+            <div id={`item-${index}-title`} class="detail-section" data-toc-target>
+              <p class="detail-kicker">討論事項{itemNumber(index)}</p>
+              <h2>{itemTitle(item)}</h2>
+            </div>
+
+            <section id={`item-${index}-core`} class="detail-section" data-toc-target>
+              <h3>核心議題</h3>
+              {coreIssues.length > 1 ? (
+                <ul>
+                  {coreIssues.map((point) => (
+                    <li>{point}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>{coreIssues[0] ?? "無相關核心議題"}</p>
+              )}
+            </section>
+
+            <section id={`item-${index}-controversy`} class="detail-section" data-toc-target>
+              <h3>相關爭議</h3>
+              {controversies.length > 1 ? (
+                <ul>
+                  {controversies.map((point) => (
+                    <li>{point}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>{controversies[0] ?? "無相關爭議"}</p>
+              )}
+            </section>
+
+            <section class="detail-section" data-toc-observer-target={`item-${index}-legislators`}>
+              <h3 id={`item-${index}-legislators`} data-toc-target>
+                立法委員發言
+              </h3>
+              {legislators.length > 0 ? (
+                <div class="space-y-6">
+                  {legislators.map((speaker, speakerIndex) => (
+                    <section
+                      id={speakerId(index, "legislator", speakerIndex)}
+                      data-toc-target
+                      data-toc-parent-group={`item-${index}-legislators`}
+                    >
+                      <h4>{speakerName(speaker)}</h4>
+                      {asArray(speaker.speaker_viewpoint).length > 0 ? (
+                        <ul>
+                          {asArray(speaker.speaker_viewpoint).map((point) => (
+                            <li>{point}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>無相關發言紀錄</p>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <p>無相關發言紀錄</p>
+              )}
+            </section>
+
+            <section class="detail-section" data-toc-observer-target={`item-${index}-respondents`}>
+              <h3 id={`item-${index}-respondents`} data-toc-target>
+                相關人員回應
+              </h3>
+              {respondents.length > 0 ? (
+                <div class="space-y-6">
+                  {respondents.map((speaker, speakerIndex) => (
+                    <section
+                      id={speakerId(index, "respondent", speakerIndex)}
+                      data-toc-target
+                      data-toc-parent-group={`item-${index}-respondents`}
+                    >
+                      <h4>{speakerName(speaker)}</h4>
+                      {asArray(speaker.speaker_viewpoint).length > 0 ? (
+                        <ul>
+                          {asArray(speaker.speaker_viewpoint).map((point) => (
+                            <li>{point}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>無相關發言紀錄</p>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <p>無相關發言紀錄</p>
+              )}
+            </section>
+
+            <section id={`item-${index}-result`} class="detail-section" data-toc-target>
+              <h3>相關後續</h3>
+              {results.length > 1 ? (
+                <ul>
+                  {results.map((point) => (
+                    <li>{point}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>{results[0] ?? "無相關後續"}</p>
+              )}
+            </section>
+          </section>
+        );
+      })}
+    </div>
+  ) : (
+    <p class="py-8 leading-8 text-neutral-600">此議程沒有可呈現的實質摘要。</p>
+  )
+}

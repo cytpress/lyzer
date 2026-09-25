@@ -1,4 +1,5 @@
-import type { HomepageAgenda } from "../types";
+// 定義首頁篩選目錄精簡資料格式與轉換方式
+import type { HomepageAgenda } from "@/types";
 
 export const AGENDA_CATALOG_CHUNK_SIZE = 1000;
 

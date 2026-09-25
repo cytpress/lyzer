@@ -1,0 +1,45 @@
+/* 集中管理全站字型、色彩與版面尺寸變數 */
+@font-face {
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-500.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans TC";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-700.woff2") format("woff2");
+}
+
+@theme {
+  --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+}
+
+:root {
+  --page-max: 64rem;
+  --surface: #ffffff;
+  --canvas: #fafafa;
+  --border: #d4d4d4;
+  --text: #171717;
+  --muted: #525252;
+}

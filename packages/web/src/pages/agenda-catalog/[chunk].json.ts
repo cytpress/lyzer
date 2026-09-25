@@ -1,6 +1,7 @@
+// 輸出單一分段的首頁篩選目錄資料
 import type { APIRoute } from "astro";
-import { getHomepageAgendas } from "../../lib/api";
-import { AGENDA_CATALOG_CHUNK_SIZE, toAgendaCatalogItem } from "../../lib/catalog";
+import { getHomepageAgendas } from "@/lib/api";
+import { AGENDA_CATALOG_CHUNK_SIZE, toAgendaCatalogItem } from "@/lib/catalog";
 
 export const prerender = true;
 

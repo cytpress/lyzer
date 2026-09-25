@@ -1,6 +1,7 @@
+// 產生首頁篩選目錄的靜態分段清單
 import type { APIRoute } from "astro";
-import { getHomepageAgendas } from "../lib/api";
-import { AGENDA_CATALOG_CHUNK_SIZE } from "../lib/catalog";
+import { getHomepageAgendas } from "@/lib/api";
+import { AGENDA_CATALOG_CHUNK_SIZE } from "@/lib/catalog";
 
 export const prerender = true;
 

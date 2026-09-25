@@ -1,11 +1,12 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getLegislatorStats } from "../../lib/api";
+// 產生立委發言統計與索引頁面
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getLegislatorStats } from "@/lib/api";
 
-// 1. 在編譯期直接自 Hono 後端 SSG 統一端點載入已聚合的立委資料 (僅需 1 次 API 呼叫，極致高效！)
+// 在編譯期透過 SSG 端點讀取已聚合的立委資料
 const rawLegislators = await getLegislatorStats();
 
-// 統一為 LegislatorStat 格式 (name 重組以符合前端 name/fullName 顯示)
+// 將 API 資料整理成此頁使用的統計型別
 interface LegislatorStat {
   name: string;
   fullName: string;
@@ -15,10 +16,10 @@ interface LegislatorStat {
   lastAgendaTitle: string;
 }
 
-// 轉化為陣列並排序
+// 按發言次數整理委員清單
 const legislators: LegislatorStat[] = rawLegislators
   .map((leg) => ({
-    name: leg.fullName, // Frontend uses leg.name as "黃國昌 委員"
+    name: leg.fullName, // 顯示名稱包含委員稱謂
     fullName: leg.fullName,
     speechCount: leg.speechCount,
     lastSpeechDate: leg.lastSpeechDate,
@@ -27,7 +28,7 @@ const legislators: LegislatorStat[] = rawLegislators
   }))
   .sort((a, b) => b.speechCount - a.speechCount);
 
-// 按分組歸類
+// 切分熱門與全部委員清單
 const groups: Record<string, LegislatorStat[]> = {
   高頻率發言委員: legislators.slice(0, 8),
   所有活躍委員: legislators,
@@ -35,7 +36,7 @@ const groups: Record<string, LegislatorStat[]> = {
 ---
 
 <BaseLayout title="立委發言目錄 | lyzer" noindex>
-  <section class="mx-auto mb-8 w-11/12 md:mb-10 md:w-4/5">
+  <section class="page-shell mb-8 md:mb-10">
     <div class="mb-6">
       <a class="mb-4 inline-flex text-sm text-neutral-500 transition hover:text-neutral-900" href="/">← 回首頁</a>
       <h1 class="text-3xl leading-tight font-semibold tracking-normal text-neutral-950 md:text-5xl">立委發言目錄</h1>
@@ -45,8 +46,8 @@ const groups: Record<string, LegislatorStat[]> = {
     </div>
   </section>
 
-  <div class="mx-auto w-11/12 space-y-12 md:w-4/5">
-    <!-- 1. 高頻率發言委員 (精華展示) -->
+  <div class="page-shell space-y-12">
+    <!-- 顯示熱門委員摘要 -->
     {
       groups["高頻率發言委員"].length > 0 ? (
         <section>
@@ -54,7 +55,7 @@ const groups: Record<string, LegislatorStat[]> = {
             <span class="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
             熱門關注委員
           </h2>
-          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {groups["高頻率發言委員"].map((leg) => (
               <a
                 href={`/legislators/${encodeURIComponent(leg.name.split(" ")[0])}`}
@@ -78,7 +79,7 @@ const groups: Record<string, LegislatorStat[]> = {
       ) : null
     }
 
-    <!-- 2. 所有活躍委員 (列表與快速檢索) -->
+    <!-- 顯示所有曾經發言的委員 -->
     <section class="border-t border-neutral-200 pt-6">
       <h2 class="mb-6 flex items-center gap-2 text-xl font-semibold text-neutral-900">
         <span class="inline-block h-2.5 w-2.5 rounded-full bg-neutral-400"></span>
@@ -87,7 +88,7 @@ const groups: Record<string, LegislatorStat[]> = {
 
       {
         legislators.length > 0 ? (
-          <div class="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {legislators.map((leg) => (
               <a
                 href={`/legislators/${encodeURIComponent(leg.name.split(" ")[0])}`}

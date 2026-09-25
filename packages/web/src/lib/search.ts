@@ -1,5 +1,6 @@
+// 定義本地全文搜尋的文件欄位與 MiniSearch 設定
 import type { Options } from "minisearch";
-import type { HomepageAgenda } from "../types";
+import type { HomepageAgenda } from "@/types";
 
 export interface SearchDocument {
   id: string;

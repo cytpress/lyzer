@@ -1,6 +1,7 @@
 ---
-import { getCommitteeStyle, splitCommitteeNames } from "../lib/committee";
-import type { HomepageAgenda } from "../types";
+// 呈現首頁與篩選結果共用的公報摘要卡片
+import { getCommitteeStyle, splitCommitteeNames } from "@/lib/committee";
+import type { HomepageAgenda } from "@/types";
 
 interface Props {
   agenda: HomepageAgenda;
@@ -12,7 +13,7 @@ const tags = committeeNames.length > 0 ? committeeNames : [agenda.documentType ?
 const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
 ---
 
-<li class="page-shell-narrow" data-agenda-card data-agenda-id={agenda.agendaId}>
+<li class="page-shell" data-agenda-card data-agenda-id={agenda.agendaId}>
   <article class="agenda-card relative flex flex-col justify-center px-4 py-5 md:px-8 md:py-7">
     <div class="mb-3">
       <a class="min-w-0 after:absolute after:inset-0 after:content-['']" href={`/gazettes/${agenda.agendaId}`}>

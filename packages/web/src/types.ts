@@ -1,3 +1,4 @@
+// 集中定義網站頁面、摘要資料與分析結果型別
 export interface SpeakerDetail {
   speaker_name?: string | null;
   speaker_viewpoint?: string[] | null;

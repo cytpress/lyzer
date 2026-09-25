@@ -1,5 +1,6 @@
 ---
-import "../styles/global.css";
+// 提供全站共用標頭、頁尾、SEO metadata 與互動入口
+import "@/styles/global.css";
 import { ClientRouter } from "astro:transitions";
 
 interface Props {
@@ -71,10 +72,8 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
     <main class="min-h-[calc(100vh-20rem)] py-8 md:py-12"><slot /></main>
 
     <footer class="border-t border-neutral-300 bg-white">
-      <div
-        class="page-shell-narrow flex flex-col items-center gap-6 py-8 text-center text-sm leading-7 text-neutral-600"
-      >
-        <div class="max-w-3xl space-y-2">
+      <div class="page-shell flex flex-col items-center gap-6 py-8 text-center text-sm leading-7 text-neutral-600">
+        <div class="w-full space-y-2">
           <p>本站所有摘要內容均由大型語言模型（AI）生成，旨在幫助民眾快速理解立法院委員會的討論要點。</p>
           <p>生成內容可能存在錯誤或不完整之處，使用者應以每頁詳情中「原始數據」連結，參考立法院官方公報為準。</p>
         </div>
@@ -109,7 +108,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
             GitHub 專案原始碼
           </a>
         </div>
-        <div class="w-full max-w-3xl border-t border-neutral-200 pt-6">
+        <div class="w-full border-t border-neutral-200 pt-6">
           <p class="text-xs text-neutral-500">
             © {new Date().getFullYear()} cytpress 本站所有內容與原始碼均採用
             <a
@@ -126,7 +125,7 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
     </footer>
 
     <script>
-      import "../scripts/site.ts";
+      import "@/scripts/site.ts";
     </script>
   </body>
 </html>

@@ -1,4 +1,5 @@
-import type { AgendaDetail, HomepageAgenda, LegislatorSpeechStat } from "../types";
+// 集中封裝 Astro 建置時讀取 SSG API 的請求
+import type { AgendaDetail, HomepageAgenda, LegislatorSpeechStat } from "@/types";
 
 interface AgendaDetailsPage {
   items: AgendaDetail[];

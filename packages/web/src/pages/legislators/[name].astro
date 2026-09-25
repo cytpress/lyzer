@@ -1,6 +1,7 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getLegislatorStats } from "../../lib/api";
+// 產生立委發言時間軸頁面
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getLegislatorStats } from "@/lib/api";
 
 export async function getStaticPaths() {
   // 1. 在編譯期自 Hono 後端 SSG 統一端點載入已聚合的立委資料 (僅需 1 次 API 呼叫，極致高效！)
@@ -38,7 +39,7 @@ const { leg } = Astro.props as {
 ---
 
 <BaseLayout title={`${leg.name} 發言時間軸 | lyzer`} noindex>
-  <section class="mx-auto mb-8 w-11/12 md:mb-10 md:w-4/5">
+  <section class="page-shell mb-8 md:mb-10">
     <div class="mb-6">
       <a class="mb-4 inline-flex text-sm text-neutral-500 transition hover:text-neutral-900" href="/legislators"
         >← 回立委名冊</a
@@ -61,7 +62,7 @@ const { leg } = Astro.props as {
   </section>
 
   <!-- 時間軸區域 -->
-  <div class="mx-auto w-11/12 md:w-4/5">
+  <div class="page-shell">
     <h2 class="mb-8 flex items-center gap-2 text-xl font-semibold text-neutral-900">
       <span class="inline-block h-2.5 w-2.5 rounded-full bg-amber-500"></span>
       參與會議與問詢時間軸
