@@ -7,7 +7,7 @@
       "permanent": true
     },
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "destination": "https://lyzer.tw/",
       "permanent": true
     }
