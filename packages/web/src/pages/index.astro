@@ -10,7 +10,7 @@ const firstPage = agendas.slice(0, 10);
 const serializedFirstPage = JSON.stringify(firstPage).replaceAll("<", "\\u003c");
 ---
 
-<BaseLayout title="lyzer">
+<BaseLayout title="LYZER 立法院公報摘要">
   <section data-search-page data-total-count={agendas.length}>
     <script is:inline id="lyzer-agendas-data" type="application/json" set:html={serializedFirstPage} />
 
