@@ -10,7 +10,7 @@ interface Props {
 
 const {
   title = "lyzer",
-  description = "lyzer 將立法院委員會紀錄整理成可搜尋、可收藏、可快速理解的摘要。",
+  description = "LYZER 整理立法院公報與黨團協商紀錄，提供可搜尋、易讀的摘要與官方原文連結。",
   noindex = false,
 } = Astro.props;
 const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
@@ -63,7 +63,6 @@ const canonicalUrl = new URL(Astro.url.pathname, Astro.site ?? Astro.url);
         </form>
 
         <nav class="flex shrink-0 items-center text-sm font-medium text-neutral-700" aria-label="主選單">
-          <a class="rounded-lg px-3 py-2 hover:bg-neutral-100 hover:text-neutral-950" href="/bookmarks">我的收藏</a>
           <a class="rounded-lg px-3 py-2 hover:bg-neutral-100 hover:text-neutral-950" href="/about">關於本站</a>
         </nav>
       </div>

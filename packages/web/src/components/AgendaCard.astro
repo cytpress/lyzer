@@ -1,5 +1,4 @@
 ---
-import BookmarkButton from "./BookmarkButton.astro";
 import { getCommitteeStyle, splitCommitteeNames } from "../lib/committee";
 import type { HomepageAgenda } from "../types";
 
@@ -15,13 +14,12 @@ const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未�
 
 <li class="page-shell-narrow" data-agenda-card data-agenda-id={agenda.agendaId}>
   <article class="agenda-card relative flex flex-col justify-center px-4 py-5 md:px-8 md:py-7">
-    <div class="mb-3 flex items-start justify-between gap-4">
+    <div class="mb-3">
       <a class="min-w-0 after:absolute after:inset-0 after:content-['']" href={`/gazettes/${agenda.agendaId}`}>
         <h2 class="text-lg leading-snug font-medium text-neutral-900 md:text-xl">
           {agenda.summaryTitle}
         </h2>
       </a>
-      <div class="relative z-10"><BookmarkButton agendaId={agenda.agendaId} /></div>
     </div>
 
     <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">

@@ -3,7 +3,6 @@ import { getCommitteeStyle, splitCommitteeNames } from "../lib/committee";
 import { expandQuery, miniSearchOptions } from "../lib/search";
 import type { HomepageAgenda } from "../types";
 
-const BOOKMARK_STORAGE_KEY = "lyzer-bookmarks";
 const PAGE_SIZE = 10;
 let agendaCatalogPromise: Promise<HomepageAgenda[]> | null = null;
 let miniSearchPromise: Promise<MiniSearch[] | null> | null = null;
@@ -29,46 +28,6 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#039;");
 }
 
-function readBookmarks(): string[] {
-  const raw = window.localStorage.getItem(BOOKMARK_STORAGE_KEY);
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeBookmarks(ids: string[]): void {
-  window.localStorage.setItem(BOOKMARK_STORAGE_KEY, JSON.stringify(Array.from(new Set(ids))));
-  window.dispatchEvent(new CustomEvent("lyzer-bookmarks-changed"));
-}
-
-function isBookmarked(agendaId: string): boolean {
-  return readBookmarks().includes(agendaId);
-}
-
-function renderBookmarkButton(agendaId: string): string {
-  const active = isBookmarked(agendaId);
-  return `
-    <button
-      class="icon-button"
-      type="button"
-      data-bookmark-button
-      data-agenda-id="${escapeHtml(agendaId)}"
-      data-active="${active ? "true" : "false"}"
-      aria-label="${active ? "移除收藏" : "加入收藏"}"
-      title="${active ? "移除收藏" : "加入收藏"}"
-    >
-      <svg aria-hidden="true" class="h-5 w-5" data-bookmark-icon fill="${active ? "currentColor" : "none"}" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
-        <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-      </svg>
-    </button>
-  `;
-}
-
 function renderAgendaCard(agenda: HomepageAgenda): string {
   const meetingDate = agenda.meetingDate ?? agenda.meetingDates[0] ?? "日期未明";
   const committees = splitCommitteeNames(agenda.committee);
@@ -83,11 +42,10 @@ function renderAgendaCard(agenda: HomepageAgenda): string {
   return `
     <li class="page-shell-narrow" data-agenda-card data-agenda-id="${escapeHtml(agenda.agendaId)}">
       <article class="agenda-card relative flex flex-col justify-center px-4 py-5 md:px-8 md:py-7">
-        <div class="mb-3 flex items-start justify-between gap-4">
+        <div class="mb-3">
           <a class="min-w-0 after:absolute after:inset-0 after:content-['']" href="/gazettes/${encodeURIComponent(agenda.agendaId)}">
             <h2 class="text-lg font-medium leading-snug text-neutral-900 md:text-xl">${escapeHtml(agenda.summaryTitle)}</h2>
           </a>
-          <div class="relative z-10">${renderBookmarkButton(agenda.agendaId)}</div>
         </div>
         <div class="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
           ${committeeTags}
@@ -101,37 +59,6 @@ function renderAgendaCard(agenda: HomepageAgenda): string {
       </article>
     </li>
   `;
-}
-
-function syncBookmarkButtons(root: ParentNode = document): void {
-  root.querySelectorAll<HTMLButtonElement>("[data-bookmark-button]").forEach((button) => {
-    const agendaId = button.dataset.agendaId;
-    if (!agendaId) return;
-
-    const active = isBookmarked(agendaId);
-    button.dataset.active = active ? "true" : "false";
-    button.setAttribute("aria-label", active ? "移除收藏" : "加入收藏");
-    button.setAttribute("title", active ? "移除收藏" : "加入收藏");
-
-    const icon = button.querySelector<SVGElement>("[data-bookmark-icon]");
-    if (icon) icon.setAttribute("fill", active ? "currentColor" : "none");
-  });
-}
-
-function initBookmarks(): void {
-  document.addEventListener("click", (event) => {
-    const button = (event.target as Element | null)?.closest<HTMLButtonElement>("[data-bookmark-button]");
-    if (!button?.dataset.agendaId) return;
-
-    const current = readBookmarks();
-    const agendaId = button.dataset.agendaId;
-    const next = current.includes(agendaId) ? current.filter((id) => id !== agendaId) : [agendaId, ...current];
-    writeBookmarks(next);
-  });
-
-  window.addEventListener("lyzer-bookmarks-changed", () => syncBookmarkButtons());
-  window.addEventListener("storage", () => syncBookmarkButtons());
-  syncBookmarkButtons();
 }
 
 async function loadMiniSearch(): Promise<MiniSearch[] | null> {
@@ -348,7 +275,6 @@ function initSearchPage(): void {
     empty.hidden = visible.length > 0;
     renderPagination(totalPages);
     syncCommitteeButtons();
-    syncBookmarkButtons(list);
   };
 
   const ensureCatalog = async () => {
@@ -424,46 +350,6 @@ function initSearchPage(): void {
 
   render();
   if (currentQuery) void ensureSearch();
-}
-
-function initBookmarksPage(signal: AbortSignal): void {
-  const root = document.querySelector<HTMLElement>("[data-bookmarks-page]");
-  if (!root) return;
-
-  const list = root.querySelector<HTMLElement>("[data-bookmarks-list]");
-  const empty = root.querySelector<HTMLElement>("[data-empty-state]");
-  if (!list || !empty) return;
-
-  const render = (itemById: Map<string, HomepageAgenda>) => {
-    const bookmarked = readBookmarks()
-      .map((id) => itemById.get(id))
-      .filter((agenda): agenda is HomepageAgenda => Boolean(agenda));
-    list.innerHTML = bookmarked.map(renderAgendaCard).join("");
-    empty.hidden = bookmarked.length > 0;
-    syncBookmarkButtons(list);
-  };
-
-  const bookmarkIds = readBookmarks();
-  if (bookmarkIds.length === 0) {
-    empty.hidden = false;
-    return;
-  }
-
-  empty.textContent = "正在載入收藏的議事摘要…";
-  void loadAgendaCatalog()
-    .then((agendas) => {
-      if (signal.aborted) return;
-      const itemById = new Map(agendas.map((agenda) => [agenda.agendaId, agenda]));
-      const rerender = () => render(itemById);
-      window.addEventListener("lyzer-bookmarks-changed", rerender, { signal });
-      window.addEventListener("storage", rerender, { signal });
-      empty.textContent = "目前沒有收藏的議事摘要。";
-      rerender();
-    })
-    .catch((error) => {
-      console.warn(error);
-      empty.textContent = "收藏資料載入失敗，請稍後再試。";
-    });
 }
 
 function initDetailToc(): void {
@@ -579,18 +465,11 @@ function initDetailToc(): void {
 }
 
 let detailTocController: AbortController | null = null;
-let pageController: AbortController | null = null;
-
-initBookmarks();
 
 function initPage(): void {
-  pageController?.abort();
-  pageController = new AbortController();
   initHeaderSearch();
   initSearchPage();
-  initBookmarksPage(pageController.signal);
   initDetailToc();
-  syncBookmarkButtons();
 }
 
 document.addEventListener("astro:page-load", initPage);

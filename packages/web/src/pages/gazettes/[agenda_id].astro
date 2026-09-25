@@ -1,5 +1,4 @@
 ---
-import BookmarkButton from "../../components/BookmarkButton.astro";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getAgendaDetailsForBuild } from "../../lib/api";
 import { getCommitteeStyle, splitCommitteeNames } from "../../lib/committee";
@@ -59,9 +58,8 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
       <a class="mb-6 inline-flex text-sm text-neutral-500 transition hover:text-neutral-950" href="/">← 回到摘要列表</a>
 
       <header class="mb-10 border-b border-neutral-300 pb-8">
-        <div class="mb-4 flex items-start justify-between gap-4">
+        <div class="mb-4">
           <h1 class="text-2xl leading-snug font-semibold text-neutral-950 md:text-3xl">{title}</h1>
-          <BookmarkButton agendaId={detail.agendaId} />
         </div>
 
         <div class="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
@@ -347,7 +345,7 @@ const speakerId = (itemIndex: number, role: "legislator" | "respondent", speaker
     >
       <div class="mb-6 flex items-center justify-between">
         <p class="font-semibold text-neutral-950">本頁目錄</p>
-        <button class="icon-button" type="button" data-toc-close aria-label="關閉目錄">×</button>
+        <button class="toc-close-button" type="button" data-toc-close aria-label="關閉目錄">×</button>
       </div>
       <ol class="space-y-5">
         {
