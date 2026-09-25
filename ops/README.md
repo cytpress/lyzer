@@ -141,6 +141,8 @@ PostgreSQL 資料保存在 Docker volume `lyzer_postgres_data`。更新應避免
 
 程式回復方式是讓 Dockhand checkout 已知可用的 commit，重新 build 並部署。資料庫異動前先用 `pg_dump` 備份；若異動無法向後相容，程式回復與資料庫回復必須一起規劃。
 
-Cloudflare Pages 的正式專案是 `lyzer`，正式 branch 為 `main`，正式網域為 `lyzer.tw`。Pages 建置透過 `api.lyzer.tw` 讀取 SSG 資料；deploy hook 只保存於秘密環境變數。
+Cloudflare Pages 的正式專案是 `lyzer`，正式 branch 為 `main`，正式網域為 `lyzer.tw`。Pages 建置透過 `api.lyzer.tw` 讀取 SSG 資料；`lyzer-build` deploy hook 也綁定 `main`，hook URL 只保存於秘密環境變數。
 
-Vercel 專案只保留舊網址轉址設定；Supabase 只保留 `find-by-agenda-id` 舊連結轉址 function，其程式碼位於 `backend/supabase/functions/find-by-agenda-id/`。一般網站發布由 Cloudflare Pages 的 `main` 分支負責，Ubuntu stack 則由 Dockhand 追蹤 `main`。
+Vercel 專案只保留舊網址轉址設定；Supabase repo source 只保留 `find-by-agenda-id` 舊連結轉址 function，其程式碼位於 `backend/supabase/functions/find-by-agenda-id/`。一般網站發布由 Cloudflare Pages 的 `main` 分支負責，Ubuntu stack 則由 Dockhand 追蹤 `main`。
+
+2026-09-25 已停用 Supabase `analyze`、`fetch`、`rescue` 三個 cron jobs，避免與 Dockhand 的 scheduler 重複執行。Supabase 上舊的 `analyze-pending-agendas`、`fetch-new-gazettes`、`rescue-stuck-analyses`、`backfill-fks`、`backfill-historical-gazettes` Edge Functions 仍部署著；確認沒有外部或人工呼叫者後再移除。
