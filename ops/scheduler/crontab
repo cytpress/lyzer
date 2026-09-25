@@ -1,0 +1,4 @@
+# Asia/Taipei (set by the container TZ environment variable)
+*/3 * * * * /app/scripts/lyzer-analyze.sh
+0 2 * * * /app/scripts/lyzer-fetch.sh
+0 5 * * * /app/scripts/lyzer-deploy-check.sh

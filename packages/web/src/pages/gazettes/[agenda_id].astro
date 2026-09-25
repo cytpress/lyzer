@@ -1,0 +1,54 @@
+---
+// 依議程識別碼產生公報摘要詳細頁
+import AgendaHeader from "@/components/gazette/AgendaHeader.astro";
+import AgendaSections from "@/components/gazette/AgendaSections.astro";
+import AgendaSourceData from "@/components/gazette/AgendaSourceData.astro";
+import AgendaTableOfContents from "@/components/gazette/AgendaTableOfContents.astro";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getAgendaDetailsForBuild } from "@/lib/api";
+import { splitCommitteeNames } from "@/lib/committee";
+import type { AgendaDetail, AnalysisAgendaItem } from "@/types";
+
+export async function getStaticPaths() {
+  const details = await getAgendaDetailsForBuild();
+  return details.map((detail) => ({
+    params: { agenda_id: detail.agendaId },
+    props: { detail },
+  }));
+}
+
+const { detail } = Astro.props as { detail: AgendaDetail };
+const analysis = detail.analysis;
+const agendaItems: AnalysisAgendaItem[] = analysis.agenda_items ?? [];
+const title = analysis.summary_title ?? detail.subject ?? detail.agendaId;
+const committees =
+  typeof analysis.committee_name === "string"
+    ? splitCommitteeNames(analysis.committee_name)
+    : Array.isArray(analysis.committee_name)
+      ? analysis.committee_name.flatMap((name) => splitCommitteeNames(name))
+      : [];
+const tags = committees.length > 0 ? committees : [analysis.document_type ?? "委員會"];
+const sourceLinks = [
+  { label: "立法院頁面", href: detail.officialPageUrl },
+  { label: "官方 PDF", href: detail.officialPdfUrl },
+  { label: "文字檔", href: detail.txtUrl },
+  { label: "Parsed JSON", href: detail.parsedUrl },
+].filter((link): link is { label: string; href: string } => Boolean(link.href));
+---
+
+<BaseLayout title={`${title} | lyzer`} description={analysis.overall_summary_sentence ?? detail.subject ?? title}>
+  <div class="page-shell">
+    <article class="min-w-0">
+      <a class="mb-6 inline-flex text-sm text-neutral-500 transition hover:text-neutral-950" href="/">← 回到摘要列表</a>
+      <AgendaHeader
+        title={title}
+        tags={tags}
+        meetingDates={detail.meetingDates}
+        summary={analysis.overall_summary_sentence ?? detail.subject}
+      />
+      <AgendaSections agendaItems={agendaItems} />
+      <AgendaSourceData detail={detail} sourceLinks={sourceLinks} />
+    </article>
+    <AgendaTableOfContents agendaItems={agendaItems} />
+  </div>
+</BaseLayout>

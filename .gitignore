@@ -1,0 +1,33 @@
+.env
+.env.*
+!.env.example
+
+docs/
+
+
+
+node_modules/
+dist/
+build/
+.astro/
+packages/*/dist/
+packages/web/.astro/
+
+.agents/
+skills-lock.json
+lyapi-swagger.yaml
+
+# Local Debug & Scratch Files
+scratch/
+
+# Private operations notes
+docs/private/
+docs/private-runbook.md
+
+# Editor Configuration Folders
+.vscode/
+
+# Supabase CLI local state
+legacy/backend/supabase/.branches/
+legacy/backend/supabase/.temp/
+.vercel/

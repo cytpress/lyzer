@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.astro/
+packages/web/dist/
+packages/web/.astro/
+pnpm-lock.yaml
+real_txt_sample.txt
+scratch/

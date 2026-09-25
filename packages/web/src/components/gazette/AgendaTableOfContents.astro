@@ -1,0 +1,202 @@
+---
+// 呈現桌面目錄與手機目錄抽屜
+import { itemNumber, itemTitle, speakerId, speakerName } from "@/lib/detail";
+import { tocLinkClasses } from "@/lib/styles";
+import type { AnalysisAgendaItem } from "@/types";
+
+interface Props {
+  agendaItems: AnalysisAgendaItem[];
+}
+
+const { agendaItems } = Astro.props;
+const tocToggleClasses = [
+  "fixed top-28 right-0 z-30 flex items-center gap-1 rounded-l-lg px-3 py-2 text-sm shadow-sm 2xl:hidden",
+  "border border-r-0 border-neutral-300 bg-white text-neutral-700",
+];
+const drawerClasses = ["absolute top-0 right-0 h-full w-[min(85vw,22rem)] overflow-y-auto p-6 shadow-xl", "bg-white"];
+const closeButtonClasses = [
+  "inline-flex h-10 w-10 flex-none items-center justify-center rounded-full",
+  "border border-neutral-300 bg-white text-neutral-500",
+  "transition-colors duration-[160ms] hover:border-neutral-500 hover:text-neutral-900",
+];
+---
+
+<aside class="fixed top-24 left-[calc(50%+33rem)] hidden w-48 2xl:block" aria-label="本頁目錄">
+  <nav class="max-h-[calc(100vh-7rem)] overflow-y-auto border-l border-neutral-300 pl-4" data-detail-toc>
+    <p class="mb-4 text-sm font-semibold text-neutral-900">本頁目錄</p>
+    <ol class="space-y-5">
+      {
+        agendaItems.map((_, index) => (
+          <li>
+            <a class={`${tocLinkClasses} font-medium`} href={`#item-${index}-title`}>
+              討論事項{itemNumber(index)}
+            </a>
+            <ol class="mt-2 space-y-1.5 border-l border-neutral-200 pl-3 text-sm">
+              <li>
+                <a class={tocLinkClasses} href={`#item-${index}-core`}>
+                  核心議題
+                </a>
+              </li>
+              <li>
+                <a class={tocLinkClasses} href={`#item-${index}-controversy`}>
+                  相關爭議
+                </a>
+              </li>
+              <li>
+                <a
+                  class={tocLinkClasses}
+                  href={`#item-${index}-legislators`}
+                  data-toc-group-link={`item-${index}-legislators`}
+                >
+                  立法委員發言
+                </a>
+                {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
+                  <ol
+                    class="toc-children space-y-1 pl-3"
+                    data-toc-children-for={`item-${index}-legislators`}
+                    data-expanded="false"
+                    aria-hidden="true"
+                  >
+                    {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
+                      <li>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                          {speakerName(speaker)}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+              <li>
+                <a
+                  class={tocLinkClasses}
+                  href={`#item-${index}-respondents`}
+                  data-toc-group-link={`item-${index}-respondents`}
+                >
+                  相關人員回應
+                </a>
+                {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
+                  <ol
+                    class="toc-children space-y-1 pl-3"
+                    data-toc-children-for={`item-${index}-respondents`}
+                    data-expanded="false"
+                    aria-hidden="true"
+                  >
+                    {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
+                      <li>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                          {speakerName(speaker)}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+              <li>
+                <a class={tocLinkClasses} href={`#item-${index}-result`}>
+                  相關後續
+                </a>
+              </li>
+            </ol>
+          </li>
+        ))
+      }
+      <li><a class={`${tocLinkClasses} font-medium`} href="#source-data">原始資料</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<button class:list={tocToggleClasses} type="button" data-toc-open aria-controls="mobile-toc" aria-expanded="false">
+  <svg class="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+    ><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg
+  >
+  目錄
+</button>
+<div class="fixed inset-0 z-50 hidden 2xl:hidden" id="mobile-toc" data-mobile-toc>
+  <button class="absolute inset-0 bg-neutral-950/30" type="button" data-toc-close aria-label="關閉目錄"></button>
+  <nav class:list={drawerClasses} aria-label="本頁目錄" data-detail-toc>
+    <div class="mb-6 flex items-center justify-between">
+      <p class="font-semibold text-neutral-950">本頁目錄</p>
+      <button class:list={closeButtonClasses} type="button" data-toc-close aria-label="關閉目錄">×</button>
+    </div>
+    <ol class="space-y-5">
+      {
+        agendaItems.map((item, index) => (
+          <li>
+            <a class={`${tocLinkClasses} font-medium`} href={`#item-${index}-title`}>
+              討論事項{itemNumber(index)}：{itemTitle(item)}
+            </a>
+            <ol class="mt-2 space-y-2 border-l border-neutral-200 pl-3 text-sm">
+              <li>
+                <a class={tocLinkClasses} href={`#item-${index}-core`}>
+                  核心議題
+                </a>
+              </li>
+              <li>
+                <a class={tocLinkClasses} href={`#item-${index}-controversy`}>
+                  相關爭議
+                </a>
+              </li>
+              <li>
+                <a
+                  class={tocLinkClasses}
+                  href={`#item-${index}-legislators`}
+                  data-toc-group-link={`item-${index}-legislators`}
+                >
+                  立法委員發言
+                </a>
+                {(agendaItems[index]?.legislator_speakers ?? []).length > 0 && (
+                  <ol
+                    class="toc-children space-y-1 pl-3"
+                    data-toc-children-for={`item-${index}-legislators`}
+                    data-expanded="false"
+                    aria-hidden="true"
+                  >
+                    {(agendaItems[index]?.legislator_speakers ?? []).map((speaker, speakerIndex) => (
+                      <li>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "legislator", speakerIndex)}`}>
+                          {speakerName(speaker)}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+              <li>
+                <a
+                  class={tocLinkClasses}
+                  href={`#item-${index}-respondents`}
+                  data-toc-group-link={`item-${index}-respondents`}
+                >
+                  相關人員回應
+                </a>
+                {(agendaItems[index]?.respondent_speakers ?? []).length > 0 && (
+                  <ol
+                    class="toc-children space-y-1 pl-3"
+                    data-toc-children-for={`item-${index}-respondents`}
+                    data-expanded="false"
+                    aria-hidden="true"
+                  >
+                    {(agendaItems[index]?.respondent_speakers ?? []).map((speaker, speakerIndex) => (
+                      <li>
+                        <a class={tocLinkClasses} href={`#${speakerId(index, "respondent", speakerIndex)}`}>
+                          {speakerName(speaker)}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+              <li>
+                <a class={tocLinkClasses} href={`#item-${index}-result`}>
+                  相關後續
+                </a>
+              </li>
+            </ol>
+          </li>
+        ))
+      }
+      <li><a class={`${tocLinkClasses} font-medium`} href="#source-data">原始資料</a></li>
+    </ol>
+  </nav>
+</div>

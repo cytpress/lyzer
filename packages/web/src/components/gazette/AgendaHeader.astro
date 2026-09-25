@@ -1,0 +1,33 @@
+---
+// 呈現公報詳細頁標題、分類標籤與摘要
+import { getCommitteeStyle, getCommitteeTagClasses } from "@/lib/committee";
+
+interface Props {
+  title: string;
+  tags: string[];
+  meetingDates: string[];
+  summary: string | null;
+}
+
+const { title, tags, meetingDates, summary } = Astro.props;
+---
+
+<header class="mb-10 border-b border-neutral-300 pb-8">
+  <div class="mb-4">
+    <h1 class="text-2xl leading-snug font-semibold text-neutral-950 md:text-3xl">{title}</h1>
+  </div>
+
+  <div class="mb-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-neutral-600 md:text-sm">
+    {
+      tags.map((name) => {
+        const style = getCommitteeStyle(name);
+        return <span class={getCommitteeTagClasses(style.tone)}>{name}</span>;
+      })
+    }
+    {meetingDates.map((date) => <span>會議日期：{date}</span>)}
+  </div>
+
+  <p class="text-base leading-8 text-neutral-800 md:text-lg md:leading-9">
+    {summary}
+  </p>
+</header>

@@ -1,0 +1,37 @@
+---
+// 呈現公報原始識別資訊和官方資料連結
+import type { AgendaDetail } from "@/types";
+
+interface Props {
+  detail: AgendaDetail;
+  sourceLinks: Array<{ label: string; href: string }>;
+}
+
+const { detail, sourceLinks } = Astro.props;
+---
+
+<section id="source-data" class="mt-4 border-t border-neutral-300 pt-10" data-toc-target>
+  <h2 class="mb-5 text-xl font-semibold text-neutral-950">原始資料</h2>
+  <dl class="grid grid-cols-[7rem_1fr] gap-x-4 gap-y-3 text-sm leading-7">
+    <dt class="text-neutral-500">公報</dt><dd class="break-all text-neutral-800">{detail.gazetteId}</dd>
+    <dt class="text-neutral-500">卷／期／冊</dt><dd class="text-neutral-800">
+      {detail.volume ?? "-"}／{detail.issue ?? "-"}／{detail.booklet ?? "-"}
+    </dd>
+    <dt class="text-neutral-500">發布日期</dt><dd class="text-neutral-800">{detail.publishDate ?? "-"}</dd>
+    <dt class="text-neutral-500">原始連結</dt>
+    <dd class="flex flex-wrap gap-x-4 gap-y-1">
+      {
+        sourceLinks.map((link) => (
+          <a
+            class="underline underline-offset-4 hover:text-neutral-950"
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </dd>
+  </dl>
+</section>

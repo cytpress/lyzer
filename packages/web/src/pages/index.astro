@@ -1,0 +1,16 @@
+---
+// 產生首頁最新摘要、委員會篩選與搜尋介面
+import HomeSearch from "@/components/HomeSearch.svelte";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getCommittees, getHomepageAgendas } from "@/lib/api";
+import { toAgendaCatalogItem } from "@/lib/catalog";
+import { normalizeCommitteeList } from "@/lib/committee";
+
+const [agendas, rawCommittees] = await Promise.all([getHomepageAgendas(), getCommittees()]);
+const committees = normalizeCommitteeList(rawCommittees);
+const firstPage = agendas.slice(0, 10).map(toAgendaCatalogItem);
+---
+
+<BaseLayout title="LYZER 立法院公報摘要">
+  <HomeSearch {firstPage} totalCount={agendas.length} {committees} client:load />
+</BaseLayout>

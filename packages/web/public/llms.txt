@@ -1,0 +1,17 @@
+# LYZER 立院公報摘要
+
+> LYZER 彙整立法院公報與黨團協商紀錄，提供可搜尋的 AI 摘要，協助讀者快速掌握討論內容。
+
+LYZER 的摘要與議程重點由 AI 生成，可能有錯誤或遺漏。詳情頁提供來源連結，請以立法院官方資料為準。本站資料取自 OpenFun 的 LYAPI，依 CC BY 4.0 授權使用。
+
+公報詳情頁路徑為 `/gazettes/{agenda_id}/`，包含摘要、議程重點、委員發言與原始資料連結。
+
+## 主要頁面
+
+- [首頁：公報摘要與搜尋](https://lyzer.tw/): 搜尋議題、法案、委員或官員，瀏覽最新摘要。
+- [關於 LYZER](https://lyzer.tw/about/): 了解本站目的與資料來源。
+
+## 資料來源
+
+- [LYAPI](https://ly.govapi.tw/v2/): 本站使用的立法院資料來源。
+- [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.zh-hant): 資料授權條款。
