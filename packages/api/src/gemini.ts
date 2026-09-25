@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { config } from "@/config";
 import { analysisSchema, buildAnalysisPrompt } from "@/prompts";
 import type { JsonObject } from "@/types";
+import { analysisResultSchema } from "@/validation";
 
 interface AnalyzeInput {
   categoryCode: number;
@@ -57,5 +58,5 @@ export async function analyzeWithGemini(input: AnalyzeInput): Promise<JsonObject
     throw new Error("Gemini returned an empty response");
   }
 
-  return JSON.parse(text) as JsonObject;
+  return analysisResultSchema.parse(JSON.parse(text)) as JsonObject;
 }

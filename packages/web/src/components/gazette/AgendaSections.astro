@@ -8,6 +8,11 @@ interface Props {
 }
 
 const { agendaItems } = Astro.props;
+const sectionClasses = ["mt-10 scroll-mt-24"];
+const headingClasses = ["mb-3", "text-xl font-semibold leading-normal text-neutral-900"];
+const speakerHeadingClasses = ["mb-2", "font-semibold text-neutral-800"];
+const bodyClasses = ["text-base leading-[1.85] text-neutral-700"];
+const listClasses = ["list-disc space-y-1.5 pl-7", "text-base leading-[1.85] text-neutral-700"];
 ---
 
 {
@@ -22,39 +27,39 @@ const { agendaItems } = Astro.props;
 
         return (
           <section class="border-b border-neutral-300 pb-12 last:border-0" aria-labelledby={`item-${index}-title`}>
-            <div id={`item-${index}-title`} class="detail-section" data-toc-target>
-              <p class="detail-kicker">討論事項{itemNumber(index)}</p>
-              <h2>{itemTitle(item)}</h2>
+            <div id={`item-${index}-title`} class:list={sectionClasses} data-toc-target>
+              <p class="mb-2 text-sm font-medium text-neutral-500">討論事項{itemNumber(index)}</p>
+              <h2 class:list={headingClasses}>{itemTitle(item)}</h2>
             </div>
 
-            <section id={`item-${index}-core`} class="detail-section" data-toc-target>
-              <h3>核心議題</h3>
+            <section id={`item-${index}-core`} class:list={sectionClasses} data-toc-target>
+              <h3 class:list={headingClasses}>核心議題</h3>
               {coreIssues.length > 1 ? (
-                <ul>
+                <ul class:list={listClasses}>
                   {coreIssues.map((point) => (
                     <li>{point}</li>
                   ))}
                 </ul>
               ) : (
-                <p>{coreIssues[0] ?? "無相關核心議題"}</p>
+                <p class:list={bodyClasses}>{coreIssues[0] ?? "無相關核心議題"}</p>
               )}
             </section>
 
-            <section id={`item-${index}-controversy`} class="detail-section" data-toc-target>
-              <h3>相關爭議</h3>
+            <section id={`item-${index}-controversy`} class:list={sectionClasses} data-toc-target>
+              <h3 class:list={headingClasses}>相關爭議</h3>
               {controversies.length > 1 ? (
-                <ul>
+                <ul class:list={listClasses}>
                   {controversies.map((point) => (
                     <li>{point}</li>
                   ))}
                 </ul>
               ) : (
-                <p>{controversies[0] ?? "無相關爭議"}</p>
+                <p class:list={bodyClasses}>{controversies[0] ?? "無相關爭議"}</p>
               )}
             </section>
 
-            <section class="detail-section" data-toc-observer-target={`item-${index}-legislators`}>
-              <h3 id={`item-${index}-legislators`} data-toc-target>
+            <section class:list={sectionClasses} data-toc-observer-target={`item-${index}-legislators`}>
+              <h3 id={`item-${index}-legislators`} class:list={headingClasses} data-toc-target>
                 立法委員發言
               </h3>
               {legislators.length > 0 ? (
@@ -65,26 +70,26 @@ const { agendaItems } = Astro.props;
                       data-toc-target
                       data-toc-parent-group={`item-${index}-legislators`}
                     >
-                      <h4>{speakerName(speaker)}</h4>
+                      <h4 class:list={speakerHeadingClasses}>{speakerName(speaker)}</h4>
                       {asArray(speaker.speaker_viewpoint).length > 0 ? (
-                        <ul>
+                        <ul class:list={listClasses}>
                           {asArray(speaker.speaker_viewpoint).map((point) => (
                             <li>{point}</li>
                           ))}
                         </ul>
                       ) : (
-                        <p>無相關發言紀錄</p>
+                        <p class:list={bodyClasses}>無相關發言紀錄</p>
                       )}
                     </section>
                   ))}
                 </div>
               ) : (
-                <p>無相關發言紀錄</p>
+                <p class:list={bodyClasses}>無相關發言紀錄</p>
               )}
             </section>
 
-            <section class="detail-section" data-toc-observer-target={`item-${index}-respondents`}>
-              <h3 id={`item-${index}-respondents`} data-toc-target>
+            <section class:list={sectionClasses} data-toc-observer-target={`item-${index}-respondents`}>
+              <h3 id={`item-${index}-respondents`} class:list={headingClasses} data-toc-target>
                 相關人員回應
               </h3>
               {respondents.length > 0 ? (
@@ -95,34 +100,34 @@ const { agendaItems } = Astro.props;
                       data-toc-target
                       data-toc-parent-group={`item-${index}-respondents`}
                     >
-                      <h4>{speakerName(speaker)}</h4>
+                      <h4 class:list={speakerHeadingClasses}>{speakerName(speaker)}</h4>
                       {asArray(speaker.speaker_viewpoint).length > 0 ? (
-                        <ul>
+                        <ul class:list={listClasses}>
                           {asArray(speaker.speaker_viewpoint).map((point) => (
                             <li>{point}</li>
                           ))}
                         </ul>
                       ) : (
-                        <p>無相關發言紀錄</p>
+                        <p class:list={bodyClasses}>無相關發言紀錄</p>
                       )}
                     </section>
                   ))}
                 </div>
               ) : (
-                <p>無相關發言紀錄</p>
+                <p class:list={bodyClasses}>無相關發言紀錄</p>
               )}
             </section>
 
-            <section id={`item-${index}-result`} class="detail-section" data-toc-target>
-              <h3>相關後續</h3>
+            <section id={`item-${index}-result`} class:list={sectionClasses} data-toc-target>
+              <h3 class:list={headingClasses}>相關後續</h3>
               {results.length > 1 ? (
-                <ul>
+                <ul class:list={listClasses}>
                   {results.map((point) => (
                     <li>{point}</li>
                   ))}
                 </ul>
               ) : (
-                <p>{results[0] ?? "無相關後續"}</p>
+                <p class:list={bodyClasses}>{results[0] ?? "無相關後續"}</p>
               )}
             </section>
           </section>

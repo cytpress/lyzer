@@ -1,36 +1,30 @@
 # Lyzer 介面規則
 
-Lyzer 是公共資訊閱讀工具。介面保持中性、安靜，讓標題、日期、委員會與摘要成為視覺重點。
+Lyzer 是公共資訊閱讀工具。標題、日期、委員會與摘要應是視覺重點；互動和裝飾保持克制。
 
-## 基礎規則
+## 技術與元件
 
-- 字型使用自託管 Noto Sans TC，正文 16px、行高約 1.8，粗細以 400、500、600 為主。
-- 頁面底色為 `neutral-50`，閱讀內容與卡片使用白色；主文字用 `neutral-900`，輔助資訊用 `neutral-600`。
-- 所有頁面都使用同一個 `.page-shell`，最大寬度為 1024px；視窗小於 768px 時左右留白各 16px，768px 以上各 32px。
-- 互動元件至少 40px 高，鍵盤焦點使用可見外框，動畫遵守 `prefers-reduced-motion`。
+- Astro 產生靜態頁面。首頁搜尋與結果卡片由 `HomeSearch.svelte` 和 `AgendaCard.svelte` 同時負責初次輸出與瀏覽器互動，避免維護兩份卡片 HTML。
+- 詳細頁的內容、目錄與來源資訊由 `src/components/gazette/` 的 Astro 元件組成。
+- `src/scripts/site.ts` 在 Astro 頁面切換後初始化頁首搜尋和詳細頁目錄。頁首搜尋透過 `lyzer:header-search` 事件通知首頁元件。
+- 跨元件共用且較長的 Tailwind class 組合放在 `src/lib/styles.ts`。元件內的長 class 以 `class:list`（Astro）或 class 陣列（Svelte）按版面、色彩、互動狀態分組。
 
-## 共用樣式
+## 樣式分工
 
-`src/styles/global.css` 是樣式入口，依序匯入 Tailwind 與分層樣式：
+- `src/styles/global.css` 是唯一的全域入口：匯入 Tailwind、宣告自託管 Noto Sans TC、設計 token、HTML 基礎行為、鍵盤焦點、跨頁 `.page-shell` 和目錄展開動畫。
+- 捲軸使用標準的 `scrollbar-color` 與 `scrollbar-width`；不再維護瀏覽器專屬的捲軸偽元素。
+- 元件能直接控制的標題、段落、清單與卡片，使用元件上的 Tailwind utilities。不要為這類內容新增 `.detail-section h2` 式的全域後代選擇器。
+- `.page-shell` 保持最大 1024px 寬度；小螢幕左右留白 16px，768px 以上左右留白 32px。
+- `.toc-children` 的展開高度由 JavaScript 依內容設定，因此保留 CSS 的 `max-height` 過渡效果。
+- 使用 `data-*` 表達互動狀態，並由 Tailwind 的 `data-[...]` 變體處理顏色與邊框。
 
-- `tokens.css`：字型、顏色與頁面寬度 token。
-- `base.css`：HTML、body、表單控制項與鍵盤焦點的基礎樣式。
-- `components.css`：共用頁面容器、卡片、篩選標籤與目錄元件。
-- `responsive.css`：響應式規則與減少動態效果設定。
+## 視覺與可用性
 
-共用元件 class 包含：
+- 正文以 16px 和約 1.85 行高閱讀；字重主要使用 400、500、600。底色為淺灰，閱讀內容與卡片為白色。
+- 互動元件至少 40px 高，鍵盤焦點要可見，動畫遵守 `prefers-reduced-motion`。
+- 動態搜尋保留可閱讀的初始十筆卡片；完整目錄和搜尋索引只在需要時下載。
 
-- `page-shell`：所有頁面共用的寬度與左右留白。
-- `agenda-card`：首頁議程摘要卡。
-- `filter-chip`：委員會篩選與其他單選條件。
-- `committee-tag`：依委員會使用固定、低彩度的識別色。
-- `toc-close-button`：詳細頁目錄的關閉按鈕。
+## 搜尋與索引
 
-頁面可以使用 Tailwind 處理單次排版；跨頁重複的視覺規則應回到上述共用 class。
-
-Astro 頁面互動入口位於 `src/scripts/site.ts`，首頁搜尋、頁首搜尋與詳細頁目錄分別放在同資料夾的獨立模組。
-
-## 搜尋引擎
-
-- Astro 建置會產生 `sitemap-index.xml`；公報詳細頁與公開一般頁面列入 sitemap，立委頁因為 `noindex` 而排除。
-- 根目錄 `robots.txt` 指向 sitemap。正式網站部署後，在 Google Search Console 提交 `https://lyzer.tw/sitemap-index.xml`。
+- Astro 建置時產生分段的目錄與 MiniSearch 索引。首頁依查詢、委員會及排序顯示結果。
+- 公報詳細頁與公開一般頁面列入 sitemap；立委頁維持 `noindex`。`robots.txt` 指向 sitemap。

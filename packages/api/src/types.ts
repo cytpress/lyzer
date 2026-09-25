@@ -26,7 +26,6 @@ export interface NormalizedAgenda {
   txtUrl: string | null;
   officialPageUrl: string | null;
   officialPdfUrl: string | null;
-  processedUrls: ProcessedUrl[];
   raw: JsonObject;
 }
 

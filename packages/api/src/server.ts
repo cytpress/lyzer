@@ -2,12 +2,14 @@
 import { serve } from "@hono/node-server";
 import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
 import { config } from "@/config";
 import { closeDb } from "@/db";
 import { analyzePendingAgendas } from "@/jobs/analyze";
 import { fetchNewGazettes } from "@/jobs/fetch";
 import { deployCheck } from "@/jobs/deployCheck";
 import { migrate } from "@/schema";
+import { analyzeJobSchema, deployCheckSchema, fetchJobSchema } from "@/validation";
 import {
   getAgendaDetail,
   getAgendaDetailsPage,
@@ -39,25 +41,18 @@ app.use("/jobs/*", async (c, next) => {
   await next();
 });
 
-app.post("/jobs/fetch", async (c) => {
-  const body = await c.req
-    .json<{ pages?: number; startPage?: number }>()
-    .catch(() => ({ pages: undefined, startPage: undefined }));
-  const result = await fetchNewGazettes({ pages: body.pages, startPage: body.startPage });
+app.post("/jobs/fetch", zValidator("json", fetchJobSchema), async (c) => {
+  const result = await fetchNewGazettes(c.req.valid("json"));
   return c.json(result);
 });
 
-app.post("/jobs/analyze", async (c) => {
-  const body = await c.req
-    .json<{ limit?: number; agendaId?: string }>()
-    .catch(() => ({ limit: undefined, agendaId: undefined }));
-  const result = await analyzePendingAgendas({ limit: body.limit, agendaId: body.agendaId });
+app.post("/jobs/analyze", zValidator("json", analyzeJobSchema), async (c) => {
+  const result = await analyzePendingAgendas(c.req.valid("json"));
   return c.json(result);
 });
 
-app.post("/jobs/deploy-check", async (c) => {
-  const body = await c.req.json<{ dryRun?: boolean }>().catch(() => ({ dryRun: undefined }));
-  const result = await deployCheck({ dryRun: body.dryRun });
+app.post("/jobs/deploy-check", zValidator("json", deployCheckSchema), async (c) => {
+  const result = await deployCheck(c.req.valid("json"));
   return c.json(result);
 });
 

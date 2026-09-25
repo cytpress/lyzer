@@ -1,4 +1,4 @@
-/* 集中管理 Tailwind、設計 token 與少量跨元件的共用樣式 */
+/* 全站字型、設計 token、基礎行為與少量跨元件樣式 */
 @import "tailwindcss";
 
 /* 全站固定字型，使用 swap 避免字型載入前整頁空白 */
@@ -36,23 +36,22 @@
 
 @theme {
   --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-}
-
-:root {
+  --color-canvas: #fafafa;
+  --color-ink: #171717;
   --page-max: 64rem;
-  --canvas: #fafafa;
-  --text: #171717;
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
     scroll-padding-top: 6rem;
+    scrollbar-color: #a3a3a3 transparent;
+    scrollbar-width: thin;
   }
 
   body {
-    background: var(--canvas);
-    color: var(--text);
+    background: var(--color-canvas);
+    color: var(--color-ink);
     font-family: var(--font-sans);
   }
 
@@ -79,76 +78,17 @@ input[type="search"]::-webkit-search-cancel-button {
   display: none;
 }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  border: 2px solid var(--canvas);
-  border-radius: 999px;
-  background-color: #d4d4d4;
-}
-
 [hidden] {
   display: none !important;
 }
 
-/* 保留跨頁容器、詳細內文與動態目錄需要共用的少量樣式 */
+/* 頁面容器跨 Astro 與 Svelte 元件使用；目錄高度由 JavaScript 設定 */
 @layer components {
   .page-shell {
     width: min(calc(100% - 2rem), var(--page-max));
     margin-inline: auto;
   }
 
-  .detail-section {
-    scroll-margin-top: 6rem;
-    margin-top: 2.5rem;
-  }
-
-  .detail-section h2,
-  .detail-section h3 {
-    margin-bottom: 0.75rem;
-    color: #171717;
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-
-  .detail-section h4 {
-    margin-bottom: 0.5rem;
-    color: #262626;
-    font-weight: 600;
-  }
-
-  .detail-section p,
-  .detail-section li {
-    color: #404040;
-    font-size: 1rem;
-    line-height: 1.85;
-  }
-
-  .detail-section ul {
-    list-style: disc outside;
-    padding-left: 1.75rem;
-  }
-
-  .detail-section li + li {
-    margin-top: 0.4rem;
-  }
-
-  .detail-section .detail-kicker {
-    margin-bottom: 0.5rem;
-    color: #737373;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  /* 目錄內容高度由捲動控制程式設定，保留 max-height 才能播放展開動畫 */
   .toc-children {
     max-height: 0;
     overflow: hidden;

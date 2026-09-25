@@ -152,7 +152,6 @@ function normalizeAgenda(raw: JsonObject, fallbackGazetteId: string): Normalized
     txtUrl,
     officialPageUrl: asString(raw["公報網網址"]),
     officialPdfUrl: asString(raw["公報完整PDF網址"]),
-    processedUrls,
     raw,
   };
 }

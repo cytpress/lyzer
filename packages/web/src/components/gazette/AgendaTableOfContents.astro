@@ -9,6 +9,16 @@ interface Props {
 }
 
 const { agendaItems } = Astro.props;
+const tocToggleClasses = [
+  "fixed top-28 right-0 z-30 flex items-center gap-1 rounded-l-lg px-3 py-2 text-sm shadow-sm 2xl:hidden",
+  "border border-r-0 border-neutral-300 bg-white text-neutral-700",
+];
+const drawerClasses = ["absolute top-0 right-0 h-full w-[min(85vw,22rem)] overflow-y-auto p-6 shadow-xl", "bg-white"];
+const closeButtonClasses = [
+  "inline-flex h-10 w-10 flex-none items-center justify-center rounded-full",
+  "border border-neutral-300 bg-white text-neutral-500",
+  "transition-colors duration-[160ms] hover:border-neutral-500 hover:text-neutral-900",
+];
 ---
 
 <aside class="fixed top-24 left-[calc(50%+33rem)] hidden w-48 2xl:block" aria-label="本頁目錄">
@@ -96,13 +106,7 @@ const { agendaItems } = Astro.props;
   </nav>
 </aside>
 
-<button
-  class="fixed top-28 right-0 z-30 flex items-center gap-1 rounded-l-lg border border-r-0 border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-700 shadow-sm 2xl:hidden"
-  type="button"
-  data-toc-open
-  aria-controls="mobile-toc"
-  aria-expanded="false"
->
+<button class:list={tocToggleClasses} type="button" data-toc-open aria-controls="mobile-toc" aria-expanded="false">
   <svg class="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
     ><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg
   >
@@ -110,19 +114,10 @@ const { agendaItems } = Astro.props;
 </button>
 <div class="fixed inset-0 z-50 hidden 2xl:hidden" id="mobile-toc" data-mobile-toc>
   <button class="absolute inset-0 bg-neutral-950/30" type="button" data-toc-close aria-label="關閉目錄"></button>
-  <nav
-    class="absolute top-0 right-0 h-full w-[min(85vw,22rem)] overflow-y-auto bg-white p-6 shadow-xl"
-    aria-label="本頁目錄"
-    data-detail-toc
-  >
+  <nav class:list={drawerClasses} aria-label="本頁目錄" data-detail-toc>
     <div class="mb-6 flex items-center justify-between">
       <p class="font-semibold text-neutral-950">本頁目錄</p>
-      <button
-        class="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-neutral-300 bg-white text-neutral-500 transition-colors duration-[160ms] hover:border-neutral-500 hover:text-neutral-900"
-        type="button"
-        data-toc-close
-        aria-label="關閉目錄">×</button
-      >
+      <button class:list={closeButtonClasses} type="button" data-toc-close aria-label="關閉目錄">×</button>
     </div>
     <ol class="space-y-5">
       {
