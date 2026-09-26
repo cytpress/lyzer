@@ -62,7 +62,8 @@ export async function getAgendaDetailsPage(
         g.booklet,
         g.publish_date,
         ar.analysis_json,
-        ar.analyzed_at
+        ar.analyzed_at,
+        coalesce(a.related_laws, '[]'::jsonb) as related_laws
       from agendas a
       join gazettes g on g.gazette_id = a.gazette_id
       join analysis_results ar on ar.agenda_id = a.agenda_id
@@ -107,7 +108,8 @@ export async function getAgendaDetail(agendaId: string): Promise<AgendaDetail | 
         g.booklet,
         g.publish_date,
         ar.analysis_json,
-        ar.analyzed_at
+        ar.analyzed_at,
+        coalesce(a.related_laws, '[]'::jsonb) as related_laws
       from agendas a
       join gazettes g on g.gazette_id = a.gazette_id
       join analysis_results ar on ar.agenda_id = a.agenda_id
@@ -120,5 +122,7 @@ export async function getAgendaDetail(agendaId: string): Promise<AgendaDetail | 
   );
 
   const row = rows[0];
-  return row ? toAgendaDetail(row) : null;
+  if (!row) return null;
+
+  return toAgendaDetail(row);
 }

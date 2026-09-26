@@ -1,0 +1,31 @@
+---
+// 呈現摘要對應的法律與 LawTrace 歷程連結
+import type { AgendaLawLink } from "@/types";
+
+interface Props {
+  laws: AgendaLawLink[];
+}
+
+const { laws } = Astro.props;
+---
+
+{
+  laws.length > 0 && (
+    <p class="mt-8 border-t border-neutral-200 pt-5 text-sm leading-7 text-neutral-700">
+      <span class="font-semibold text-neutral-950">LawTrace 法律歷程：</span>
+      {laws.map((law, index) => (
+        <span class="whitespace-nowrap">
+          {index > 0 && "、"}
+          <a
+            class="font-medium text-blue-700 underline decoration-blue-300 underline-offset-2 hover:text-blue-900"
+            href={`https://lawtrace.tw/law/show/${encodeURIComponent(law.lawId)}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {law.lawName ?? `法律編號 ${law.lawId}`}
+          </a>
+        </span>
+      ))}
+    </p>
+  )
+}

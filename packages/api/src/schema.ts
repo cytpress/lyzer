@@ -24,9 +24,12 @@ export async function migrate(): Promise<void> {
       txt_url text,
       official_page_url text,
       official_pdf_url text,
+      related_laws jsonb,
       raw jsonb not null,
       fetched_at timestamptz not null default now()
     );
+
+    alter table agendas add column if not exists related_laws jsonb;
 
     create table if not exists analysis_results (
       agenda_id text primary key references agendas(agenda_id) on delete cascade,
