@@ -5,20 +5,22 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 
 <BaseLayout title="找不到頁面 | lyzer" noindex>
   <section class="page-shell flex min-h-[45vh] flex-col items-center justify-center gap-5 py-16 text-center">
-    <p class="text-sm font-semibold tracking-wide text-neutral-500">404</p>
-    <h1 class="text-2xl font-semibold text-neutral-950 md:text-3xl">這頁有問題</h1>
+    <h1 class="text-2xl font-semibold text-neutral-950 md:text-3xl">這手有點問題...</h1>
+    <img
+      class="max-h-64 max-w-full rounded-lg object-contain"
+      src="https://media.giphy.com/media/g01ZnwAUvutuK8GIQn/giphy.gif"
+      alt="Pulp Fiction 裡 John Travolta 手拿外套、困惑地四處張望"
+      loading="eager"
+      decoding="async"
+    />
     <p class="max-w-xl leading-7 text-neutral-600">
-      找不到你要查看的頁面。歡迎到
+      找不到你要查看的頁面。歡迎到{" "}
       <a
         class="font-medium text-blue-700 underline underline-offset-4 hover:text-blue-900"
         href="https://github.com/cytpress/lyzer/issues/new"
         target="_blank"
         rel="noreferrer">GitHub 開 issue</a
-      >，或聯繫我
-      <a
-        class="font-medium text-blue-700 underline underline-offset-4 hover:text-blue-900"
-        href="https://github.com/ganymede5035">ganymede5035</a
-      >。
+      >，或聯繫我{" "}ganymede5035@gmail.com。
     </p>
     <a class="rounded-full bg-neutral-900 px-5 py-3 text-sm font-medium text-white hover:bg-neutral-700" href="/"
       >回首頁</a

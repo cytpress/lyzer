@@ -2,6 +2,7 @@
 // 產生立委發言時間軸頁面
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getLegislatorStats } from "@/lib/api";
+import { createPageCacheKey } from "@/lib/incremental";
 
 export async function getStaticPaths() {
   // 1. 在編譯期自 Hono 後端 SSG 統一端點載入已聚合的立委資料 (僅需 1 次 API 呼叫，極致高效！)
@@ -10,15 +11,18 @@ export async function getStaticPaths() {
   return rawLegislators.map((leg) => {
     // 依日期排序時間軸
     leg.timeline.sort((a, b) => b.meetingDate.localeCompare(a.meetingDate));
+    const props = {
+      leg: {
+        name: leg.fullName, // Frontend uses leg.name as "黃國昌 委員"
+        speechCount: leg.speechCount,
+        timeline: leg.timeline,
+      },
+    };
+
     return {
       params: { name: leg.name },
-      props: {
-        leg: {
-          name: leg.fullName, // Frontend uses leg.name as "黃國昌 委員"
-          speechCount: leg.speechCount,
-          timeline: leg.timeline,
-        },
-      },
+      props,
+      cacheKey: createPageCacheKey(props),
     };
   });
 }

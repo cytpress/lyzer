@@ -1,4 +1,4 @@
-// 註冊健康檢查、排程工作與公開 SSG API 路由
+// 註冊排程工作與建置期間使用的 SSG API 路由
 import { serve } from "@hono/node-server";
 import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
@@ -31,8 +31,6 @@ function hasValidJobToken(authorization: string | undefined): boolean {
   return expected.length === supplied.length && timingSafeEqual(expected, supplied);
 }
 
-app.get("/health", (c) => c.json({ ok: true }));
-
 app.use("/jobs/*", async (c, next) => {
   if (!hasValidJobToken(c.req.header("Authorization"))) {
     return c.json({ error: "unauthorized" }, 401);
@@ -56,7 +54,7 @@ app.post("/jobs/deploy-check", zValidator("json", deployCheckSchema), async (c) 
   return c.json(result);
 });
 
-// SSG 讀取端點供建置期間抓取公開資料，工作觸發端點則由上面的 Bearer 驗證保護
+// SSG 讀取端點供網站建置期間取用；部署時由 Cloudflare Access Service Auth 限制呼叫來源
 app.get("/api/ssg/homepage", async (c) => c.json(await getHomepageAgendas()));
 app.get("/api/ssg/agenda-ids", async (c) => c.json(await getAgendaIds()));
 app.get("/api/ssg/agenda-details", async (c) => {

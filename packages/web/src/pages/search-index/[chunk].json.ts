@@ -3,6 +3,7 @@ import MiniSearch from "minisearch";
 import type { APIRoute } from "astro";
 import { getHomepageAgendas } from "@/lib/api";
 import { SEARCH_INDEX_CHUNK_SIZE, miniSearchOptions, toSearchDocument } from "@/lib/search";
+import { createPageCacheKey } from "@/lib/incremental";
 import type { HomepageAgenda } from "@/types";
 
 export const prerender = true;
@@ -11,12 +12,14 @@ export async function getStaticPaths() {
   const agendas = await getHomepageAgendas();
   const chunkCount = Math.ceil(agendas.length / SEARCH_INDEX_CHUNK_SIZE);
 
-  return Array.from({ length: chunkCount }, (_, index) => ({
-    params: { chunk: String(index) },
-    props: {
-      agendas: agendas.slice(index * SEARCH_INDEX_CHUNK_SIZE, (index + 1) * SEARCH_INDEX_CHUNK_SIZE),
-    },
-  }));
+  return Array.from({ length: chunkCount }, (_, index) => {
+    const chunkAgendas = agendas.slice(index * SEARCH_INDEX_CHUNK_SIZE, (index + 1) * SEARCH_INDEX_CHUNK_SIZE);
+    return {
+      params: { chunk: String(index) },
+      props: { agendas: chunkAgendas },
+      cacheKey: createPageCacheKey(chunkAgendas),
+    };
+  });
 }
 
 export const GET: APIRoute = ({ props }) => {

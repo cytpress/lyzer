@@ -5,6 +5,9 @@
 
 interface ImportMetaEnv {
   readonly SSG_API_BASE?: string;
+  readonly SSG_API_ACCESS_REQUIRED?: string;
+  readonly LYZER_SSG_ACCESS_CLIENT_ID?: string;
+  readonly LYZER_SSG_ACCESS_CLIENT_SECRET?: string;
 }
 
 interface ImportMeta {
