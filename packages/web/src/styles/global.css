@@ -1,39 +1,6 @@
 /* 全站字型、設計 token、基礎行為與少量跨元件樣式 */
 @import "tailwindcss";
 
-/* 全站固定字型，使用 swap 避免字型載入前整頁空白 */
-@font-face {
-  font-family: "Noto Sans TC";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-regular.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Noto Sans TC";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-500.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Noto Sans TC";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-600.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Noto Sans TC";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/noto-sans-tc-v37-chinese-traditional_latin-700.woff2") format("woff2");
-}
-
 @theme {
   --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --color-canvas: #fafafa;
