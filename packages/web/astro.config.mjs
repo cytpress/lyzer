@@ -7,6 +7,9 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   site: "https://lyzer.tw",
   output: "static",
+  experimental: {
+    incrementalBuild: true,
+  },
   integrations: [
     svelte(),
     sitemap({

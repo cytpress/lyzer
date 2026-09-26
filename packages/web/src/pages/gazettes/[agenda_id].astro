@@ -7,6 +7,7 @@ import AgendaTableOfContents from "@/components/gazette/AgendaTableOfContents.as
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getAgendaDetailsForBuild } from "@/lib/api";
 import { splitCommitteeNames } from "@/lib/committee";
+import { createPageCacheKey } from "@/lib/incremental";
 import type { AgendaDetail, AnalysisAgendaItem } from "@/types";
 
 export async function getStaticPaths() {
@@ -14,6 +15,7 @@ export async function getStaticPaths() {
   return details.map((detail) => ({
     params: { agenda_id: detail.agendaId },
     props: { detail },
+    cacheKey: createPageCacheKey(detail),
   }));
 }
 

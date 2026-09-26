@@ -7,9 +7,30 @@ interface AgendaDetailsPage {
 }
 
 const ssgApiBase = import.meta.env.SSG_API_BASE ?? "http://127.0.0.1:3000";
+const accessClientId = import.meta.env.LYZER_SSG_ACCESS_CLIENT_ID;
+const accessClientSecret = import.meta.env.LYZER_SSG_ACCESS_CLIENT_SECRET;
+const apiAccessRequired = import.meta.env.SSG_API_ACCESS_REQUIRED === "true";
+
+function getAccessHeaders(): HeadersInit | undefined {
+  if (!accessClientId && !accessClientSecret) {
+    if (apiAccessRequired) {
+      throw new Error("SSG API Access is required but its Cloudflare Access service token is not configured");
+    }
+    return undefined;
+  }
+
+  if (!accessClientId || !accessClientSecret) {
+    throw new Error("Both Cloudflare Access service token credentials must be configured");
+  }
+
+  return {
+    "CF-Access-Client-Id": accessClientId,
+    "CF-Access-Client-Secret": accessClientSecret,
+  };
+}
 
 async function getJson<T>(pathname: string): Promise<T> {
-  const response = await fetch(new URL(pathname, ssgApiBase));
+  const response = await fetch(new URL(pathname, ssgApiBase), { headers: getAccessHeaders() });
   if (!response.ok) {
     throw new Error(`SSG API request failed ${response.status}: ${pathname}`);
   }
