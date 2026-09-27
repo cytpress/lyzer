@@ -62,8 +62,14 @@ export interface AgendaDetail {
   txtUrl: string | null;
   officialPageUrl: string | null;
   officialPdfUrl: string | null;
+  relatedLaws: AgendaLawLink[];
   analysis: AnalysisJson;
   analyzedAt: string | null;
+}
+
+export interface AgendaLawLink {
+  lawId: string;
+  lawName: string | null;
 }
 
 export interface LegislatorTimelineEvent {

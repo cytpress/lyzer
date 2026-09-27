@@ -1,6 +1,7 @@
 ---
 // 依議程識別碼產生公報摘要詳細頁
 import AgendaHeader from "@/components/gazette/AgendaHeader.astro";
+import AgendaRelatedLaws from "@/components/gazette/AgendaRelatedLaws.astro";
 import AgendaSections from "@/components/gazette/AgendaSections.astro";
 import AgendaSourceData from "@/components/gazette/AgendaSourceData.astro";
 import AgendaTableOfContents from "@/components/gazette/AgendaTableOfContents.astro";
@@ -49,6 +50,7 @@ const sourceLinks = [
         summary={analysis.overall_summary_sentence ?? detail.subject}
       />
       <AgendaSections agendaItems={agendaItems} />
+      <AgendaRelatedLaws laws={detail.relatedLaws} />
       <AgendaSourceData detail={detail} sourceLinks={sourceLinks} />
     </article>
     <AgendaTableOfContents agendaItems={agendaItems} />

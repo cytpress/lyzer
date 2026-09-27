@@ -1,6 +1,13 @@
 // 封裝 LYAPI 請求、重試與資料正規化
 import { config } from "@/config";
-import type { JsonObject, NormalizedAgenda, NormalizedGazette, ProcessedUrl } from "@/types";
+import type {
+  JsonObject,
+  AgendaLawLink,
+  NormalizedAgenda,
+  NormalizedGazette,
+  NormalizedMeeting,
+  ProcessedUrl,
+} from "@/types";
 
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonObject) : {};
@@ -19,6 +26,11 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.length > 0);
 }
 
+function asObjectArray(value: unknown): JsonObject[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(asObject);
+}
+
 function createUrl(pathname: string, params: Record<string, string | number | undefined>): URL {
   const url = new URL(`${config.lyapiBaseUrl.replace(/\/$/, "")}${pathname}`);
   for (const [key, value] of Object.entries(params)) {
@@ -30,6 +42,9 @@ function createUrl(pathname: string, params: Record<string, string | number | un
 const LYAPI_REQUEST_INTERVAL_MS = 1_000;
 const LYAPI_429_MAX_RETRIES = 3;
 const LYAPI_429_FALLBACK_DELAYS_MS = [30_000, 60_000, 120_000] as const;
+
+const COMMITTEE_MEETING_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
+const committeeMeetingsByDate = new Map<string, { expiresAt: number; promise: Promise<NormalizedMeeting[]> }>();
 
 let nextLyapiRequestAt = 0;
 let lyapiRequestQueue: Promise<void> = Promise.resolve();
@@ -156,6 +171,30 @@ function normalizeAgenda(raw: JsonObject, fallbackGazetteId: string): Normalized
   };
 }
 
+function normalizeMeeting(raw: JsonObject): NormalizedMeeting | null {
+  const meetingId = asString(raw["會議代碼"]);
+  if (!meetingId) return null;
+
+  const agendaIds = asObjectArray(raw["公報發言紀錄"])
+    .map((record) => asString(record.agenda_id))
+    .filter((agendaId): agendaId is string => Boolean(agendaId));
+  const bills = asObjectArray(raw["議事網資料"]).flatMap((record) => {
+    const relation = asObject(record["關係文書"]);
+    return asObjectArray(relation["議案"]).flatMap((bill) => {
+      const lawIds = asStringArray(bill["法律編號"]);
+      if (lawIds.length === 0) return [];
+      return [{ lawIds, lawNames: asStringArray(bill["法律編號:str"]) }];
+    });
+  });
+
+  return {
+    meetingId,
+    meetingType: asString(raw["會議種類"]),
+    agendaIds: Array.from(new Set(agendaIds)),
+    bills,
+  };
+}
+
 export async function listGazettes(page = 1, limit = config.lyapiGazetteLimit): Promise<NormalizedGazette[]> {
   const url = createUrl("/gazettes", { page, limit });
   const payload = await fetchJson(url);
@@ -181,4 +220,77 @@ export async function listGazetteAgendas(
   } while (page <= totalPage);
 
   return agendas;
+}
+
+export async function listCommitteeMeetingsByDate(date: string): Promise<NormalizedMeeting[]> {
+  const meetings: NormalizedMeeting[] = [];
+  let page = 1;
+  let totalPage: number;
+
+  do {
+    const url = createUrl("/meets", { 日期: date, limit: 100, page });
+    for (const field of ["會議代碼", "會議種類", "公報發言紀錄", "議事網資料"]) {
+      url.searchParams.append("output_fields", field);
+    }
+    const payload = await fetchJson(url);
+    const items = Array.isArray(payload.meets) ? payload.meets : [];
+    meetings.push(
+      ...items
+        .map((item) => normalizeMeeting(asObject(item)))
+        .filter((meeting): meeting is NormalizedMeeting => Boolean(meeting))
+        .filter((meeting) => meeting.meetingType === "委員會" || meeting.meetingType === "聯席會議")
+    );
+    totalPage = asNumber(payload.total_page) ?? 1;
+    page += 1;
+  } while (page <= totalPage);
+
+  return meetings;
+}
+
+function getCommitteeMeetingsByDate(date: string): Promise<NormalizedMeeting[]> {
+  const cached = committeeMeetingsByDate.get(date);
+  if (cached && cached.expiresAt > Date.now()) return cached.promise;
+
+  const request = listCommitteeMeetingsByDate(date).catch((error: unknown) => {
+    if (committeeMeetingsByDate.get(date)?.promise === request) committeeMeetingsByDate.delete(date);
+    throw error;
+  });
+  committeeMeetingsByDate.set(date, {
+    expiresAt: Date.now() + COMMITTEE_MEETING_CACHE_TTL_MS,
+    promise: request,
+  });
+  return request;
+}
+
+export async function getCommitteeMeetingsForAgendas(
+  agendas: Array<{ agendaId: string; categoryCode: number | null; meetingDates: string[] }>
+): Promise<Map<string, AgendaLawLink[]>> {
+  const committeeAgendas = agendas.filter((agenda) => agenda.categoryCode === 3 && agenda.meetingDates.length > 0);
+  const lawLinksByAgenda = new Map(
+    committeeAgendas.map((agenda) => [agenda.agendaId, new Map<string, AgendaLawLink>()] as const)
+  );
+  const dates = Array.from(new Set(committeeAgendas.flatMap((agenda) => agenda.meetingDates)));
+  const meetings = (await Promise.all(dates.map(getCommitteeMeetingsByDate))).flat();
+  const matchingLinks = meetings.flatMap((meeting) => {
+    const agendaIds = meeting.agendaIds.filter((agendaId) => lawLinksByAgenda.has(agendaId));
+    if (agendaIds.length === 0) return [];
+
+    return meeting.bills.flatMap((bill) =>
+      bill.lawIds.flatMap((lawId, index) =>
+        agendaIds.map((agendaId) => ({
+          agendaId,
+          lawId,
+          lawName: bill.lawNames[index] ?? null,
+        }))
+      )
+    );
+  });
+
+  matchingLinks.forEach(({ agendaId, lawId, lawName }) => {
+    const laws = lawLinksByAgenda.get(agendaId);
+    const existing = laws?.get(lawId);
+    if (!existing || (!existing.lawName && lawName)) laws?.set(lawId, { lawId, lawName });
+  });
+
+  return new Map(Array.from(lawLinksByAgenda, ([agendaId, laws]) => [agendaId, Array.from(laws.values())] as const));
 }

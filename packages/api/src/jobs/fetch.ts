@@ -1,7 +1,7 @@
 // 同步新公報與議程資料並更新資料庫
 import type { PoolClient } from "pg";
 import { config } from "@/config";
-import { listGazetteAgendas, listGazettes } from "@/lyapiClient";
+import { getCommitteeMeetingsForAgendas, listGazetteAgendas, listGazettes } from "@/lyapiClient";
 import { withClient } from "@/db";
 import type { NormalizedAgenda, NormalizedGazette } from "@/types";
 
@@ -9,6 +9,7 @@ export interface FetchJobResult {
   gazettes: number;
   agendas: number;
   pendingAnalyses: number;
+  agendaLawRecords: number;
 }
 
 async function upsertGazette(client: PoolClient, gazette: NormalizedGazette): Promise<void> {
@@ -102,7 +103,9 @@ export async function fetchNewGazettes(options: { pages?: number; startPage?: nu
     gazettes: 0,
     agendas: 0,
     pendingAnalyses: 0,
+    agendaLawRecords: 0,
   };
+  const fetchedAgendas = new Map<string, NormalizedAgenda>();
 
   const endPage = startPage + pages - 1;
   for (let page = startPage; page <= endPage; page += 1) {
@@ -120,6 +123,7 @@ export async function fetchNewGazettes(options: { pages?: number; startPage?: nu
 
           for (const agenda of agendas) {
             await upsertAgenda(client, agenda);
+            fetchedAgendas.set(agenda.agendaId, agenda);
             result.agendas += 1;
             if (await ensurePendingAnalysis(client, agenda)) {
               result.pendingAnalyses += 1;
@@ -133,6 +137,36 @@ export async function fetchNewGazettes(options: { pages?: number; startPage?: nu
         }
       });
     }
+  }
+
+  const agendasForLawLookup = Array.from(fetchedAgendas.values(), (agenda) => ({
+    agendaId: agenda.agendaId,
+    categoryCode: agenda.categoryCode,
+    meetingDates: agenda.meetingDates,
+  }));
+  const lawsByAgenda = await getCommitteeMeetingsForAgendas(agendasForLawLookup);
+
+  if (lawsByAgenda.size > 0) {
+    await withClient(async (client) => {
+      await client.query("begin");
+      try {
+        for (const [agendaId, laws] of lawsByAgenda) {
+          await client.query(
+            `
+              update agendas
+              set related_laws = $2::jsonb
+              where agenda_id = $1
+            `,
+            [agendaId, JSON.stringify(laws)]
+          );
+        }
+        await client.query("commit");
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    });
+    result.agendaLawRecords = lawsByAgenda.size;
   }
 
   return result;

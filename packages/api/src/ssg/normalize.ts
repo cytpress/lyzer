@@ -1,5 +1,5 @@
 // 將資料庫欄位和 JSON 分析結果整理成網站讀取模型
-import type { AgendaDetail, HomepageAgenda, JsonObject } from "@/types";
+import type { AgendaDetail, AgendaLawLink, HomepageAgenda, JsonObject } from "@/types";
 
 export interface HomepageRow {
   agenda_id: string;
@@ -20,6 +20,7 @@ export interface DetailRow extends HomepageRow {
   txt_url: string | null;
   official_page_url: string | null;
   official_pdf_url: string | null;
+  related_laws: unknown;
 }
 
 export interface AgendaDetailsPage {
@@ -54,6 +55,17 @@ export function asCommittee(value: unknown): string | null {
     return names.length > 0 ? names.join("、") : null;
   }
   return null;
+}
+
+function relatedLaws(value: unknown): AgendaLawLink[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const law = item as JsonObject;
+    const lawId = asString(law.lawId);
+    if (!lawId) return [];
+    return [{ lawId, lawName: asString(law.lawName) }];
+  });
 }
 
 function agendaItems(analysis: JsonObject): string[] {
@@ -146,6 +158,7 @@ export function toAgendaDetail(row: DetailRow): AgendaDetail {
     txtUrl: row.txt_url,
     officialPageUrl: row.official_page_url,
     officialPdfUrl: row.official_pdf_url,
+    relatedLaws: relatedLaws(row.related_laws),
     analysis: row.analysis_json ?? {},
     analyzedAt: row.analyzed_at,
   };

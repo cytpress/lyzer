@@ -29,6 +29,23 @@ export interface NormalizedAgenda {
   raw: JsonObject;
 }
 
+export interface MeetingBillReference {
+  lawIds: string[];
+  lawNames: string[];
+}
+
+export interface AgendaLawLink {
+  lawId: string;
+  lawName: string | null;
+}
+
+export interface NormalizedMeeting {
+  meetingId: string;
+  meetingType: string | null;
+  agendaIds: string[];
+  bills: MeetingBillReference[];
+}
+
 export interface HomepageAgenda {
   agendaId: string;
   gazetteId: string;
@@ -60,6 +77,7 @@ export interface AgendaDetail {
   txtUrl: string | null;
   officialPageUrl: string | null;
   officialPdfUrl: string | null;
+  relatedLaws: AgendaLawLink[];
   analysis: JsonObject;
   analyzedAt: string | null;
 }
