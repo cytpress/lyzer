@@ -37,7 +37,9 @@ async function upsertGazette(client: PoolClient, gazette: NormalizedGazette): Pr
   );
 }
 
-async function upsertAgenda(client: PoolClient, agenda: NormalizedAgenda): Promise<void> {
+async function upsertAgendas(client: PoolClient, agendas: NormalizedAgenda[]): Promise<void> {
+  if (agendas.length === 0) return;
+
   await client.query(
     `
       insert into agendas (
@@ -52,7 +54,31 @@ async function upsertAgenda(client: PoolClient, agenda: NormalizedAgenda): Promi
         official_pdf_url,
         raw,
         fetched_at
-      ) values ($1, $2, $3::date[], $4, $5, $6, $7, $8, $9, $10::jsonb, now())
+      )
+      select
+        agenda_id,
+        gazette_id,
+        meeting_dates,
+        subject,
+        category_code,
+        parsed_url,
+        txt_url,
+        official_page_url,
+        official_pdf_url,
+        raw,
+        now()
+      from jsonb_to_recordset($1::jsonb) as agenda(
+        agenda_id text,
+        gazette_id text,
+        meeting_dates date[],
+        subject text,
+        category_code integer,
+        parsed_url text,
+        txt_url text,
+        official_page_url text,
+        official_pdf_url text,
+        raw jsonb
+      )
       on conflict (agenda_id) do update set
         gazette_id = excluded.gazette_id,
         meeting_dates = excluded.meeting_dates,
@@ -66,34 +92,42 @@ async function upsertAgenda(client: PoolClient, agenda: NormalizedAgenda): Promi
         fetched_at = now()
     `,
     [
-      agenda.agendaId,
-      agenda.gazetteId,
-      agenda.meetingDates,
-      agenda.subject,
-      agenda.categoryCode,
-      agenda.parsedUrl,
-      agenda.txtUrl,
-      agenda.officialPageUrl,
-      agenda.officialPdfUrl,
-      JSON.stringify(agenda.raw),
+      JSON.stringify(
+        agendas.map((agenda) => ({
+          agenda_id: agenda.agendaId,
+          gazette_id: agenda.gazetteId,
+          meeting_dates: agenda.meetingDates,
+          subject: agenda.subject,
+          category_code: agenda.categoryCode,
+          parsed_url: agenda.parsedUrl,
+          txt_url: agenda.txtUrl,
+          official_page_url: agenda.officialPageUrl,
+          official_pdf_url: agenda.officialPdfUrl,
+          raw: agenda.raw,
+        }))
+      ),
     ]
   );
 }
 
-async function ensurePendingAnalysis(client: PoolClient, agenda: NormalizedAgenda): Promise<boolean> {
+async function ensurePendingAnalyses(client: PoolClient, agendas: NormalizedAgenda[]): Promise<number> {
   // 3 為委員會發言紀錄，8 為黨團協商紀錄
-  if (agenda.categoryCode !== 3 && agenda.categoryCode !== 8) return false;
+  const agendaIds = agendas
+    .filter((agenda) => agenda.categoryCode === 3 || agenda.categoryCode === 8)
+    .map((agenda) => agenda.agendaId);
+  if (agendaIds.length === 0) return 0;
 
   const result = await client.query(
     `
       insert into analysis_results (agenda_id, status, updated_at)
-      values ($1, 'pending', now())
+      select distinct agenda_id, 'pending', now()
+      from jsonb_to_recordset($1::jsonb) as agenda(agenda_id text)
       on conflict (agenda_id) do nothing
     `,
-    [agenda.agendaId]
+    [JSON.stringify(agendaIds.map((agendaId) => ({ agenda_id: agendaId })))]
   );
 
-  return (result.rowCount ?? 0) > 0;
+  return result.rowCount ?? 0;
 }
 
 export async function fetchNewGazettes(options: { pages?: number; startPage?: number } = {}): Promise<FetchJobResult> {
@@ -113,29 +147,27 @@ export async function fetchNewGazettes(options: { pages?: number; startPage?: nu
 
     for (const gazette of gazettes) {
       const agendas = await listGazetteAgendas(gazette.gazetteId, config.lyapiAgendaLimit);
+      const uniqueAgendas = Array.from(new Map(agendas.map((agenda) => [agenda.agendaId, agenda])).values());
 
       await withClient(async (client) => {
         // 以單一本公報為交易單位，避免公報已更新但議程只寫入一部分
         await client.query("begin");
         try {
           await upsertGazette(client, gazette);
-          result.gazettes += 1;
-
-          for (const agenda of agendas) {
-            await upsertAgenda(client, agenda);
-            fetchedAgendas.set(agenda.agendaId, agenda);
-            result.agendas += 1;
-            if (await ensurePendingAnalysis(client, agenda)) {
-              result.pendingAnalyses += 1;
-            }
-          }
+          await upsertAgendas(client, uniqueAgendas);
+          const pendingAnalyses = await ensurePendingAnalyses(client, uniqueAgendas);
 
           await client.query("commit");
+          result.gazettes += 1;
+          result.agendas += uniqueAgendas.length;
+          result.pendingAnalyses += pendingAnalyses;
         } catch (error) {
           await client.query("rollback");
           throw error;
         }
       });
+
+      for (const agenda of uniqueAgendas) fetchedAgendas.set(agenda.agendaId, agenda);
     }
   }
 
