@@ -1,15 +1,18 @@
 ---
 // 呈現公報詳細頁標題、分類標籤與摘要
+import AgendaRelatedLaws from "@/components/gazette/AgendaRelatedLaws.astro";
 import { getCommitteeStyle, getCommitteeTagClasses } from "@/lib/committee";
+import type { AgendaLawLink } from "@/types";
 
 interface Props {
   title: string;
   tags: string[];
   meetingDates: string[];
+  relatedLaws: AgendaLawLink[];
   summary: string | null;
 }
 
-const { title, tags, meetingDates, summary } = Astro.props;
+const { title, tags, meetingDates, relatedLaws, summary } = Astro.props;
 ---
 
 <header class="mb-10 border-b border-neutral-300 pb-8">
@@ -26,6 +29,8 @@ const { title, tags, meetingDates, summary } = Astro.props;
     }
     {meetingDates.map((date) => <span>會議日期：{date}</span>)}
   </div>
+
+  <AgendaRelatedLaws laws={relatedLaws} />
 
   <p class="text-base leading-8 text-neutral-800 md:text-lg md:leading-9">
     {summary}
