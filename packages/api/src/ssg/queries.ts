@@ -11,7 +11,16 @@ export async function getHomepageAgendas(): Promise<HomepageAgenda[]> {
       a.gazette_id,
       a.meeting_dates,
       a.subject,
-      ar.analysis_json,
+      jsonb_build_object(
+        'committee_name', ar.analysis_json->'committee_name',
+        'document_type', ar.analysis_json->'document_type',
+        'summary_title', ar.analysis_json->'summary_title',
+        'overall_summary_sentence', ar.analysis_json->'overall_summary_sentence',
+        'agenda_items', ar.analysis_json->'agenda_items',
+        'legislator_speakers', ar.analysis_json->'legislator_speakers',
+        'respondent_speakers', ar.analysis_json->'respondent_speakers',
+        'result_and_next_steps', ar.analysis_json->'result_and_next_steps'
+      ) as analysis_json,
       ar.analyzed_at
     from agendas a
     join analysis_results ar on ar.agenda_id = a.agenda_id
@@ -84,10 +93,27 @@ export async function getAgendaDetailsPage(
 }
 
 export async function getCommittees(): Promise<string[]> {
-  const agendas = await getHomepageAgendas();
-  return Array.from(
-    new Set(agendas.map((agenda) => agenda.committee).filter((item): item is string => Boolean(item)))
-  ).sort((a, b) => a.localeCompare(b, "zh-Hant-TW"));
+  const rows = await query<{ committee_name: string }>(`
+    select distinct committee_name
+    from (
+      select case jsonb_typeof(ar.analysis_json->'committee_name')
+        when 'string' then nullif(ar.analysis_json->>'committee_name', '')
+        when 'array' then (
+          select string_agg(item.value #>> '{}', '、' order by item.ordinality)
+          from jsonb_array_elements(ar.analysis_json->'committee_name') with ordinality as item(value, ordinality)
+          where jsonb_typeof(item.value) = 'string'
+            and item.value #>> '{}' <> ''
+        )
+        else null
+      end as committee_name
+      from analysis_results ar
+      where ar.analysis_json is not null
+        and coalesce(ar.is_public, true)
+    ) committees
+    where committee_name is not null
+  `);
+
+  return rows.map((row) => row.committee_name).sort((a, b) => a.localeCompare(b, "zh-Hant-TW"));
 }
 
 export async function getAgendaDetail(agendaId: string): Promise<AgendaDetail | null> {
