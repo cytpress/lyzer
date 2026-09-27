@@ -166,39 +166,3 @@ jobs:
           curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 60 --request POST \
             "$CLOUDFLARE_DEPLOY_HOOK_URL"
           echo "Cloudflare Pages deployment triggered."
-
-  verify-headscale-webhook:
-    name: Verify Headscale Dockhand webhook
-    if: github.event_name == 'pull_request' && github.head_ref == 'ci/tailscale-dockhand-deploy' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Connect to Headscale
-        uses: tailscale/github-action@v4
-        with:
-          authkey: ${{ secrets.HEADSCALE_PREAUTH_KEY }}
-          args: --login-server=https://hs.lyzer.tw
-          ping: 100.64.0.1
-
-      - name: Send signed Dockhand webhook
-        env:
-          DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
-        run: |
-          set -eu
-          payload='{}'
-          signature="sha256=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$DOCKHAND_WEBHOOK_SECRET" | awk '{print $NF}')"
-          webhook_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
-            -H "Content-Type: application/json" \
-            -H "X-Hub-Signature-256: $signature" \
-            --data-binary "$payload" \
-            http://100.64.0.1:3000/api/git/stacks/7/webhook)"
-          if ! jq -e '.success == true' <<< "$webhook_result" >/dev/null; then
-            echo "::error::Dockhand webhook did not report success."
-            jq -r '.error? // empty' <<< "$webhook_result"
-            exit 1
-          fi
-          if jq -e '.skipped == true' <<< "$webhook_result" >/dev/null; then
-            echo "Dockhand accepted the signed webhook; no stack changes needed deployment."
-          else
-            echo "Dockhand accepted the signed webhook and completed stack reconciliation."
-          fi
