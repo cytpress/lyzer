@@ -71,7 +71,8 @@ jobs:
         env:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
+          DOCKHAND_WEBHOOK_URL: ${{ vars.DOCKHAND_WEBHOOK_URL }}
+          DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
           CLOUDFLARE_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
         run: |
           set -eu
@@ -84,8 +85,12 @@ jobs:
             echo "::error::Missing GitHub Actions secret: CF_ACCESS_CLIENT_SECRET"
             missing=true
           fi
-          if [[ -z "$DOCKHAND_API_TOKEN" ]]; then
-            echo "::error::Missing GitHub Actions secret: DOCKHAND_API_TOKEN"
+          if [[ -z "$DOCKHAND_WEBHOOK_URL" ]]; then
+            echo "::error::Missing GitHub Actions variable: DOCKHAND_WEBHOOK_URL"
+            missing=true
+          fi
+          if [[ -z "$DOCKHAND_WEBHOOK_SECRET" ]]; then
+            echo "::error::Missing GitHub Actions secret: DOCKHAND_WEBHOOK_SECRET"
             missing=true
           fi
           if [[ -z "$CLOUDFLARE_DEPLOY_HOOK_URL" ]]; then
@@ -120,76 +125,34 @@ jobs:
           echo "backend=$backend_changed" >> "$GITHUB_OUTPUT"
           echo "Backend changes detected: $backend_changed"
 
-      - name: Find Dockhand Git Stack
-        id: dockhand
+      - name: Deploy Dockhand Git Stack via webhook
         if: steps.changes.outputs.backend == 'true'
         env:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
-          DOCKHAND_STACK_NAME: main
+          DOCKHAND_WEBHOOK_URL: ${{ vars.DOCKHAND_WEBHOOK_URL }}
+          DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
         run: |
           set -eu
-          stacks="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 60 \
+          payload='{}'
+          signature="sha256=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$DOCKHAND_WEBHOOK_SECRET" | awk '{print $NF}')"
+          webhook_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
             -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
             -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-            -H "Authorization: Bearer $DOCKHAND_API_TOKEN" \
-            https://dockhand.lyzer.tw/api/git/stacks)"
-
-          stack_ids="$(jq -er --arg name "$DOCKHAND_STACK_NAME" '
-            [.. | objects
-              | select((.name? // .stackName? // .stack_name?) == $name)
-              | (.id? // .stackId? // .stack_id?)]
-            | map(select(. != null))
-            | unique
-            | if length == 1 then .[0] | tostring else error("expected exactly one Git Stack named \($name)") end
-          ' <<< "$stacks")"
-
-          echo "stack_id=$stack_ids" >> "$GITHUB_OUTPUT"
-          echo "Found Dockhand Git Stack: $DOCKHAND_STACK_NAME"
-
-      - name: Sync Dockhand Git Stack
-        if: steps.changes.outputs.backend == 'true'
-        env:
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
-          DOCKHAND_STACK_ID: ${{ steps.dockhand.outputs.stack_id }}
-        run: |
-          set -eu
-          sync_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
-            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
-            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-            -H "Authorization: Bearer $DOCKHAND_API_TOKEN" \
-            "https://dockhand.lyzer.tw/api/git/stacks/$DOCKHAND_STACK_ID/sync")"
-          if ! jq -e '.success == true' <<< "$sync_result" >/dev/null; then
-            echo "::error::Dockhand Git Stack sync did not report success."
-            jq -r '.error? // empty' <<< "$sync_result"
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $signature" \
+            --data-binary "$payload" \
+            "$DOCKHAND_WEBHOOK_URL")"
+          if ! jq -e '.success == true' <<< "$webhook_result" >/dev/null; then
+            echo "::error::Dockhand webhook did not report success."
+            jq -r '.error? // empty' <<< "$webhook_result"
             exit 1
           fi
-          echo "Dockhand Git sync completed."
-
-      - name: Redeploy Dockhand Git Stack
-        if: steps.changes.outputs.backend == 'true'
-        env:
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
-          DOCKHAND_STACK_ID: ${{ steps.dockhand.outputs.stack_id }}
-        run: |
-          set -eu
-          deploy_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
-            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
-            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-            -H "Authorization: Bearer $DOCKHAND_API_TOKEN" \
-            -H "Accept: application/json" \
-            "https://dockhand.lyzer.tw/api/git/stacks/$DOCKHAND_STACK_ID/deploy")"
-          if ! jq -e '.success == true' <<< "$deploy_result" >/dev/null; then
-            echo "::error::Dockhand Git Stack deploy did not report success."
-            jq -r '.error? // empty' <<< "$deploy_result"
-            exit 1
+          if jq -e '.skipped == true' <<< "$webhook_result" >/dev/null; then
+            echo "Dockhand webhook succeeded; deployment was skipped because the stack has no new changes."
+          else
+            echo "Dockhand Git Stack webhook completed successfully."
           fi
-          echo "Dockhand Git Stack redeployed successfully."
 
       - name: Trigger Cloudflare Pages
         env:
