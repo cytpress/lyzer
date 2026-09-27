@@ -166,27 +166,3 @@ jobs:
           curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 60 --request POST \
             "$CLOUDFLARE_DEPLOY_HOOK_URL"
           echo "Cloudflare Pages deployment triggered."
-
-  verify-headscale-connectivity:
-    name: Verify Headscale connectivity
-    if: github.event_name == 'pull_request' && github.head_ref == 'ci/tailscale-dockhand-deploy' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Connect to Headscale
-        uses: tailscale/github-action@v4
-        with:
-          authkey: ${{ secrets.HEADSCALE_PREAUTH_KEY }}
-          args: --login-server=https://hs.lyzer.tw
-          ping: 100.64.0.1
-
-      - name: Confirm Dockhand is reachable without deploying
-        run: |
-          set -eu
-          status_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-            http://100.64.0.1:3000/api/git/stacks/7/webhook)"
-          if [[ "$status_code" != 401 ]]; then
-            echo "::error::Expected Dockhand to reject unauthenticated GET with HTTP 401; received HTTP $status_code."
-            exit 1
-          fi
-          echo "Dockhand is reachable over Headscale and rejects unauthenticated requests."
