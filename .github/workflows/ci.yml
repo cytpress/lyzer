@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel a main-branch run while it may be deploying production.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -53,3 +54,148 @@ jobs:
           TUNNEL_TOKEN: ci-placeholder
           LYZER_JOB_TOKEN: ci-placeholder
         run: docker compose config --quiet
+
+  deploy-production:
+    name: Deploy production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check deployment secrets
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
+          CLOUDFLARE_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          set -eu
+          missing=false
+          if [[ -z "$CF_ACCESS_CLIENT_ID" ]]; then
+            echo "::error::Missing GitHub Actions secret: CF_ACCESS_CLIENT_ID"
+            missing=true
+          fi
+          if [[ -z "$CF_ACCESS_CLIENT_SECRET" ]]; then
+            echo "::error::Missing GitHub Actions secret: CF_ACCESS_CLIENT_SECRET"
+            missing=true
+          fi
+          if [[ -z "$DOCKHAND_API_TOKEN" ]]; then
+            echo "::error::Missing GitHub Actions secret: DOCKHAND_API_TOKEN"
+            missing=true
+          fi
+          if [[ -z "$CLOUDFLARE_DEPLOY_HOOK_URL" ]]; then
+            echo "::error::Missing GitHub Actions secret: CLOUDFLARE_DEPLOY_HOOK_URL"
+            missing=true
+          fi
+          [[ "$missing" == false ]]
+
+      - name: Detect backend changes
+        id: changes
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          if [[ "$BEFORE" =~ ^0+$ ]]; then
+            changed_files="$(git ls-tree -r --name-only "$SHA")"
+          else
+            changed_files="$(git diff --name-only "$BEFORE" "$SHA")"
+          fi
+
+          backend_changed=false
+          while IFS= read -r path; do
+            case "$path" in
+              .dockerignore|docker-compose.yml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|tsconfig.base.json|packages/api/*|packages/web/package.json|ops/scheduler/*|scripts/lyzer-*.sh)
+                backend_changed=true
+                break
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          echo "backend=$backend_changed" >> "$GITHUB_OUTPUT"
+          echo "Backend changes detected: $backend_changed"
+
+      - name: Find Dockhand Git Stack
+        id: dockhand
+        if: steps.changes.outputs.backend == 'true'
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
+          DOCKHAND_STACK_NAME: main
+        run: |
+          set -eu
+          stacks="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 60 \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            -H "Authorization: Bearer $DOCKHAND_API_TOKEN" \
+            https://dockhand.lyzer.tw/api/git/stacks)"
+
+          stack_ids="$(jq -er --arg name "$DOCKHAND_STACK_NAME" '
+            [.. | objects
+              | select((.name? // .stackName? // .stack_name?) == $name)
+              | (.id? // .stackId? // .stack_id?)]
+            | map(select(. != null))
+            | unique
+            | if length == 1 then .[0] | tostring else error("expected exactly one Git Stack named \($name)") end
+          ' <<< "$stacks")"
+
+          echo "stack_id=$stack_ids" >> "$GITHUB_OUTPUT"
+          echo "Found Dockhand Git Stack: $DOCKHAND_STACK_NAME"
+
+      - name: Sync Dockhand Git Stack
+        if: steps.changes.outputs.backend == 'true'
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
+          DOCKHAND_STACK_ID: ${{ steps.dockhand.outputs.stack_id }}
+        run: |
+          set -eu
+          sync_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            -H "Authorization: Bearer $DOCKHAND_API_TOKEN" \
+            "https://dockhand.lyzer.tw/api/git/stacks/$DOCKHAND_STACK_ID/sync")"
+          if ! jq -e '.success == true' <<< "$sync_result" >/dev/null; then
+            echo "::error::Dockhand Git Stack sync did not report success."
+            jq -r '.error? // empty' <<< "$sync_result"
+            exit 1
+          fi
+          echo "Dockhand Git sync completed."
+
+      - name: Redeploy Dockhand Git Stack
+        if: steps.changes.outputs.backend == 'true'
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          DOCKHAND_API_TOKEN: ${{ secrets.DOCKHAND_API_TOKEN }}
+          DOCKHAND_STACK_ID: ${{ steps.dockhand.outputs.stack_id }}
+        run: |
+          set -eu
+          deploy_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            -H "Authorization: Bearer $DOCKHAND_API_TOKEN" \
+            -H "Accept: application/json" \
+            "https://dockhand.lyzer.tw/api/git/stacks/$DOCKHAND_STACK_ID/deploy")"
+          if ! jq -e '.success == true' <<< "$deploy_result" >/dev/null; then
+            echo "::error::Dockhand Git Stack deploy did not report success."
+            jq -r '.error? // empty' <<< "$deploy_result"
+            exit 1
+          fi
+          echo "Dockhand Git Stack redeployed successfully."
+
+      - name: Trigger Cloudflare Pages
+        env:
+          CLOUDFLARE_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          set -eu
+          curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 60 --request POST \
+            "$CLOUDFLARE_DEPLOY_HOOK_URL"
+          echo "Cloudflare Pages deployment triggered."
