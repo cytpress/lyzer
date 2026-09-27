@@ -61,43 +61,13 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Check deployment secrets
-        env:
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-          DOCKHAND_WEBHOOK_URL: ${{ vars.DOCKHAND_WEBHOOK_URL }}
-          DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
-          CLOUDFLARE_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
-        run: |
-          set -eu
-          missing=false
-          if [[ -z "$CF_ACCESS_CLIENT_ID" ]]; then
-            echo "::error::Missing GitHub Actions secret: CF_ACCESS_CLIENT_ID"
-            missing=true
-          fi
-          if [[ -z "$CF_ACCESS_CLIENT_SECRET" ]]; then
-            echo "::error::Missing GitHub Actions secret: CF_ACCESS_CLIENT_SECRET"
-            missing=true
-          fi
-          if [[ -z "$DOCKHAND_WEBHOOK_URL" ]]; then
-            echo "::error::Missing GitHub Actions variable: DOCKHAND_WEBHOOK_URL"
-            missing=true
-          fi
-          if [[ -z "$DOCKHAND_WEBHOOK_SECRET" ]]; then
-            echo "::error::Missing GitHub Actions secret: DOCKHAND_WEBHOOK_SECRET"
-            missing=true
-          fi
-          if [[ -z "$CLOUDFLARE_DEPLOY_HOOK_URL" ]]; then
-            echo "::error::Missing GitHub Actions secret: CLOUDFLARE_DEPLOY_HOOK_URL"
-            missing=true
-          fi
-          [[ "$missing" == false ]]
 
       - name: Detect backend changes
         id: changes
@@ -125,11 +95,47 @@ jobs:
           echo "backend=$backend_changed" >> "$GITHUB_OUTPUT"
           echo "Backend changes detected: $backend_changed"
 
+      - name: Check deployment settings
+        env:
+          BACKEND_CHANGED: ${{ steps.changes.outputs.backend }}
+          HEADSCALE_PREAUTH_KEY: ${{ secrets.HEADSCALE_PREAUTH_KEY }}
+          DOCKHAND_WEBHOOK_URL: ${{ vars.DOCKHAND_WEBHOOK_URL }}
+          DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
+          CLOUDFLARE_DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          set -eu
+          missing=false
+          if [[ "$BACKEND_CHANGED" == true ]]; then
+            if [[ -z "$HEADSCALE_PREAUTH_KEY" ]]; then
+              echo "::error::Missing GitHub Actions secret: HEADSCALE_PREAUTH_KEY"
+              missing=true
+            fi
+            if [[ -z "$DOCKHAND_WEBHOOK_URL" ]]; then
+              echo "::error::Missing GitHub Actions variable: DOCKHAND_WEBHOOK_URL"
+              missing=true
+            fi
+            if [[ -z "$DOCKHAND_WEBHOOK_SECRET" ]]; then
+              echo "::error::Missing GitHub Actions secret: DOCKHAND_WEBHOOK_SECRET"
+              missing=true
+            fi
+          fi
+          if [[ -z "$CLOUDFLARE_DEPLOY_HOOK_URL" ]]; then
+            echo "::error::Missing GitHub Actions secret: CLOUDFLARE_DEPLOY_HOOK_URL"
+            missing=true
+          fi
+          [[ "$missing" == false ]]
+
+      - name: Connect to Headscale
+        if: steps.changes.outputs.backend == 'true'
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.HEADSCALE_PREAUTH_KEY }}
+          args: --login-server=https://hs.lyzer.tw
+          ping: 100.64.0.1
+
       - name: Deploy Dockhand Git Stack via webhook
         if: steps.changes.outputs.backend == 'true'
         env:
-          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           DOCKHAND_WEBHOOK_URL: ${{ vars.DOCKHAND_WEBHOOK_URL }}
           DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
         run: |
@@ -137,8 +143,6 @@ jobs:
           payload='{}'
           signature="sha256=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$DOCKHAND_WEBHOOK_SECRET" | awk '{print $NF}')"
           webhook_result="$(curl --fail-with-body --silent --show-error --connect-timeout 15 --max-time 1500 --request POST \
-            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
-            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
             -H "Content-Type: application/json" \
             -H "X-Hub-Signature-256: $signature" \
             --data-binary "$payload" \
