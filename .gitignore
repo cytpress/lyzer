@@ -26,8 +26,3 @@ docs/private-runbook.md
 
 # Editor Configuration Folders
 .vscode/
-
-# Supabase CLI local state
-legacy/backend/supabase/.branches/
-legacy/backend/supabase/.temp/
-.vercel/
